@@ -11,6 +11,10 @@
 
 ---
 
+## 0) یادداشت فاز ۰۲ (Workflow Engine)
+
+> ۱۴۰۵/۰۶/۱۳ (2026-09-04) — پیاده‌سازی PHASE 02: موتور گردش کار عمومی (`src/lib/workflow/`) با ۸ ماشین اعلانی (CASE/PRESCRIPTION/ORDER/PAYMENT/SHIPMENT/TICKET/FOLLOWUP/AI_REVIEW)؛ هر Transition دارای Guard نقش/دسترسی/مالکیت + Validation + Cascade اتمیک + AuditLog `WORKFLOW_*` + نوتیفیکیشن. جزئیات: `docs/WORKFLOW.md`. تست: ۵۱ Unit (بایگانی `bun test`) + Smoke ۱۳/۱۳.
+
 ## 1) ماتریس اصلی — Functional Requirements
 
 ### دامنه AUTH / PROF / MIZAJ

@@ -1,4 +1,10 @@
 // Central constants: roles, permissions, workflow states & transitions
+
+// Workflow Engine (Phase 02) — canonical case machine lives in src/lib/workflow/
+import { CASE_MACHINE } from '@/lib/workflow/machines/case'
+import type { TransitionDef } from '@/lib/workflow/types'
+import { resolveTransition } from '@/lib/workflow/engine'
+
 export const ROLES = ['ADMIN', 'EXPERT_1', 'EXPERT_2', 'OPERATOR', 'DOCTOR', 'PATIENT'] as const
 export type Role = (typeof ROLES)[number]
 
@@ -80,42 +86,16 @@ export type WorkflowAction =
   | 'CREATE_PROFORMA' | 'CONFIRM_PROFORMA' | 'REJECT_PROFORMA' | 'MARK_PAID'
   | 'START_SHIPPING' | 'MARK_DELIVERED' | 'SCHEDULE_FOLLOWUP' | 'COMPLETE_FOLLOWUP' | 'REFER_AGAIN' | 'CANCEL'
 
-interface TransitionDef {
-  from: CaseStatus[]
-  to: CaseStatus
-  action: WorkflowAction
-  roles: Role[]
-  permission?: Permission
-  descFa: string
-}
+// ── Workflow Engine (Phase 02) ─────────────────────────────────────────
+// The canonical case state machine now lives in src/lib/workflow/machines/case.ts
+// and is executed by src/lib/workflow/engine.ts (declarative, audited, extensible).
+// The exports below are backward-compatible shims so existing imports keep working.
+/** @deprecated use CASE_MACHINE transitions via the workflow engine instead */
+export const TRANSITIONS: TransitionDef[] = CASE_MACHINE.transitions as TransitionDef[]
 
-export const TRANSITIONS: TransitionDef[] = [
-  { action: 'CLAIM', from: ['WAITING_FOR_EXPERT_1'], to: 'EXPERT_1_REVIEW', roles: ['EXPERT_1'], permission: 'claim_cases', descFa: 'کارشناس اول پرونده را دریافت کرد' },
-  { action: 'SUBMIT_ASSESSMENT', from: ['EXPERT_1_REVIEW'], to: 'WAITING_FOR_USER_APPROVAL', roles: ['EXPERT_1'], permission: 'expert1_assessment', descFa: 'ارزیابی اولیه ارسال شد' },
-  { action: 'USER_APPROVE', from: ['WAITING_FOR_USER_APPROVAL'], to: 'WAITING_FOR_EXPERT_1_PRESCRIPTION', roles: ['PATIENT'], descFa: 'کاربر ادامه درمان را تأیید کرد' },
-  { action: 'USER_DECLINE', from: ['WAITING_FOR_USER_APPROVAL'], to: 'CLOSED', roles: ['PATIENT'], descFa: 'کاربر ادامه درمان را رد کرد' },
-  { action: 'SUBMIT_PRESCRIPTION', from: ['WAITING_FOR_EXPERT_1_PRESCRIPTION', 'REVISION_REQUESTED'], to: 'WAITING_FOR_EXPERT_2', roles: ['EXPERT_1'], permission: 'create_prescription', descFa: 'نسخه کارشناس اول ثبت شد' },
-  { action: 'EXPERT2_REVIEW', from: ['WAITING_FOR_EXPERT_2'], to: 'WAITING_FOR_DOCTOR', roles: ['EXPERT_2'], permission: 'expert2_review', descFa: 'بازبینی کارشناس دوم و ارسال برای پزشک' },
-  { action: 'DOCTOR_APPROVE', from: ['WAITING_FOR_DOCTOR'], to: 'PRESCRIPTION_APPROVED', roles: ['DOCTOR'], permission: 'approve_prescription', descFa: 'پزشک نسخه را تأیید کرد' },
-  { action: 'DOCTOR_REJECT', from: ['WAITING_FOR_DOCTOR'], to: 'CLOSED', roles: ['DOCTOR'], permission: 'approve_prescription', descFa: 'پزشک نسخه را رد کرد' },
-  { action: 'DOCTOR_REVISION', from: ['WAITING_FOR_DOCTOR'], to: 'WAITING_FOR_EXPERT_2', roles: ['DOCTOR'], permission: 'approve_prescription', descFa: 'پزشک اصلاح درخواست کرد' },
-  { action: 'CREATE_PROFORMA', from: ['PRESCRIPTION_APPROVED'], to: 'PROFORMA_CREATED', roles: ['EXPERT_2', 'OPERATOR'], permission: 'create_invoice', descFa: 'پیش‌فاکتور ایجاد شد' },
-  { action: 'CONFIRM_PROFORMA', from: ['PROFORMA_CREATED', 'WAITING_FOR_USER_CONFIRMATION'], to: 'WAITING_FOR_PAYMENT', roles: ['PATIENT'], descFa: 'پیش‌فاکتور توسط کاربر تأیید شد' },
-  { action: 'REJECT_PROFORMA', from: ['PROFORMA_CREATED', 'WAITING_FOR_USER_CONFIRMATION'], to: 'CANCELLED', roles: ['PATIENT'], descFa: 'پیش‌فاکتور رد شد' },
-  { action: 'MARK_PAID', from: ['WAITING_FOR_PAYMENT'], to: 'PAYMENT_CONFIRMED', roles: ['OPERATOR', 'EXPERT_2'], permission: 'verify_payment', descFa: 'پرداخت تأیید شد' },
-  { action: 'START_SHIPPING', from: ['PAYMENT_CONFIRMED', 'PREPARING_SHIPMENT'], to: 'SHIPPED', roles: ['OPERATOR', 'EXPERT_2'], permission: 'manage_shipments', descFa: 'سفارش ارسال شد' },
-  { action: 'MARK_DELIVERED', from: ['SHIPPED'], to: 'DELIVERED', roles: ['OPERATOR', 'EXPERT_2'], permission: 'manage_shipments', descFa: 'تحویل ثبت شد' },
-  { action: 'SCHEDULE_FOLLOWUP', from: ['DELIVERED'], to: 'FOLLOW_UP', roles: ['EXPERT_1', 'OPERATOR'], permission: 'manage_followups', descFa: 'پیگیری درمان فعال شد' },
-  { action: 'COMPLETE_FOLLOWUP', from: ['FOLLOW_UP'], to: 'CLOSED', roles: ['EXPERT_1', 'OPERATOR'], permission: 'manage_followups', descFa: 'پیگیری تکمیل شد' },
-  { action: 'REFER_AGAIN', from: ['FOLLOW_UP', 'DELIVERED'], to: 'REFERRED_AGAIN', roles: ['PATIENT', 'EXPERT_1', 'OPERATOR'], descFa: 'ارجاع مجدد ثبت شد' },
-]
-
+/** @deprecated use resolveTransition(CASE_MACHINE, status, action, role) instead */
 export function canTransition(status: string, action: string, role: string) {
-  const t = TRANSITIONS.find((tr) => tr.action === action)
-  if (!t) return null
-  if (!t.from.includes(status as CaseStatus)) return null
-  if (!t.roles.includes(role as Role)) return null
-  return t
+  return resolveTransition(CASE_MACHINE, status, action, role as never)
 }
 
 export const ORDER_STATUS_META: Record<string, { fa: string; en: string; color: string }> = {

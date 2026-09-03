@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
-import { ok, fail, audit } from '@/lib/api'
+import { ok, fail } from '@/lib/api'
 import { getAuth } from '@/lib/auth'
+import { executeTransition } from '@/lib/workflow'
 
 // GET /api/v1/orders/[id]
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -22,24 +23,27 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 }
 
 // PATCH /api/v1/orders/[id] — operator: CONFIRM / CANCEL / PREPARING / READY
+// Phase 02: all status changes run through the ORDER machine (guarded + audited;
+// CANCEL requires a reason — BR-FIN validation).
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const auth = await getAuth()
   if (!auth) return fail('احراز هویت لازم است', 401)
-  if (!['OPERATOR', 'EXPERT_2', 'ADMIN'].includes(auth.user.role)) return fail('دسترسی غیرمجاز', 403)
   const { id } = await ctx.params
   const body = await req.json().catch(() => ({}))
   const order = await db.order.findUnique({ where: { id } })
   if (!order) return fail('سفارش یافت نشد', 404)
 
-  const actionMap: Record<string, string> = {
-    CONFIRM: 'CONFIRMED', CANCEL: 'CANCELLED', PREPARING: 'PREPARING', READY: 'READY_TO_SHIP',
+  const ACTION_MAP: Record<string, string> = {
+    CONFIRM: 'CONFIRM', CANCEL: 'CANCEL', PREPARING: 'PREPARE', READY: 'READY', REFUND: 'REFUND',
   }
-  const newStatus = actionMap[String(body.action || '')]
-  if (!newStatus) return fail('اقدام نامعتبر است')
+  const action = ACTION_MAP[String(body.action || '')]
+  if (!action) return fail('اقدام نامعتبر است')
 
-  await db.order.update({ where: { id }, data: { status: newStatus, verifiedById: auth.user.id, cancelledReason: newStatus === 'CANCELLED' ? String(body.reason || '') : null } })
-  if (newStatus === 'CONFIRMED') await db.invoice.updateMany({ where: { orderId: id }, data: { status: 'CONFIRMED', confirmedAt: new Date() } })
-  await notify(order.userId, newStatus === 'CANCELLED' ? 'CASE_CLOSED' : 'ORDER_PREPARING', { link: '/orders' })
-  await audit(req, auth.user.id, 'ORDER_STATUS', 'Order', id, { status: order.status }, { status: newStatus })
+  const res = await executeTransition({
+    machine: 'ORDER', entityId: id, action,
+    actor: { id: auth.user.id, role: auth.user.role as never },
+    payload: { reason: String(body.reason || '') }, req,
+  })
+  if (!res.ok) return fail(res.error, res.httpStatus, res.details)
   return ok()
 }

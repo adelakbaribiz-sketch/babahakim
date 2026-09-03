@@ -1,16 +1,22 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
-import { ok, fail, audit, parseJSON, genCode } from '@/lib/api'
+import { ok, fail, audit, genCode } from '@/lib/api'
 import { getAuth } from '@/lib/auth'
 import { applyTransition } from '@/lib/caseService'
+import { executeTransition } from '@/lib/workflow'
 import { notify } from '@/lib/notify'
 import { WorkflowAction } from '@/lib/constants'
 
-// POST /api/v1/cases/[id]/action — unified workflow endpoint (state-machine guarded)
+// POST /api/v1/cases/[id]/action — unified workflow endpoint (engine-guarded).
 // Actions: CLAIM | SUBMIT_ASSESSMENT | USER_APPROVE | USER_DECLINE | SUBMIT_PRESCRIPTION |
 // EXPERT2_REVIEW | DOCTOR_APPROVE | DOCTOR_REJECT | DOCTOR_REVISION | CREATE_PROFORMA |
 // CONFIRM_PROFORMA | REJECT_PROFORMA | MARK_PAID | START_SHIPPING | MARK_DELIVERED |
 // SCHEDULE_FOLLOWUP | COMPLETE_FOLLOWUP | REFER_AGAIN
+//
+// Phase 02: every status write below goes through the Workflow Engine
+// (declarative machines + guards + CaseEvent + AuditLog + notifications).
+// Entity preparation (diagnosis, prescription rows, order/invoice creation)
+// stays in the route and runs BEFORE the machine transition.
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const auth = await getAuth()
   if (!auth) return fail('احراز هویت لازم است', 401)
@@ -23,15 +29,26 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   if (!c || c.deletedAt) return fail('پرونده یافت نشد', 404)
   if (auth.user.role === 'PATIENT' && c.patientId !== auth.user.id) return fail('دسترسی غیرمجاز', 403)
 
-  // ── Per-action side effects before transition ──────────────────────
+  const actor = { id: auth.user.id, role: auth.user.role as never }
+
+  // ── Per-action entity preparation (status writes via machines) ───────
   switch (action) {
     case 'SUBMIT_ASSESSMENT': {
-      // create diagnosis records + expert summary
       const summary = String(body.summary || '').trim()
       const diseases: string[] = body.diseases || []
       if (!summary) return fail('متن ارزیابی اولیه الزامی است')
-      // mark AI analysis as human-reviewed (dataset learning loop)
-      await db.aIAnalysis.updateMany({ where: { caseId: id }, data: { humanReviewed: true } })
+      // AI review machine: mark the case's pending AI analyses as human-reviewed (dataset loop)
+      const analyses = await db.aIAnalysis.findMany({
+        where: { caseId: id, reviewStatus: 'PENDING_REVIEW' },
+        orderBy: { createdAt: 'desc' }, take: 1,
+      })
+      for (const a of analyses) {
+        const reviewAction = body.aiAgreement === 'ACCEPTED' ? 'ACCEPT' : body.aiAgreement === 'REJECTED' ? 'REJECT' : 'MODIFY'
+        await executeTransition({
+          machine: 'AI_REVIEW', entityId: a.id, action: reviewAction, actor,
+          payload: { comment: String(body.aiComment || '') }, req,
+        })
+      }
       await db.diagnosis.create({
         data: {
           caseId: id, expertId: auth.user.id, title: 'ارزیابی اولیه — ' + (diseases.join('، ') || 'بررسی بالینی'),
@@ -60,15 +77,19 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         },
         include: { items: true },
       })
-      await db.prescription.update({ where: { id: p.id }, data: { status: 'PENDING_EXPERT_2' } })
       body.prescriptionId = p.id
-      await notify(c.patientId, 'PRESCRIPTION_CREATED', { link: `/cases/${id}` })
+      // supersede the previous version (BR-MED-06 / ED-24 — history preserved)
+      if (last && last.id !== p.id) {
+        await executeTransition({
+          machine: 'PRESCRIPTION', entityId: last.id, action: 'SUPERSEDE', actor,
+          payload: { reason: `نسخه ${version} جایگزین شد` }, req,
+        })
+      }
       await audit(req, auth.user.id, 'CREATE_PRESCRIPTION', 'Prescription', p.id, null, { version, items: items.length })
       break
     }
 
     case 'EXPERT2_REVIEW': {
-      // review + availability + pricing + follow-up days
       const p = await db.prescription.findFirst({ where: { caseId: id }, orderBy: { version: 'desc' } })
       if (!p) return fail('نسخه‌ای برای بازبینی وجود ندارد')
       const items = (body.items as { id: string; available: boolean; missing: boolean; unitPrice: number }[] | undefined) || []
@@ -78,10 +99,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           data: { available: it.available !== false, missing: it.missing === true, unitPrice: it.unitPrice != null ? Number(it.unitPrice) : undefined },
         })
       }
-      await db.prescription.update({
-        where: { id: p.id },
-        data: { status: 'PENDING_DOCTOR', expert2Notes: String(body.notes || '') || null },
+      // prescription machine: PENDING_EXPERT_2 → PENDING_DOCTOR (guarded + audited)
+      const res = await executeTransition({
+        machine: 'PRESCRIPTION', entityId: p.id, action: 'EXPERT2_REVIEW', actor,
+        payload: { notes: String(body.notes || '') }, req,
       })
+      if (!res.ok) return fail(res.error, res.httpStatus, res.details)
       body.prescriptionId = p.id
       break
     }
@@ -91,17 +114,22 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     case 'DOCTOR_REVISION': {
       const p = await db.prescription.findFirst({ where: { caseId: id }, orderBy: { version: 'desc' } })
       if (p) {
-        const status = action === 'DOCTOR_APPROVE' ? 'APPROVED' : action === 'DOCTOR_REJECT' ? 'REJECTED' : 'REVISION_REQUESTED'
-        await db.prescription.update({
-          where: { id: p.id },
-          data: { status, doctorComment: String(body.comment || '') || null, approvedById: action === 'DOCTOR_APPROVE' ? auth.user.id : null, approvedAt: action === 'DOCTOR_APPROVE' ? new Date() : null },
+        // prescription machine: guarded doctor decision (comment mandatory on reject/revision)
+        const res = await executeTransition({
+          machine: 'PRESCRIPTION', entityId: p.id, action, actor,
+          payload: { comment: String(body.comment || '') }, req,
         })
+        if (!res.ok) return fail(res.error, res.httpStatus, res.details)
       }
       if (action === 'DOCTOR_REJECT') body.closingNote = String(body.comment || 'رد توسط پزشک')
       if (body.followUpDays) {
         await db.medicalCase.update({ where: { id }, data: { followUpDays: Number(body.followUpDays) } })
       }
-      await notify(c.patientId, action === 'DOCTOR_APPROVE' ? 'DOCTOR_APPROVED' : 'DOCTOR_COMMENTED', { link: `/cases/${id}`, sms: true })
+      if (action !== 'DOCTOR_APPROVE') {
+        // case machine postCommit covers APPROVED (DOCTOR_APPROVED + sms);
+        // reject/revision still notify the patient with the doctor's comment
+        await notify(c.patientId, 'DOCTOR_COMMENTED', { link: `/cases/${id}`, sms: true })
+      }
       break
     }
 
@@ -132,11 +160,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           note: 'پیش‌فاکتور نسخه — ' + c.code,
         },
       })
-      await db.medicalCase.update({ where: { id }, data: { status: 'PROFORMA_CREATED' } })
-      await db.caseEvent.create({
-        data: { caseId: id, actorId: auth.user.id, action: 'STATUS_CHANGE', fromStatus: c.status, toStatus: 'PROFORMA_CREATED', comment: `پیش‌فاکتور ${invoice.code} صادر شد` },
+      // case machine: PRESCRIPTION_APPROVED → PROFORMA_CREATED (event + audit + notify)
+      const res = await executeTransition({
+        machine: 'CASE', entityId: id, action: 'CREATE_PROFORMA', actor,
+        payload: { comment: `پیش‌فاکتور ${invoice.code} صادر شد` }, req,
       })
-      await notify(c.patientId, 'PROFORMA_CREATED', { link: `/cases/${id}`, sms: true })
+      if (!res.ok) return fail(res.error, res.httpStatus, res.details)
       await audit(req, auth.user.id, 'CREATE_INVOICE', 'Invoice', invoice.id, null, { total: invoice.total })
       return ok({ ok: true, order: { id: order.id, code: order.code }, invoice: { id: invoice.id, code: invoice.code } })
     }
@@ -145,8 +174,17 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       const inv = await db.invoice.findFirst({ where: { caseId: id }, orderBy: { createdAt: 'desc' } })
       const order = inv ? await db.order.findUnique({ where: { id: inv.orderId } }) : null
       if (order) {
-        await db.order.update({ where: { id: order.id }, data: { status: 'PAID', verifiedById: auth.user.id } })
-        await db.invoice.updateMany({ where: { orderId: order.id }, data: { status: 'PAID', paidAt: new Date() } })
+        // order machine: → PAID with invoice + financial-transaction cascade (atomic)
+        const res = await executeTransition({
+          machine: 'ORDER', entityId: order.id, action: 'MARK_PAID', actor,
+          payload: {
+            paymentCode: inv?.code || order.code,
+            paymentAmount: order.total,
+            paymentActorId: auth.user.id,
+            paymentSource: 'تأیید دستی پرداخت',
+          }, req,
+        })
+        if (!res.ok) return fail(res.error, res.httpStatus, res.details)
       }
       break
     }
@@ -155,30 +193,25 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       const invS = await db.invoice.findFirst({ where: { caseId: id }, orderBy: { createdAt: 'desc' } })
       const order = invS ? await db.order.findUnique({ where: { id: invS.orderId }, include: { shipment: true } }) : null
       if (!order) return fail('سفارشی برای ارسال وجود ندارد')
-      const method = ['MOTORCYCLE', 'CAR', 'POST'].includes(body.method) ? body.method : 'MOTORCYCLE'
-      if (order.shipment) {
-        await db.shipment.update({
-          where: { id: order.shipment.id },
-          data: {
-            method, driverName: String(body.driverName || '') || order.shipment.driverName,
-            driverPhone: String(body.driverPhone || '') || order.shipment.driverPhone,
-            trackingCode: String(body.trackingCode || '') || order.shipment.trackingCode,
-            cost: body.cost != null ? Number(body.cost) : order.shipment.cost,
-            status: 'SHIPPED', shippingDate: new Date(),
-          },
-        })
-      } else {
+      // ensure a shipment row exists, then SHIPMENT machine drives the state
+      if (!order.shipment) {
         await db.shipment.create({
           data: {
-            orderId: order.id, method, status: 'SHIPPED', shippingDate: new Date(),
+            orderId: order.id, method: 'MOTORCYCLE', status: 'PREPARING',
             driverName: String(body.driverName || '') || null, driverPhone: String(body.driverPhone || '') || null,
             receiverPhone: String(body.receiverPhone || '') || null, trackingCode: String(body.trackingCode || '') || null,
             cost: body.cost != null ? Number(body.cost) : 0,
           },
         })
       }
-      await db.order.update({ where: { id: order.id }, data: { status: 'SHIPPED' } })
-      await notify(c.patientId, 'ORDER_SHIPPED', { link: `/cases/${id}`, sms: true })
+      const ship = await db.shipment.findUnique({ where: { orderId: order.id } })
+      if (ship) {
+        const res = await executeTransition({
+          machine: 'SHIPMENT', entityId: ship.id, action: 'SHIP', actor,
+          payload: body, req,
+        })
+        if (!res.ok) return fail(res.error, res.httpStatus, res.details)
+      }
       break
     }
 
@@ -186,10 +219,18 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       const invD = await db.invoice.findFirst({ where: { caseId: id }, orderBy: { createdAt: 'desc' } })
       const order = invD ? await db.order.findUnique({ where: { id: invD.orderId }, include: { shipment: true } }) : null
       if (order?.shipment) {
-        await db.shipment.update({ where: { id: order.shipment.id }, data: { status: 'DELIVERED', deliveryDate: new Date() } })
+        // shipment machine: DELIVER cascades ORDER + CASE (event + audit + notify)
+        const res = await executeTransition({
+          machine: 'SHIPMENT', entityId: order.shipment.id, action: 'DELIVER', actor,
+          payload: {}, req,
+        })
+        if (!res.ok) return fail(res.error, res.httpStatus, res.details)
+      } else if (order) {
+        const res = await executeTransition({
+          machine: 'ORDER', entityId: order.id, action: 'DELIVER', actor, payload: {}, req,
+        })
+        if (!res.ok) return fail(res.error, res.httpStatus, res.details)
       }
-      if (order) await db.order.update({ where: { id: order.id }, data: { status: 'DELIVERED' } })
-      await notify(c.patientId, 'ORDER_DELIVERED', { link: `/cases/${id}`, sms: true })
       break
     }
 
@@ -201,18 +242,21 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       break
     }
 
-    case 'COMPLETE_FOLLOWUP': {
-      await db.followUp.updateMany({ where: { caseId: id, status: { in: ['PENDING', 'DUE', 'OVERDUE'] } }, data: { status: 'COMPLETED', completedById: auth.user.id, completedAt: new Date(), resultNote: String(body.note || '') || null } })
-      break
-    }
-
+    case 'COMPLETE_FOLLOWUP':
     case 'REFER_AGAIN': {
-      await db.followUp.updateMany({ where: { caseId: id, status: { in: ['PENDING', 'DUE', 'OVERDUE'] } }, data: { status: 'COMPLETED', completedAt: new Date() } })
+      // follow-up machine: complete every open follow-up (audited per row)
+      const open = await db.followUp.findMany({ where: { caseId: id, status: { in: ['PENDING', 'DUE', 'OVERDUE'] } } })
+      for (const f of open) {
+        await executeTransition({
+          machine: 'FOLLOWUP', entityId: f.id, action: 'COMPLETE', actor,
+          payload: { note: String(body.note || '') }, req,
+        })
+      }
       break
     }
   }
 
-  // ── Apply state transition (validates role/status/permission) ──────
+  // ── Case state transition (engine: guards + event + audit + notify) ──
   const result = await applyTransition(req, id, action, auth.user.id, auth.user.role, body)
   if (result.status !== 200) return result
   return result

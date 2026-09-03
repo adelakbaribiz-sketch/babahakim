@@ -287,6 +287,10 @@ model AIAnalysis {
   explainability String? // JSON human-readable explanations
   processingMs Int?
   humanReviewed Boolean @default(false)
+  reviewStatus String   @default("PENDING_REVIEW") // PENDING_REVIEW | ACCEPTED | MODIFIED | REJECTED
+  reviewComment String?
+  reviewedById String?
+  reviewedAt   DateTime?
   createdAt    DateTime @default(now())
   case         MedicalCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
   image        MedicalImage @relation(fields: [imageId], references: [id])

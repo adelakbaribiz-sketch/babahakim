@@ -654,6 +654,7 @@ Registration ─→ Questionnaire ─→ Image Upload ─→ AI Analysis ─→ 
 | `docs/USE-CASES.md` | سناریوهای استفاده، جریان‌های استثنا و Edge Caseها | همین فاز |
 | `docs/ACCEPTANCE-CRITERIA.md` | معیارهای پذیرش Given/When/Then | همین فاز |
 | `docs/REQUIREMENTS-TRACEABILITY-MATRIX.md` | ماتریس ردیابی Spec → FR → US → UC → BR → AC → Status | همین فاز |
+| `docs/WORKFLOW.md` | موتور گردش کار + مشخصات ۸ ماشین وضعیت | فاز ۰۲ |
 | `docs/BRANDING.md` | سیستم طراحی BabaHakim | فاز قبل |
 | Master Prompt | منبع نیازمندی (۱۰۴ بخش) | `upload/` |
 

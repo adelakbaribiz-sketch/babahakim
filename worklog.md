@@ -112,3 +112,29 @@ Stage Summary:
 - Key engineering decisions recorded: ED-03 (doctor approval mandatory for all cases in v1), ED-08 (user-gate SLA auto-close 30d), ED-13 (reassessment = new case with lineage), ED-25 (stack-agnostic requirements, architecture decision routed to Phase 02), ED-06 (partial drug availability policy)
 - Remaining risks: RTM status column reflects code-level truth only as of Phase 00 (statuses I/P/R) — must be re-validated in Phase 04 test runs; ED-25 architecture decision pending; known v1 debt items (TC- prefix seed data, TongueAI SMS template prefix) logged for Phase 02 cleanup
 - Next: PHASE 02 — System Architecture (ARCHITECTURE.md, DATABASE.md/ERD, API.md/OpenAPI, SECURITY.md, deployment architecture) per PRD §12 roadmap
+
+---
+Task ID: 4
+Agent: Main agent (Super Z)
+Task: PHASE 02 — Workflow & State Machine: generic engine + 8 declarative machines + unit tests + route refactor
+
+Work Log:
+- Pre-stage audit (rule 4): read caseService/constants (case machine existed: 21 statuses/18 transitions inline), audited Order/Payment/Shipment/Ticket/FollowUp/Prescription/AI-review — all set status inline in routes without guards/audit/rollback; no test infra existed
+- Prisma migrations (rule 8): created baseline 0_init from live schema (migrate diff + resolve --applied), then migration 20260903221412_ai_review_workflow_fields adding AIAnalysis.reviewStatus/reviewComment/reviewedById/reviewedAt; verified columns on db/custom.db
+- NEW src/lib/workflow/ (ED-31): types.ts (TransitionDef/MachineDef/hook ctxs/WorkflowError/ExecResult), engine.ts (pure resolveTransition + assertGuards + ownsEntity + terminalStatuses/reachableFrom; transactional executeTransition: load → guards → validate → $transaction{status+dataEffects update, CaseEvent (CASE), AuditLog WORKFLOW_* (atomic), txEffects cascades} → postCommit notifications with error capture), registry.ts (8 machines + registerMachine extension point), index.ts
+- 8 declarative machines (data + injectable hooks, no DB imports at module level): CASE (21/18, dataEffects+notify map migrated from caseService; admin role bypass per BR-RBAC-02), PRESCRIPTION (7/7 + SUPERSEDE/FINALIZE), ORDER (11/9 + cascadePaid), PAYMENT (6/8 + paymentPaidCascade single-source-of-truth: order+invoice+financial+case atomic), SHIPMENT (5/4, DELIVER cascades ORDER only — single-writer rule ED-33), TICKET (6/8), FOLLOWUP (5/4), AI_REVIEW (4/4)
+- Backward compat: constants.ts TRANSITIONS/canTransition → shim re-exporting CASE_MACHINE (verified: only 2 files imported legacy API); caseService.applyTransition → thin adapter over engine (same signature/response shape)
+- Refactored 7 API routes through the engine: cases/[id]/action (AI review via machine + SUPERSEDE old prescriptions + order/shipment/followup cascades), orders/[id] PATCH, payments verify + zarinpal callback (SYSTEM actor) + receipt, shipments PATCH (+CASE.MARK_DELIVERED single-writer), tickets/[id] POST/PATCH (status map → machine actions), followups PATCH
+- Unit tests: src/lib/workflow/__tests__/workflow.test.ts — 51 tests / 747 assertions (graph integrity all machines, role/permission/ownership guards, error taxonomy, validation hooks, data-effect purity, backward-compat shim, golden-path walkability, NOT_FOUND exec path); added bun test scripts to package.json
+- Fixes during test cycle: JS syntax (|| mixed with ?? needs parens) in shipment/followup dataEffects; AuditLog field names (oldValues/newValues/device — was oldValue/newValue/userAgent); ExecResult/WorkflowError details typed Record; test expectations aligned to real behavior (18 transitions not 19 — NEW is virtual; FAILED non-terminal via RETRY; FORBIDDEN_PERMISSION via DOCTOR+FOLLOWUP.COMPLETE)
+- Smoke test scripts/smoke-phase02-workflow.sh (13 checks) + manual real-transition verification: COMPLETE_FOLLOWUP through engine produced WORKFLOW_CASE_COMPLETE_FOLLOWUP + WORKFLOW_FOLLOWUP_COMPLETE audit rows (old/new status), CaseEvent FOLLOW_UP→CLOSED, FollowUp COMPLETED with resultNote — full cascade confirmed in DB
+- tsconfig: excluded __tests__/examples/skills from tsc (bun runs tests natively); remaining 11 tsc errors are pre-existing in untouched files; my files: 0 errors, eslint 0/0
+- Docs: docs/WORKFLOW.md (engine architecture, 9-field spec per state for all 8 machines, route→machine map, ED-31..34); BUSINESS-RULES.md ED-31..34 appended; PRD references + RTM phase-02 note updated
+
+Stage Summary:
+- Deliverable: production workflow engine — no transition logic hardcoded in routes; every status change is machine-guarded, validated, cascaded atomically, audited (WORKFLOW_*), and notifies
+- All 8 required machines implemented: Patient Case / Prescription / Order / Payment / Shipment / Ticket / Follow-up / AI Review
+- Verification: 51/51 unit tests, 13/13 API smoke, real cascade verified in DB, lint clean, migration applied
+- Key decisions: ED-31 (declarative machines), ED-32 (AuditLog as universal event stream, CaseEvent kept for case timeline only), ED-33 (single-writer cascades; paymentPaidCascade atomic), ED-34 (NEW virtual; MARK_DELIVERED from PAYMENT_CONFIRMED/PREPARING_SHIPMENT for direct-delivery path)
+- Remaining risks: SLA gates (ED-08 reminders/auto-close) await Phase 05 scheduler; MARK_DUE/MARK_OVERDUE currently manual/reserved for system; UI not yet surfacing AI reviewStatus field (Phase UI); ticket REOPEN for patients on CLOSED tickets is new capability (documented)
+- Next: PHASE 03 — Security & Audit hardening (rate limiting full coverage, secure headers, session policies) or continue per PRD §12 roadmap
