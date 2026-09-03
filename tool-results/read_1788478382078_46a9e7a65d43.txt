@@ -1,0 +1,798 @@
+     1→# Mermaid Template Library
+     2→
+     3→> **⚠️ Before writing any code, read [`_rules.md`](references/_rules.md) — three non-negotiable rules on overlap, hierarchy, and color.**
+     4→
+     5→
+     6→Mermaid is the best "text-as-diagram" solution — write structural diagrams with Markdown-like syntax, zero design skills needed.
+     7→Best for: flowcharts, sequence diagrams, architecture diagrams, Gantt charts, class diagrams, ER diagrams, mind maps, state diagrams, pie charts, Git branch graphs.
+     8→
+     9→**Core advantages**: text is version-controllable, minimal maintenance cost, high rendering consistency, CJK support.
+    10→
+    11→## ⚠️ Flowchart Quality Rules (Highest Priority)
+    12→
+    13→### Font Size Control
+    14→Mermaid font sizes are controlled via `themeVariables` and CSS:
+    15→- `fontSize`: Global font size, recommended `14px`-`16px`, **no less than 12px**
+    16→- Node text is controlled via `fontSize` or `%%{init:}%%` directive
+    17→- Annotations/footnotes use subgraph titles or separate nodes, font size no less than `11px`
+    18→
+    19→### Connectors & Spacing
+    20→```javascript
+    21→flowchart: {
+    22→  padding: 32,           // Node padding (CJK needs more space)
+    23→  nodeSpacing: 80,       // Horizontal spacing between nodes (default 50 too tight, 60 still not enough)
+    24→  rankSpacing: 80,       // Vertical spacing between ranks
+    25→  curve: 'basis',        // Connection curve style, consistent across the chart
+    26→}
+    27→```
+    28→
+    29→**Connector style must be consistent throughout the chart**: do not mix straight, curved, and polylines in the same diagram. Mermaid controls this globally via the `curve` parameter.
+    30→
+    31→### ⚠️ Mermaid Flowchart Hard Constraints (MANDATORY)
+    32→
+    33→The following constraints are enforced **when generating Mermaid flowchart code**, not as post-checks:
+    34→
+    35→1. **Node text must be wrapped in quotes**: `A["用户登录"]` ✅ / `A[用户登录]` ❌ — quotes prevent CJK special characters from causing parse errors
+    36→2. **Max 10 CJK characters per line in node text**: exceed → use `<br>` to break → `A["用户身份<br>验证模块"]`
+    37→3. **Max 5 nodes per subgraph**: exceed → split into multiple subgraphs or switch to CSS approach
+    38→4. **Max 10 total nodes**: exceed → switch to CSS flowchart template in `references/playwright-css.md`
+    39→5. **Max 6 CJK characters in connector labels**: `-->|验证通过|` ✅ / `-->|用户身份验证通过后跳转|` ❌
+    40→6. **Config params must use enlarged values**: `padding: 32, nodeSpacing: 80, rankSpacing: 80`
+    41→
+    42→## Rendering Methods
+    43→
+    44→### Method 1: Playwright + HTML (Recommended, export PNG/SVG/PDF)
+    45→
+    46→```html
+    47→<!DOCTYPE html>
+    48→<html lang="zh">
+    49→<head>
+    50→<meta charset="UTF-8">
+    51→<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    52→<style>
+    53→  * { margin: 0; padding: 0; box-sizing: border-box; }
+    54→  body {
+    55→    background: #FFFFFF;
+    56→    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'SimHei', sans-serif;
+    57→    display: flex;
+    58→    justify-content: center;
+    59→    padding: 48px;
+    60→  }
+    61→  #diagram { width: fit-content; min-width: 800px; }
+    62→</style>
+    63→</head>
+    64→<body>
+    65→<div id="diagram">
+    66→  <pre class="mermaid">
+    67→    <!-- Mermaid code goes here -->
+    68→  </pre>
+    69→</div>
+    70→<script>
+    71→  mermaid.initialize({
+    72→    startOnLoad: true,
+    73→    theme: 'base',
+    74→    themeVariables: {
+    75→      // See "Theme configuration" below
+    76→    },
+    77→    flowchart: { 
+    78→      curve: 'basis', 
+    79→      padding: 32,           // Node padding (CJK chars 50% wider than Latin, need more space)
+    80→      nodeSpacing: 80,       // Horizontal spacing (prevents CJK node overlap)
+    81→      rankSpacing: 80,       // Vertical spacing between ranks (prevents overlap between levels)
+    82→      htmlLabels: true,      // Enable HTML label rendering, supports line breaks
+    83→      wrappingWidth: 160,    // Max text width before auto-wrap (160 wraps earlier than 200, prevents overly wide nodes)
+    84→    },
+    85→    sequence: { mirrorActors: false, messageAlign: 'center' },
+    86→    gantt: { titleTopMargin: 25, barHeight: 24, barGap: 6 },
+    87→  });
+    88→</script>
+    89→</body>
+    90→</html>
+    91→```
+    92→
+    93→**Python screenshot script**:
+    94→
+    95→```python
+    96→import asyncio
+    97→from playwright.async_api import async_playwright
+    98→
+    99→async def mermaid_to_png(html_path, png_path, width=1400, scale=2):
+   100→    async with async_playwright() as p:
+   101→        browser = await p.chromium.launch(headless=True)
+   102→        page = await browser.new_page(
+   103→            viewport={'width': width, 'height': 800},
+   104→            device_scale_factor=scale
+   105→        )
+   106→        await page.goto(f'file://{html_path}', wait_until='load', timeout=30000)
+   107→        
+   108→        # Wait for Mermaid SVG to render
+   109→        await page.wait_for_selector('#diagram svg', timeout=15000)
+   110→        await page.wait_for_timeout(1000)
+   111→        
+   112→        # ⚠️ Read SVG's ACTUAL rendered size (not CSS box model!)
+   113→        # Mermaid SVGs often overflow their CSS container — getBBox/clientRect
+   114→        # returns the true size, while CSS bounding_box() returns the clipped box.
+   115→        svg_size = await page.evaluate('''() => {
+   116→            const svg = document.querySelector('#diagram svg');
+   117→            if (!svg) return null;
+   118→            const r = svg.getBoundingClientRect();
+   119→            return { width: r.width, height: r.height };
+   120→        }''')
+   121→        
+   122→        el = page.locator('#diagram')
+   123→        css_bbox = await el.bounding_box()
+   124→        
+   125→        svg_w = svg_size['width'] if svg_size else width
+   126→        svg_h = svg_size['height'] if svg_size else 800
+   127→        css_w = css_bbox['width'] if css_bbox else width
+   128→        css_h = css_bbox['height'] if css_bbox else 800
+   129→        
+   130→        # Use the LARGER of CSS box and SVG actual size
+   131→        fit_w = max(width, int(max(svg_w, css_w) + 200))
+   132→        fit_h = int(max(svg_h, css_h) + 200)
+   133→        
+   134→        await page.set_viewport_size({'width': fit_w, 'height': fit_h})
+   135→        await page.wait_for_timeout(500)
+   136→        
+   137→        await el.screenshot(path=png_path)
+   138→        await browser.close()
+   139→        
+   140→        import os
+   141→        print(f'✅ {png_path} ({os.path.getsize(png_path)/1024:.0f}KB)')
+   142→
+   143→# asyncio.run(mermaid_to_png('./output/diagram.html', './output/diagram.png'))
+   144→```
+   145→
+   146→> **⚠️ CRITICAL: CSS `bounding_box()` vs SVG actual size**
+   147→>
+   148→> Mermaid generates SVGs that can be wider/taller than their CSS container. `bounding_box()` (Playwright) and `getBoundingClientRect()` on the container return **CSS box model size**, which may be smaller than the SVG's viewBox.
+   149→>
+   150→> **Always read the SVG element's own `getBoundingClientRect()`** via `page.evaluate()` and use `max(css_size, svg_size)` for viewport dimensions. This is the root cause of the "right side clipped" bug.
+   151→>
+   152→> Also: `wait_until='load'` is preferred over `'networkidle'` because Mermaid initializes on DOM load. `'networkidle'` can timeout if CDN is slow.
+   153→
+   154→### Method 2: Mermaid CLI (mmdc, command line)
+   155→
+   156→```bash
+   157→# Installation
+   158→npm install -g @mermaid-js/mermaid-cli
+   159→
+   160→# Usage: .mmd file → PNG/SVG/PDF
+   161→mmdc -i diagram.mmd -o diagram.png -w 1200 -b transparent
+   162→mmdc -i diagram.mmd -o diagram.svg
+   163→mmdc -i diagram.mmd -o diagram.pdf
+   164→
+   165→# Specify theme configuration
+   166→mmdc -i diagram.mmd -o diagram.png --configFile mermaid-config.json
+   167→```
+   168→
+   169→`mermaid-config.json` example:
+   170→
+   171→```json
+   172→{
+   173→  "theme": "base",
+   174→  "themeVariables": {
+   175→    "primaryColor": "#EFF6FF",
+   176→    "primaryBorderColor": "#3B82F6",
+   177→    "primaryTextColor": "#1E293B",
+   178→    "lineColor": "#94A3B8",
+   179→    "secondaryColor": "#F0FDF4",
+   180→    "tertiaryColor": "#FFF7ED"
+   181→  }
+   182→}
+   183→```
+   184→
+   185→### Method 3: Online Preview
+   186→
+   187→Paste code at [mermaid.live](https://mermaid.live) for instant preview and export.
+   188→
+   189→---
+   190→
+   191→## Theme Configuration (Design System Integration)
+   192→
+   193→Mermaid uses `theme: 'base'` + `themeVariables` for fully custom colors.
+   194→The following themes align with the charts skill mood color system:
+   195→
+   196→### Business Professional (Default)
+   197→
+   198→```javascript
+   199→themeVariables: {
+   200→  primaryColor: '#EFF6FF',        // Node background (very light blue)
+   201→  primaryBorderColor: '#3B82F6',  // Node border (blue)
+   202→  primaryTextColor: '#1E293B',    // Node text (dark gray-blue)
+   203→  lineColor: '#94A3B8',           // Connectors (gray)
+   204→  secondaryColor: '#F0FDF4',      // Secondary nodes (very light green)
+   205→  secondaryBorderColor: '#10B981',
+   206→  secondaryTextColor: '#1E293B',
+   207→  tertiaryColor: '#FFF7ED',       // Tertiary nodes (very light amber)
+   208→  tertiaryBorderColor: '#F59E0B',
+   209→  tertiaryTextColor: '#1E293B',
+   210→  noteBkgColor: '#F8FAFC',        // Note background
+   211→  noteTextColor: '#6B7280',
+   212→  noteBorderColor: '#E2E8F0',
+   213→  fontSize: '14px',
+   214→  fontFamily: '-apple-system, BlinkMacSystemFont, PingFang SC, SimHei, sans-serif',
+   215→}
+   216→```
+   217→
+   218→### Tech Dark
+   219→
+   220→```javascript
+   221→themeVariables: {
+   222→  primaryColor: '#1E293B',
+   223→  primaryBorderColor: '#3B82F6',
+   224→  primaryTextColor: '#F1F5F9',
+   225→  lineColor: '#475569',
+   226→  secondaryColor: '#0F2E1F',
+   227→  secondaryBorderColor: '#10B981',
+   228→  secondaryTextColor: '#F1F5F9',
+   229→  tertiaryColor: '#1A1625',
+   230→  tertiaryBorderColor: '#8B5CF6',
+   231→  tertiaryTextColor: '#F1F5F9',
+   232→  noteBkgColor: '#0F172A',
+   233→  noteTextColor: '#94A3B8',
+   234→  noteBorderColor: '#334155',
+   235→  fontSize: '14px',
+   236→  fontFamily: '-apple-system, BlinkMacSystemFont, PingFang SC, SimHei, sans-serif',
+   237→  background: '#0F172A',
+   238→}
+   239→```
+   240→
+   241→---
+   242→
+   243→## Template 1: Flowchart
+   244→
+   245→The most common chart type. Supports directions: `TB` (top→bottom), `LR` (left→right), `BT`, `RL`.
+   246→
+   247→```mermaid
+   248→flowchart TB
+   249→    A[开始] --> B{条件判断}
+   250→    B -->|是| C[执行操作A]
+   251→    B -->|否| D[执行操作B]
+   252→    C --> E[结束]
+   253→    D --> E
+   254→
+   255→    style A fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px,color:#1E293B
+   256→    style B fill:#FFF7ED,stroke:#F59E0B,stroke-width:2px,color:#1E293B
+   257→    style C fill:#F0FDF4,stroke:#10B981,stroke-width:2px,color:#1E293B
+   258→    style D fill:#F0FDF4,stroke:#10B981,stroke-width:2px,color:#1E293B
+   259→    style E fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px,color:#1E293B
+   260→```
+   261→
+   262→### Node Shape Quick Reference
+   263→
+   264→| Syntax | Shape | Use For |
+   265→|------|------|--------|
+   266→| `A[text]` | Rectangle | Steps/Actions |
+   267→| `A(text)` | Rounded rect | General nodes |
+   268→| `A([text])` | Stadium | Start/End |
+   269→| `A{text}` | Diamond | Decision |
+   270→| `A{{text}}` | Hexagon | Preparation |
+   271→| `A[/text/]` | Parallelogram | Input/Output |
+   272→| `A((text))` | Circle | Connector |
+   273→| `A>text]` | Flag | Event/Signal |
+   274→
+   275→### Subgraphs (Grouping)
+   276→
+   277→```mermaid
+   278→flowchart LR
+   279→    subgraph 前端["🖥️ 前端"]
+   280→        A[React App] --> B[API 调用]
+   281→    end
+   282→    subgraph 后端["⚙️ 后端"]
+   283→        C[FastAPI] --> D[(PostgreSQL)]
+   284→    end
+   285→    B --> C
+   286→
+   287→    style 前端 fill:#EFF6FF,stroke:#3B82F6,stroke-width:1px
+   288→    style 后端 fill:#F0FDF4,stroke:#10B981,stroke-width:1px
+   289→```
+   290→
+   291→---
+   292→
+   293→## Template 2: Sequence Diagram
+   294→
+   295→Shows interaction sequence between systems/actors.
+   296→
+   297→```mermaid
+   298→sequenceDiagram
+   299→    actor 用户
+   300→    participant 前端 as 🖥️ 前端
+   301→    participant API as ⚙️ API 网关
+   302→    participant DB as 🗄️ 数据库
+   303→
+   304→    用户->>前端: 点击登录
+   305→    前端->>API: POST /auth/login
+   306→    API->>DB: 查询用户
+   307→    DB-->>API: 用户信息
+   308→    
+   309→    alt 验证成功
+   310→        API-->>前端: 200 + JWT Token
+   311→        前端-->>用户: 跳转首页
+   312→    else 验证失败
+   313→        API-->>前端: 401 未授权
+   314→        前端-->>用户: 显示错误提示
+   315→    end
+   316→    
+   317→    Note over 前端,API: Token 有效期 24 小时
+   318→```
+   319→
+   320→### Arrow Types
+   321→
+   322→| Syntax | Meaning |
+   323→|------|------|
+   324→| `->>` | Solid arrow (synchronous call) |
+   325→| `-->>` | Dashed arrow (return/response) |
+   326→| `-x` | Solid with x (failure/rejection) |
+   327→| `-)` | Async message |
+   328→
+   329→---
+   330→
+   331→## Template 3: Architecture Diagram (C4 Style via Subgraphs)
+   332→
+   333→```mermaid
+   334→flowchart TB
+   335→    subgraph 用户层["👤 用户层"]
+   336→        U1[Web 浏览器]
+   337→        U2[移动 App]
+   338→    end
+   339→
+   340→    subgraph 接入层["🌐 接入层"]
+   341→        GW[API Gateway<br><small>Nginx + Rate Limit</small>]
+   342→        LB[负载均衡<br><small>Round Robin</small>]
+   343→    end
+   344→
+   345→    subgraph 服务层["⚙️ 微服务"]
+   346→        S1[用户服务<br><small>FastAPI</small>]
+   347→        S2[内容服务<br><small>FastAPI</small>]
+   348→        S3[推荐服务<br><small>PyTorch</small>]
+   349→    end
+   350→
+   351→    subgraph 数据层["🗄️ 数据层"]
+   352→        DB[(PostgreSQL)]
+   353→        RD[(Redis Cache)]
+   354→        ES[(Elasticsearch)]
+   355→    end
+   356→
+   357→    U1 & U2 --> GW
+   358→    GW --> LB
+   359→    LB --> S1 & S2 & S3
+   360→    S1 --> DB & RD
+   361→    S2 --> DB & ES
+   362→    S3 --> RD & ES
+   363→
+   364→    style 用户层 fill:#EFF6FF,stroke:#3B82F6,stroke-width:1.5px
+   365→    style 接入层 fill:#FFF7ED,stroke:#F59E0B,stroke-width:1.5px
+   366→    style 服务层 fill:#F0FDF4,stroke:#10B981,stroke-width:1.5px
+   367→    style 数据层 fill:#F5F3FF,stroke:#8B5CF6,stroke-width:1.5px
+   368→```
+   369→
+   370→---
+   371→
+   372→## Template 4: Gantt Chart
+   373→
+   374→```mermaid
+   375→gantt
+   376→    title 项目里程碑计划
+   377→    dateFormat YYYY-MM-DD
+   378→    axisFormat %m/%d
+   379→
+   380→    section 需求阶段
+   381→    需求调研           :done,    req1, 2024-01-01, 14d
+   382→    需求评审           :done,    req2, after req1, 3d
+   383→
+   384→    section 开发阶段
+   385→    后端开发           :active,  dev1, after req2, 21d
+   386→    前端开发           :active,  dev2, after req2, 18d
+   387→    联调测试           :         dev3, after dev1, 7d
+   388→
+   389→    section 上线阶段
+   390→    灰度发布           :         rel1, after dev3, 3d
+   391→    全量上线           :milestone, rel2, after rel1, 0d
+   392→```
+   393→
+   394→---
+   395→
+   396→## Template 5: Class Diagram
+   397→
+   398→```mermaid
+   399→classDiagram
+   400→    class User {
+   401→        +String name
+   402→        +String email
+   403→        +login()
+   404→        +logout()
+   405→    }
+   406→    class Order {
+   407→        +int id
+   408→        +Date created_at
+   409→        +float total
+   410→        +submit()
+   411→        +cancel()
+   412→    }
+   413→    class Product {
+   414→        +String name
+   415→        +float price
+   416→        +int stock
+   417→    }
+   418→
+   419→    User "1" --> "*" Order : 下单
+   420→    Order "*" --> "*" Product : 包含
+   421→```
+   422→
+   423→---
+   424→
+   425→## Template 6: ER Diagram
+   426→
+   427→```mermaid
+   428→erDiagram
+   429→    USER {
+   430→        int id PK
+   431→        string name
+   432→        string email UK
+   433→        datetime created_at
+   434→    }
+   435→    ORDER {
+   436→        int id PK
+   437→        int user_id FK
+   438→        float total
+   439→        string status
+   440→        datetime created_at
+   441→    }
+   442→    ORDER_ITEM {
+   443→        int id PK
+   444→        int order_id FK
+   445→        int product_id FK
+   446→        int quantity
+   447→        float price
+   448→    }
+   449→    PRODUCT {
+   450→        int id PK
+   451→        string name
+   452→        float price
+   453→        int stock
+   454→    }
+   455→
+   456→    USER ||--o{ ORDER : "下单"
+   457→    ORDER ||--|{ ORDER_ITEM : "包含"
+   458→    PRODUCT ||--o{ ORDER_ITEM : "被购买"
+   459→```
+   460→
+   461→---
+   462→
+   463→## Template 7: Mind Map
+   464→
+   465→> ⚠️ Mermaid mindmap has limited layout capabilities. **For high-quality mind maps**, prefer `references/mindmap-css.md`.
+   466→> The following approach is for **quick drafts** or embedding in Markdown documents, with CSS injection to optimize visual quality.
+   467→
+   468→### Optimized HTML Shell (Important! Use this, not the default template)
+   469→
+   470→Mermaid mindmap doesn't support `style`/`classDef`, but you can greatly improve results with **CSS overriding SVG styles** + **themeVariables**:
+   471→
+   472→```html
+   473→<!DOCTYPE html>
+   474→<html lang="zh">
+   475→<head>
+   476→<meta charset="UTF-8">
+   477→<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+   478→<style>
+   479→  * { margin: 0; padding: 0; box-sizing: border-box; }
+   480→  body {
+   481→    background: #FFFFFF;
+   482→    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'SimHei', sans-serif;
+   483→    display: flex;
+   484→    justify-content: center;
+   485→    padding: 48px;
+   486→  }
+   487→  #diagram { min-width: 900px; }
+   488→
+   489→  /* ─── CSS injection to optimize Mermaid mindmap rendering ─── */
+   490→  /* 
+   491→   * Actual SVG class names in Mermaid v11 mindmap:
+   492→   * - .section-root = root node
+   493→   * - .section-0 ~ .section-N = first-level branches (in order)
+   494→   * - .section-edge-0 ~ .section-edge-N = connectors for corresponding branches
+   495→   * - .node-bkg = node background path
+   496→   * - .node-line- = node bottom decoration line
+   497→   * - .nodeLabel = text label
+   498→   * - .edge = connector
+   499→   * - .edge-depth-1/5 = connector depth level
+   500→   */
+   501→
+   502→  /* 1. All connectors: rounded, soft */
+   503→  .edge { stroke-width: 2px !important; stroke-linecap: round !important; }
+   504→
+   505→  /* 2. Remove node bottom decoration line (ugly by default) */
+   506→  .node-line- { stroke: transparent !important; }
+   507→
+   508→  /* 3. Root node: deep blue circle + shadow */
+   509→  .section-root circle,
+   510→  .section-root ellipse {
+   511→    fill: #1E40AF !important;
+   512→    stroke: #1E3A8A !important;
+   513→    stroke-width: 3px !important;
+   514→    filter: drop-shadow(0 4px 12px rgba(30,64,175,0.35));
+   515→  }
+   516→  .section-root .nodeLabel { color: #FFFFFF !important; font-size: 17px !important; font-weight: 700 !important; }
+   517→
+   518→  /* 4. First-level branches colored in order (supports up to 8-color cycle) */
+   519→  /* Blue */
+   520→  .section-0 .node-bkg { fill: #DBEAFE !important; stroke: #3B82F6 !important; stroke-width: 2px !important; }
+   521→  .section-0 .nodeLabel { color: #1E40AF !important; font-weight: 600 !important; font-size: 14px !important; }
+   522→  .section-edge-0 { stroke: #93C5FD !important; }
+   523→  /* Green */
+   524→  .section-1 .node-bkg { fill: #D1FAE5 !important; stroke: #10B981 !important; stroke-width: 2px !important; }
+   525→  .section-1 .nodeLabel { color: #065F46 !important; font-weight: 600 !important; font-size: 14px !important; }
+   526→  .section-edge-1 { stroke: #6EE7B7 !important; }
+   527→  /* Amber */
+   528→  .section-2 .node-bkg { fill: #FEF3C7 !important; stroke: #F59E0B !important; stroke-width: 2px !important; }
+   529→  .section-2 .nodeLabel { color: #92400E !important; font-weight: 600 !important; font-size: 14px !important; }
+   530→  .section-edge-2 { stroke: #FCD34D !important; }
+   531→  /* Purple */
+   532→  .section-3 .node-bkg { fill: #EDE9FE !important; stroke: #8B5CF6 !important; stroke-width: 2px !important; }
+   533→  .section-3 .nodeLabel { color: #5B21B6 !important; font-weight: 600 !important; font-size: 14px !important; }
+   534→  .section-edge-3 { stroke: #C4B5FD !important; }
+   535→  /* Red */
+   536→  .section-4 .node-bkg { fill: #FEE2E2 !important; stroke: #EF4444 !important; stroke-width: 2px !important; }
+   537→  .section-4 .nodeLabel { color: #991B1B !important; font-weight: 600 !important; font-size: 14px !important; }
+   538→  .section-edge-4 { stroke: #FCA5A5 !important; }
+   539→  /* Cyan */
+   540→  .section-5 .node-bkg { fill: #CFFAFE !important; stroke: #06B6D4 !important; stroke-width: 2px !important; }
+   541→  .section-5 .nodeLabel { color: #155E75 !important; font-weight: 600 !important; font-size: 14px !important; }
+   542→  .section-edge-5 { stroke: #67E8F9 !important; }
+   543→  /* Pink */
+   544→  .section-6 .node-bkg { fill: #FCE7F3 !important; stroke: #EC4899 !important; stroke-width: 2px !important; }
+   545→  .section-6 .nodeLabel { color: #9D174D !important; font-weight: 600 !important; font-size: 14px !important; }
+   546→  .section-edge-6 { stroke: #F9A8D4 !important; }
+   547→  /* Gray-green */
+   548→  .section-7 .node-bkg { fill: #D1FAE5 !important; stroke: #059669 !important; stroke-width: 2px !important; }
+   549→  .section-7 .nodeLabel { color: #064E3B !important; font-weight: 600 !important; font-size: 14px !important; }
+   550→  .section-edge-7 { stroke: #6EE7B7 !important; }
+   551→
+   552→  /* 5. Deeper connectors are lighter */
+   553→  .edge-depth-5 { stroke-width: 1.5px !important; opacity: 0.6; }
+   554→
+   555→  /* 6. Light gray background */
+   556→  body { background: #FAFBFE; }
+   557→</style>
+   558→</head>
+   559→<body>
+   560→<div id="diagram">
+   561→  <pre class="mermaid">
+   562→mindmap
+   563→    root((你的主题))
+   564→        一级分支1
+   565→            二级内容A
+   566→            二级内容B
+   567→        一级分支2
+   568→            二级内容C
+   569→  </pre>
+   570→</div>
+   571→<script>
+   572→  mermaid.initialize({
+   573→    startOnLoad: true,
+   574→    theme: 'base',
+   575→    themeVariables: {
+   576→      primaryColor: '#EFF6FF',
+   577→      primaryBorderColor: '#3B82F6',
+   578→      primaryTextColor: '#1E293B',
+   579→      lineColor: '#CBD5E1',
+   580→      fontSize: '13px',
+   581→      fontFamily: '-apple-system, BlinkMacSystemFont, PingFang SC, SimHei, sans-serif',
+   582→    },
+   583→    mindmap: {
+   584→      padding: 20,
+   585→      useMaxWidth: false,
+   586→    }
+   587→  });
+   588→</script>
+   589→</body>
+   590→</html>
+   591→```
+   592→
+   593→### Auto-Upgrade Rules (Important!)
+   594→
+   595→> ⚠️ **Never trim user content just to fit Mermaid!**
+   596→> Content comes first; tools serve content, not the other way around.
+   597→
+   598→When content complexity exceeds Mermaid mindmap's comfort zone, **auto-switch to CSS approach** (`references/mindmap-css.md`):
+   599→
+   600→| Trigger Condition (any one met) | Action |
+   601→|----------------------|------|
+   602→| More than 7 L1 branches | → Switch to CSS |
+   603→| Any branch has >8 child nodes | → Switch to CSS |
+   604→| Nesting exceeds 3 levels | → Switch to CSS |
+   605→| Single node text >15 chars | → Switch to CSS |
+   606→| Total nodes >40 | → Switch to CSS |
+   607→
+   608→**When none of the above triggers**, Mermaid mindmap is adequate. The following suggestions help optimize rendering (recommendations, not hard limits):
+   609→
+   610→| Suggestion | Notes |
+   611→|------|------|
+   612→| Keep node text concise | Use spaces to segment long text, avoid punctuation |
+   613→| Use emoji prefixes per branch | Higher visual distinctiveness |
+   614→| Use CSS injection for coloring | Use the optimized HTML shell above |
+   615→
+   616→### Example (Optimized)
+   617→
+   618→```mermaid
+   619→mindmap
+   620→    root((AI 内容运营))
+   621→        选题策划
+   622→            热点扫描
+   623→            竞品分析
+   624→            用户调研
+   625→        内容生产
+   626→            长文
+   627→            短文
+   628→            视频
+   629→        渠道分发
+   630→            微信生态
+   631→            小红书
+   632→            B站
+   633→        数据运营
+   634→            数据分析
+   635→            评论互动
+   636→            持续优化
+   637→```
+   638→
+   639→### Known Limitations of Mermaid Mindmap
+   640→
+   641→- ❌ No `style` / `classDef` support for direct node coloring (CSS injection of SVG styles only)
+   642→- ❌ Line thickness/curvature cannot be controlled from Mermaid syntax (CSS override `.mindmap-edge`)
+   643→- ❌ Node spacing calculated by algorithm, cannot be manually specified
+   644→- ❌ Long CJK text easily overlaps with connectors (strict character count control needed)
+   645→- ⚠️ CSS injection depends on Mermaid internal class naming, may break on version upgrades
+   646→
+   647→**Conclusion**: For quick drafts use Mermaid + the CSS-optimized shell above; for production output use CSS mind map → `references/mindmap-css.md`
+   648→
+   649→---
+   650→
+   651→## Template 8: State Diagram
+   652→
+   653→```mermaid
+   654→stateDiagram-v2
+   655→    [*] --> 草稿
+   656→    草稿 --> 审核中 : 提交审核
+   657→    审核中 --> 已发布 : 审核通过
+   658→    审核中 --> 草稿 : 退回修改
+   659→    已发布 --> 已下架 : 违规/过期
+   660→    已下架 --> 草稿 : 重新编辑
+   661→    已发布 --> [*] : 永久删除
+   662→```
+   663→
+   664→---
+   665→
+   666→## Template 9: Git Branch Graph
+   667→
+   668→```mermaid
+   669→gitGraph
+   670→    commit id: "init"
+   671→    branch develop
+   672→    checkout develop
+   673→    commit id: "feat: 用户模块"
+   674→    commit id: "feat: 订单模块"
+   675→    branch feature/payment
+   676→    checkout feature/payment
+   677→    commit id: "feat: 支付接入"
+   678→    commit id: "fix: 金额精度"
+   679→    checkout develop
+   680→    merge feature/payment id: "merge: 支付"
+   681→    checkout main
+   682→    merge develop id: "release: v1.0"
+   683→    commit id: "hotfix: 安全补丁" type: REVERSE
+   684→```
+   685→
+   686→---
+   687→
+   688→## Styling Tips
+   689→
+   690→### Single Node Style
+   691→
+   692→```mermaid
+   693→style 节点ID fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px,color:#1E293B
+   694→```
+   695→
+   696→### Batch Styles (classDef)
+   697→
+   698→```mermaid
+   699→flowchart LR
+   700→    classDef blue fill:#EFF6FF,stroke:#3B82F6,stroke-width:1.5px,color:#1E293B
+   701→    classDef green fill:#F0FDF4,stroke:#10B981,stroke-width:1.5px,color:#1E293B
+   702→    classDef amber fill:#FFF7ED,stroke:#F59E0B,stroke-width:1.5px,color:#1E293B
+   703→
+   704→    A[步骤1]:::blue --> B{判断}:::amber
+   705→    B -->|是| C[结果A]:::green
+   706→    B -->|否| D[结果B]:::green
+   707→```
+   708→
+   709→### Connector Styles
+   710→
+   711→```mermaid
+   712→%% Style for the N-th connector (0-indexed)
+   713→linkStyle 0 stroke:#3B82F6,stroke-width:2px
+   714→linkStyle 1 stroke:#10B981,stroke-width:2px,stroke-dasharray: 5 5
+   715→```
+   716→
+   717→---
+   718→
+   719→## Mermaid vs Other Approaches
+   720→
+   721→| Capability | Mermaid | Playwright+CSS | draw.io |
+   722→|------|---------|---------------|---------|
+   723→| Learning curve | ✅ Very low (Markdown-like) | Medium (HTML/CSS) | ✅ Very low (drag&drop) |
+   724→| Version control friendly | ✅ Plain text | ✅ Plain text | ❌ XML binary |
+   725→| Flowcharts | ✅ Built-in | ⚠️ Manual layout | ✅ Drag&drop |
+   726→| Sequence diagrams | ✅ Built-in | ❌ Very complex | ✅ Templates |
+   727→| Gantt charts | ✅ Built-in | ❌ Build from scratch | ⚠️ Limited |
+   728→| Class/ER diagrams | ✅ Built-in | ❌ Not suited | ✅ Templates |
+   729→| Visual freedom | ⚠️ Limited | ✅ Full freedom | ✅ Free |
+   730→| PNG export | ✅ mmdc/Playwright | ✅ Playwright | ✅ Built-in |
+   731→| CJK support | ✅ Native | ✅ Font config | ✅ Native |
+   732→| Auto layout | ✅ Automatic | ❌ Manual | ⚠️ Semi-auto |
+   733→
+   734→**Principle: Use Mermaid for structural/relationship diagrams, Playwright+CSS for creative design diagrams.**
+   735→
+   736→---
+   737→
+   738→## FAQ
+   739→
+   740→### Q: CJK node names cause layout issues?
+   741→
+   742→Ensure `fontFamily` includes a CJK font:
+   743→```javascript
+   744→themeVariables: {
+   745→  fontFamily: '-apple-system, PingFang SC, SimHei, sans-serif'
+   746→}
+   747→```
+   748→
+   749→### Q: How to control node spacing?
+   750→
+   751→Mermaid auto-layouts; spacing is adjusted via config:
+   752→```javascript
+   753→flowchart: { padding: 16, nodeSpacing: 50, rankSpacing: 60 }
+   754→```
+   755→
+   756→### Q: Chart too large?
+   757→
+   758→- Split into subgraphs
+   759→- Change direction (`TB` too tall → switch to `LR`)
+   760→- Use `mmdc -w 1600` to increase canvas width
+   761→
+   762→### Q: How to add line breaks in nodes?
+   763→
+   764→Use `<br>` tags:
+   765→```mermaid
+   766→A[第一行<br>第二行<br><small>小字注释</small>]
+   767→```
+   768→
+   769→### Q: Flowchart node text truncated or overlapping?
+   770→
+   771→**Common causes and fixes**:
+   772→
+   773→1. **Insufficient node padding**: ensure `flowchart.padding` is at least `24` (CJK chars are ~50% wider than Latin)
+   774→2. **Text too long**: use `<br>` for manual line breaks, or shorten text
+   775→3. **Canvas too narrow**: use `width: fit-content` on `#diagram` container (🚫 NEVER use `max-width` — Mermaid SVG width is unpredictable)
+   776→4. **Node spacing too small**: increase `nodeSpacing` and `rankSpacing` (recommended 60+)
+   777→5. **When using classDef**: ensure `font-size` isn't too large, 12-14px is ideal
+   778→
+   779→**Correct approach for long-text nodes**:
+   780→```mermaid
+   781→flowchart LR
+   782→    A["这是一段比较长的<br>需要换行的文字"]
+   783→    B["用引号包裹节点文字<br>可以使用 HTML 标签"]
+   784→```
+   785→
+   786→**Key configuration**:
+   787→```javascript
+   788→mermaid.initialize({
+   789→  flowchart: {
+   790→    padding: 32,
+   791→    nodeSpacing: 80,
+   792→    rankSpacing: 80,
+   793→    htmlLabels: true,
+   794→    wrappingWidth: 160,
+   795→  }
+   796→});
+   797→```
+   798→
