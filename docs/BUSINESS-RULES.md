@@ -317,6 +317,18 @@
 | ED-32 | Event Log ماشین‌ها؟ | AuditLog با الگوی `WORKFLOW_<ENTITY>_<ACTION>` (اتمیک با Transition) برای همه؛ CaseEvent فقط برای تایم‌لاین CASE | بدون Migration جدول جدید؛ یک منبع رخداد | §17, §42 |
 | ED-33 | Cascade چند-موجودیتی؟ | «نویسنده واحد»: پرداخت Cascade اتمیک کامل در تراکنش خودش؛ SHIPMENT فقط ORDER؛ پیشرفت CASE فقط توسط ماشین CASE | حذف Double-Transition و هم‌نویسی | §17, §27 |
 | ED-34 | وضعیت NEW و تعداد Transition؟ | NEW مجازی است (ایجاد مستقیم در WAITING_FOR_EXPERT_1؛ ۱۸ Transition واقعی — اصلاح شمارش فاز ۰۱)؛ MARK_DELIVERED از PAYMENT_CONFIRMED/PREPARING_SHIPMENT هم مجاز (مسیر تحویل مستقیم) | تطبیق با رفتار واقعی کد | §17 |
+| ED-35 | سبک معماری کل؟ | **Modular Monolith** (ارزیابی ۱۰-معیاری، ۸ به نفع MM)؛ Microservices «افق معیارمحور» + ۵ قاعده Extraction-Readiness (ER1..ER5) | تیم کوچک C1؛ Cascade اتمیک C2؛ Ops ساده | ADR-0001 |
+| ED-36 | مرزبندی دامنه؟ | ۱۵ Bounded Context در `src/modules/` با ساختار api/domain/infra/events + مدل Tier وابستگی K→T0..T5 + قواعد D1..D8 ⇒ گراف DAG و چرخه ناممکن | مرز آماده Extraction؛ مالکیت داده صریح | ADR-0002 |
+| ED-37 | Frontend/Backend یکجا یا جدا؟ | یک Deployable `web` (Next.js App Router: SPA + Route Handlers نازک) + Process جدا `worker` (یک Codebase، دو Entry Point) | یک Build/CI؛ اشتراک typeها؛ سازگار با Stage موجود | ADR-0003 |
+| ED-38 | دیتابیس Production؟ | PostgreSQL 16 + Prisma + یک DB Schema به ازای Context؛ FK بین‌Schema ممنوع (Soft Reference)؛ SQLite فعلی = استثنای موقت با مسیر مهاجرت ۴-گامی | ACID برای Cascade؛ مرز فیزیکی مالکیت | ADR-0004 |
+| ED-39 | Cache و Queue؟ | Redis 7 برای هر دو نقش؛ BullMQ؛ صف‌های ai/notify/sla/reporting + DLQ (N=5)؛ Delayed Jobs برای ED-08/ED-30؛ At-least-once + Idempotency | یک زیرساخت دو کاربرد (C1) | ADR-0005 |
+| ED-40 | نگهداری فایلهای پزشکی؟ | Object Storage سازگار S3 (MinIO dev) + Bucket خصوصی `bh-medical` + Presigned URL کوتاه‌عمر + Audit صدور؛ Port `ObjectStorage` با Adapter local-fs/s3 | Replica-safe (Scale افقی)؛ P5 | ADR-0006 |
+| ED-41 | جایگاه AI؟ | Service مستقل (Python/FastAPI) پشت Port `AIModelProvider` (موجود) با Adapterهای in-process/http؛ کاندیدای اول Extraction؛ تحلیل فقط از صف توسط worker | قید C3 (Scale GPU مستقل) | ADR-0007 |
+| ED-42 | ارتباط بین Contextها؟ | Hybrid: **Sync Facade** برای ذات سیگنال (Cascade مالی) + **Domain Event** برای اثرات جانبی؛ نام‌گذاری `context.entity.verb-past`؛ Event-Carried Payload | سازگاری جایی که باید + جدایی جایی که می‌شود | ADR-0008 |
+| ED-43 | تعویض Providerهای خارجی؟ | Ports & Adapters: PaymentGateway (زرین‌پال/کارت‌به‌کارت)، ShippingProvider (داخلی/پست/تیپاکس)، SmsProvider، ObjectStorage، AIModelProvider؛ انتخاب از Env؛ SDK فقط در infra | تعویض بدون جراحی دامنه؛ Mock/Log در dev با برچسب P7 | ADR-0009 |
+| ED-44 | تضمین قواعد معماری؟ | چهار لایه Enforcement: ESLint no-restricted-imports → dependency-cruiser → architecture.test.ts (Tier+مالکیت مدل) → بازبینی PR؛ نقض = خطای Build؛ استثنا فقط با ثبت در فهرست بدهی | معماری خود-حفظ‌شونده (ریسک R1) | ADR-0010 |
+| ED-45 | توپولوژی استقرار؟ | docker-compose: web/worker/postgres/redis/minio/ai/caddy؛ یک Image دو Entry Point؛ prod: Scale افقی Stateless (JWT)؛ Migration قبل از Deploy (Expand-Contract) | قید C4 (VSCode+Docker) | ADR-0011 |
+| ED-46 | Observability؟ | JSON logging (pino) با requestId/jobId/correlationId (بدون داده سلامتی) + Prometheus metrics در web/worker/ai + آستانه‌های DLQ/Callback/Backlog؛ OTel-ready | اشکال‌زدایی صف/پرداخت/AI؛ پایه فاز Deployment | ADR-0012 |
 
 ---
 

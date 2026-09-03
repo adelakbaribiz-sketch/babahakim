@@ -613,12 +613,15 @@ Registration ─→ Questionnaire ─→ Image Upload ─→ AI Analysis ─→ 
 | فاز | شامل Milestoneها | خروجی کلیدی |
 |---|---|---|
 | **Phase 00** (انجام‌شده) | M1 (بخش Infrastructure)، M2–M14 (پیاده‌سازی Functional v1)، برندینگ | اپلیکیشن یکپارچه v1 + Design System BabaHakim |
-| **Phase 01** (همین فاز) | مستندسازی نیازمندی | PRD، User Stories، Business Rules، Use Cases، Acceptance Criteria، RTM |
-| **Phase 02** | M1 کامل (Architecture) | ARCHITECTURE.md، DB Schema، ERD، API Spec، Security Model |
-| **Phase 03** | M15 (Security + Audit) | Hardening امنیتی، Rate Limiting کامل، Malware Scan |
-| **Phase 04** | M16 (Testing) | پوشش Unit/Integration/E2E + تست‌های Workflow ۱۸ مرحله‌ای |
-| **Phase 05** | M17 (Deployment) + M18 (Hardening) | Docker Production، Nginx/SSL، CI/CD، Monitoring، Backup/DR |
-| **Phase 06+** | توسعه محصول | Coupon مستقل، Email/Push، OTP، Export داده، MLOps واقعی، PWA |
+| **Phase 01** (انجام‌شده) | مستندسازی نیازمندی | PRD، User Stories، Business Rules، Use Cases، Acceptance Criteria، RTM |
+| **Phase 02** (انجام‌شده — توالی واقعی جلوتر از نقشه) | M17 (بخش Workflow) + مقدمات M16 | موتور گردش کار اعلانی + ۸ ماشین وضعیت + ۵۱ تست واحد |
+| **Phase 03** (همین فاز — M1 کامل) | M1 (Architecture) | ARCHITECTURE.md + ARCHITECTURE-DIAGRAM.md + ADR×12 + قواعد وابستگی و ضد-چرخه |
+| **Phase 04** | M15 (Security + Audit) + فعال‌سازی Enforcement معماری (ADR-0010) | Hardening امنیتی، Rate Limiting کامل، Malware Scan، تست معماری CI |
+| **Phase 05** | M16 (Testing) + مهاجرت SQLite→PostgreSQL (ADR-0004) | پوشش Unit/Integration/E2E + تست‌های Workflow ۱۸ مرحله‌ای |
+| **Phase 06** | M17 (Deployment) + M18 (Hardening) | Docker Production، Nginx/SSL، CI/CD، Monitoring (ADR-0012)، Backup/DR |
+| **Phase 07+** | توسعه محصول | Coupon مستقل، Email/Push، OTP، Export داده، MLOps واقعی، PWA |
+
+> یادداشت توالی (فاز 03): شماره فازها در اجرای واقعی جلوتر از پیش‌بینی اولیه این نقشه حرکت کرده است (فاز ۰۲ = Workflow به‌جای M1). این جدول در پایان هر فاز با وضعیت واقعی هم‌تراز می‌شود؛ شماره Milestoneها (M1..M18) مرجع ثابت باقی می‌مانند.
 
 ---
 

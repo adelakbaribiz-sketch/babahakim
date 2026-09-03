@@ -11,9 +11,11 @@
 
 ---
 
-## 0) یادداشت فاز ۰۲ (Workflow Engine)
+## 0) یادداشت فازهای ۰۲ و ۰۳ (Workflow Engine + System Architecture)
 
 > ۱۴۰۵/۰۶/۱۳ (2026-09-04) — پیاده‌سازی PHASE 02: موتور گردش کار عمومی (`src/lib/workflow/`) با ۸ ماشین اعلانی (CASE/PRESCRIPTION/ORDER/PAYMENT/SHIPMENT/TICKET/FOLLOWUP/AI_REVIEW)؛ هر Transition دارای Guard نقش/دسترسی/مالکیت + Validation + Cascade اتمیک + AuditLog `WORKFLOW_*` + نوتیفیکیشن. جزئیات: `docs/WORKFLOW.md`. تست: ۵۱ Unit (بایگانی `bun test`) + Smoke ۱۳/۱۳.
+>
+> ۱۴۰۵/۰۶/۱۴ (2026-09-04) — PHASE 03 (M1 کامل): معماری سیستم — انتخاب **Modular Monolith** (ADR-0001/ED-35)، ۱۵ Bounded Context + قواعد وابستگی Tier و ضد-چرخه (ADR-0002/ED-36)، اجزای ۱۱گانه (Frontend/Backend/Worker/DB/Cache/Queue/ObjectStorage/AI/Notification/Payment/Shipping — ADR-0003..0012، ED-37..46). اسناد: `docs/ARCHITECTURE.md` + `docs/ARCHITECTURE-DIAGRAM.md` + `docs/ADR/`×14. اعتبارسنجی ساختاری: `scripts/validate-phase03-docs.py` (PASS). یادداشت توالی فازها: §12 PRD.
 
 ## 1) ماتریس اصلی — Functional Requirements
 
@@ -332,7 +334,7 @@
 | 94 | Local VSCode Validation | فاز 05 چک‌لیست | ⏳ فاز 05 |
 | 95 | Production Checklist | فاز 05 + PRD C1 | ⏳ فاز 05 |
 | 96 | ممنوعیت «باید پیاده شود» | RTM وضعیت صادقانه (I/P/R) | ✅ |
-| 97 | تصمیم‌گیری ابهام | ED-01..ED-30 | ✅ |
+| 97 | تصمیم‌گیری ابهام | ED-01..ED-46 (فاز 01: 01..30 · فاز 02: 31..34 · فاز 03: 35..46) | ✅ |
 | 98 | ۱۸ Milestone | PRD §12 | ✅ |
 | 99 | AI Model Strategy | ED-01/25 · FR-AI-01 | ✅ |
 | 100 | عدم جعل پزشکی | BR-MED-07 · ED-15 | ✅ |
