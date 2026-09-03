@@ -1,0 +1,656 @@
+// TongueAI Platform — Prisma Schema
+// Bilingual (fa/en) medical platform for AI-assisted tongue diagnosis (Traditional Persian Medicine)
+// SQLite: enums are stored as String and validated at application level (see src/lib/constants.ts)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────── AUTH & RBAC ───────────────────────────────
+
+model User {
+  id               String    @id @default(cuid())
+  phone            String    @unique
+  email            String?
+  passwordHash     String
+  firstName        String
+  lastName         String
+  role             String // ADMIN | EXPERT_1 | EXPERT_2 | OPERATOR | DOCTOR | PATIENT
+  isActive         Boolean   @default(true)
+  referralCode     String    @unique @default(cuid())
+  referredById     String?
+  nationalId       String? // stored hashed
+  gender           String? // MALE | FEMALE | OTHER
+  birthDate        DateTime?
+  profileComplete  Boolean   @default(false)
+  lastLoginAt      DateTime?
+  failedLogins     Int       @default(0)
+  lockedUntil      DateTime?
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  profile            PatientProfile?
+  refreshTokens      RefreshToken[]
+  questionnaireResps QuestionnaireResponse[]
+  images             MedicalImage[]   @relation("ImageOwner")
+  cases              MedicalCase[]   @relation("CasePatient")
+  notifications      Notification[]
+  cartItems          CartItem[]
+  orders             Order[]
+  tickets            Ticket[]
+  ticketMessages     TicketMessage[]
+  payments           Payment[]
+  smsLogs            SMSLog[]
+  referralsMade      Referral[]      @relation("Referrer")
+  referralsReceived  Referral[]      @relation("ReferredUser")
+  auditLogs          AuditLog[]
+  caseEvents         CaseEvent[]
+  diagnoses          Diagnosis[]
+  createdPrescriptions  Prescription[] @relation("PrescriptionCreator")
+  approvedPrescriptions Prescription[] @relation("PrescriptionApprover")
+  priceChanges       ProductPriceHistory[]
+  ordersVerified     Order[]          @relation("OrderVerifier")
+  paymentsVerified   Payment[]        @relation("PaymentVerifier")
+  followUpsCompleted FollowUp[]       @relation("FollowUpCompleter")
+  expert1Cases    MedicalCase[]   @relation("Expert1")
+  expert2Cases    MedicalCase[]   @relation("Expert2")
+  doctorCases     MedicalCase[]   @relation("CaseDoctor")
+  finTxnsCreated  FinancialTransaction[] @relation("FinTxnCreator")
+  finTxnsAsUser   FinancialTransaction[] @relation("FinTxnUser")
+  followUpsPatient FollowUp[]      @relation("FollowUpPatient")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  code        String           @unique // ADMIN, EXPERT_1 ...
+  nameFa      String
+  nameEn      String
+  description String?
+  permissions RolePermission[]
+}
+
+model Permission {
+  id      String           @id @default(cuid())
+  code    String           @unique // view_patient, approve_prescription ...
+  nameFa  String
+  nameEn  String
+  roles   RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+// ─────────────────────────────── PATIENT ───────────────────────────────
+
+model PatientProfile {
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  province        String?
+  city            String?
+  postalCode      String?
+  addressLine     String?
+  emergencyPhone  String?
+  heightCm        Float?
+  weightKg        Float?
+  allergies       String?
+  pastIllnesses   String?
+  currentMeds     String?
+  pregnancy       String? // NA | YES | NO
+  referredBy      String? // معرف (free text)
+  mizajCurrent    String? // آخرین نتیجه مزاج‌شناسی
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+}
+
+// ─────────────────────────────── QUESTIONNAIRE ───────────────────────────────
+
+model Questionnaire {
+  id        String   @id @default(cuid())
+  version   Int      @default(1)
+  titleFa   String
+  titleEn   String
+  isActive  Boolean  @default(false)
+  questions Question[]
+  responses QuestionnaireResponse[]
+  createdAt DateTime @default(now())
+}
+
+model Question {
+  id              String          @id @default(cuid())
+  questionnaireId String
+  order           Int
+  textFa          String
+  textEn          String
+  helpFa          String?
+  helpEn          String?
+  active          Boolean         @default(true)
+  options         QuestionOption[]
+  questionnaire   Questionnaire   @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+}
+
+model QuestionOption {
+  id         String   @id @default(cuid())
+  questionId String
+  textFa     String
+  textEn     String
+  score      Int      @default(0)
+  dimension  String // HOT | COLD | WET | DRY
+  order      Int      @default(0)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model QuestionnaireResponse {
+  id              String       @id @default(cuid())
+  userId          String
+  questionnaireId String
+  answers         String // JSON [{questionId, optionId, score, dimension}]
+  scores          String // JSON {HOT, COLD, WET, DRY}
+  mizajFa         String
+  mizajEn         String
+  summary         String?
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id])
+  createdAt       DateTime     @default(now())
+}
+
+// ─────────────────────────────── IMAGES ───────────────────────────────
+
+model MedicalImage {
+  id             String   @id @default(cuid())
+  ownerId        String
+  caseId         String?
+  type           String // TONGUE | FACE | RECEIPT | DELIVERY | PRODUCT
+  status         String   @default("PENDING") // PENDING | VALIDATED | REJECTED | PROCESSED
+  originalPath   String
+  compressedPath String?
+  aiPath         String?
+  thumbPath      String?
+  sha256         String
+  width          Int?
+  height         Int?
+  sizeOriginal   Int
+  sizeCompressed Int?
+  mime           String
+  quality        String? // JSON {score, blur, brightness, exposure, resolution, orientation, issues[]}
+  version        Int      @default(1)
+  createdAt      DateTime @default(now())
+  owner          User          @relation("ImageOwner", fields: [ownerId], references: [id])
+  case           MedicalCase?  @relation(fields: [caseId], references: [id])
+  aiAnalyses     AIAnalysis[]
+  receiptPayment Payment?      @relation("ReceiptImage")
+  proofShipment  Shipment?     @relation("ProofImage")
+}
+
+// ─────────────────────────────── CASES & WORKFLOW ───────────────────────────────
+
+model MedicalCase {
+  id             String    @id @default(cuid())
+  code           String    @unique // TC-1405-XXXX
+  patientId      String
+  status         String    @default("NEW")
+  priority       String    @default("NORMAL") // LOW | NORMAL | HIGH | URGENT
+  description    String? // شرح حال بیمار
+  mizajSnapshot  String? // JSON مزاج در زمان ایجاد پرونده
+  assignedExpert1Id String?
+  assignedExpert2Id String?
+  assignedDoctorId   String?
+  followUpDays   Int?
+  followUpAt     DateTime?
+  aiAnalysisId   String?
+  expert1Summary String? // نتیجه ارزیابی اولیه ارسالی به کاربر
+  userApprovedTreatment Boolean @default(false)
+  closingNote    String?
+  closedAt       DateTime?
+  cancelReason   String?
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  patient        User            @relation("CasePatient", fields: [patientId], references: [id])
+  images         MedicalImage[]
+  events         CaseEvent[]
+  aiAnalyses     AIAnalysis[]
+  diagnoses      Diagnosis[]
+  prescriptions  Prescription[]
+  invoices       Invoice[]
+  followUps      FollowUp[]
+  expert1        User?           @relation("Expert1", fields: [assignedExpert1Id], references: [id])
+  expert2        User?           @relation("Expert2", fields: [assignedExpert2Id], references: [id])
+  doctor         User?           @relation("CaseDoctor", fields: [assignedDoctorId], references: [id])
+}
+
+model CaseEvent {
+  id         String   @id @default(cuid())
+  caseId     String
+  actorId    String?
+  action     String // STATUS_CHANGE | COMMENT | IMAGE_ADDED | AI_RUN | NOTE ...
+  fromStatus String?
+  toStatus   String?
+  reason     String?
+  comment    String?
+  createdAt  DateTime @default(now())
+  case       MedicalCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  actor      User?       @relation(fields: [actorId], references: [id])
+}
+
+// ─────────────────────────────── AI ───────────────────────────────
+
+model AIModel {
+  id                 String    @id @default(cuid())
+  name               String
+  version            Int
+  provider           String // TongueModelV1 ...
+  isActive           Boolean   @default(false)
+  metrics            String? // JSON {accuracy, precision, recall, f1}
+  trainingDataset    String?
+  trainingDate       DateTime?
+  approvalStatus     String    @default("DRAFT") // DRAFT | IN_TRAINING | EVALUATION | APPROVED | DEPLOYED
+  approvedById       String?
+  createdAt          DateTime  @default(now())
+  analyses           AIAnalysis[]
+}
+
+model AIAnalysis {
+  id           String   @id @default(cuid())
+  caseId       String
+  imageId      String
+  modelId      String?
+  modelName    String   @default("TongueModelV1")
+  modelVersion Int      @default(1)
+  predictions  String // JSON [{indicator, value, confidence, note}]
+  confidence   Float // overall confidence 0..1
+  quality      Float // image quality score 0..1
+  features     String? // JSON extracted features
+  explainability String? // JSON human-readable explanations
+  processingMs Int?
+  humanReviewed Boolean @default(false)
+  createdAt    DateTime @default(now())
+  case         MedicalCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  image        MedicalImage @relation(fields: [imageId], references: [id])
+  model        AIModel?     @relation(fields: [modelId], references: [id])
+}
+
+// ─────────────────────────────── CLINICAL ───────────────────────────────
+
+model Disease {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  nameFa       String
+  nameEn       String
+  category     String?
+  descriptionFa String?
+  descriptionEn String?
+  symptomsFa   String?
+  symptomsEn   String?
+  expertNotes  String?
+  active       Boolean  @default(true)
+  deletedAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  diagnoses    Diagnosis[]
+  products     DiseaseProduct[]
+}
+
+model DiseaseProduct {
+  diseaseId String
+  productId String
+  disease   Disease @relation(fields: [diseaseId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  @@id([diseaseId, productId])
+}
+
+model Diagnosis {
+  id          String    @id @default(cuid())
+  caseId      String
+  diseaseId   String?
+  expertId    String
+  title       String
+  notes       String?
+  aiAssisted  Boolean   @default(true) // بر پایه خروجی AI تنظیم شده
+  aiAgreement String? // AGREED | MODIFIED | REJECTED
+  confidence  Float?
+  createdAt   DateTime  @default(now())
+  case        MedicalCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  disease     Disease?    @relation(fields: [diseaseId], references: [id])
+  expert      User        @relation(fields: [expertId], references: [id])
+}
+
+model Prescription {
+  id            String   @id @default(cuid())
+  caseId        String
+  version       Int      @default(1)
+  status        String   @default("DRAFT") // DRAFT | PENDING_EXPERT2 | PENDING_DOCTOR | APPROVED | REJECTED | REVISION_REQUESTED | FINALIZED
+  createdById   String
+  expert1Notes  String? // توضیحات کارشناس ۱
+  expert2Notes  String? // توضیحات کارشناس ۲ (بازبینی)
+  doctorComment String? // اظهارنظر پزشک
+  approvedById  String?
+  approvedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  items         PrescriptionItem[]
+  case          MedicalCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  createdBy     User        @relation("PrescriptionCreator", fields: [createdById], references: [id])
+  approvedBy    User?       @relation("PrescriptionApprover", fields: [approvedById], references: [id])
+  orders        Order[]
+}
+
+model PrescriptionItem {
+  id             String    @id @default(cuid())
+  prescriptionId String
+  productId      String?
+  drugName       String
+  dosage         String? // مقدار مصرف
+  frequency      String? // تناوب
+  duration       String? // مدت
+  instructionsFa String?
+  instructionsEn String?
+  warnings       String?
+  available      Boolean   @default(true) // قابل تهیه
+  missing        Boolean   @default(false) // اقلام ناقص
+  quantity       Int       @default(1)
+  unitPrice      Int? // price at prescription time
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  product        Product?     @relation(fields: [productId], references: [id])
+}
+
+// ─────────────────────────────── SHOP ───────────────────────────────
+
+model Product {
+  id                  String    @id @default(cuid())
+  sku                 String    @unique
+  nameFa              String
+  nameEn              String
+  brand               String?
+  category            String?
+  descriptionFa       String?
+  descriptionEn       String?
+  imagePath           String?
+  requiresPrescription Boolean  @default(false) // OTC = false
+  usageFa             String?
+  restrictions        String?
+  currentPrice        Int       @default(0) // Toman
+  purchasePrice       Int       @default(0)
+  stock               Int       @default(0)
+  active              Boolean   @default(true)
+  deletedAt           DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  priceHistory   ProductPriceHistory[]
+  prescriptionItems PrescriptionItem[]
+  cartItems      CartItem[]
+  orderItems     OrderItem[]
+  diseases       DiseaseProduct[]
+}
+
+model ProductPriceHistory {
+  id          String   @id @default(cuid())
+  productId   String
+  oldPrice    Int?
+  newPrice    Int
+  changedById String
+  reason      String? // IMPORT | BULK_INCREASE | BULK_DECREASE | MANUAL
+  sourceRow   String? // JSON سطر منبع Excel/CSV
+  createdAt   DateTime @default(now())
+  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  changedBy   User    @relation(fields: [changedById], references: [id])
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  @@unique([userId, productId])
+}
+
+model Order {
+  id              String   @id @default(cuid())
+  code            String   @unique // ORD-XXXX
+  userId          String
+  type            String   @default("SHOP") // PRESCRIPTION | SHOP
+  status          String   @default("CART") // CART | PENDING_CONFIRMATION | CONFIRMED | PAYMENT_PENDING | PAID | PREPARING | READY_TO_SHIP | SHIPPED | DELIVERED | CANCELLED | REFUNDED
+  prescriptionId  String?
+  subtotal        Int      @default(0)
+  discount        Int      @default(0)
+  shippingCost    Int      @default(0)
+  total           Int      @default(0)
+  addressSnapshot String? // JSON
+  note            String?
+  verifiedById    String?
+  cancelledReason String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User           @relation(fields: [userId], references: [id])
+  prescription    Prescription? @relation(fields: [prescriptionId], references: [id])
+  items           OrderItem[]
+  invoices        Invoice[]
+  payments        Payment[]
+  shipment        Shipment?
+  verifiedBy      User?          @relation("OrderVerifier", fields: [verifiedById], references: [id])
+}
+
+model OrderItem {
+  id           String  @id @default(cuid())
+  orderId      String
+  productId    String?
+  nameFa       String
+  nameEn       String
+  unitPrice    Int
+  quantity     Int
+  total        Int
+  available    Boolean @default(true)
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product      Product? @relation(fields: [productId], references: [id])
+}
+
+model Invoice {
+  id          String    @id @default(cuid())
+  code        String    @unique // INV-XXXX (پیش‌فاکتور)
+  orderId     String
+  caseId      String?
+  status      String    @default("SENT") // DRAFT | SENT | CONFIRMED | PAID | CANCELLED
+  items       String // JSON snapshot اقلام
+  subtotal    Int
+  discount    Int       @default(0)
+  shippingCost Int      @default(0)
+  total       Int
+  note        String?
+  confirmedAt DateTime?
+  paidAt      DateTime?
+  createdAt   DateTime  @default(now())
+  order       Order   @relation(fields: [orderId], references: [id])
+  case        MedicalCase? @relation(fields: [caseId], references: [id])
+  payments    Payment[]
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  code          String   @unique // PAY-XXXX
+  invoiceId     String?
+  orderId       String
+  userId        String
+  method        String // ZARINPAL | CARD_TO_CARD
+  amount        Int
+  status        String   @default("PENDING") // PENDING | AWAITING_VERIFY | PAID | FAILED | REJECTED | REFUNDED
+  authority     String?
+  refNumber     String?
+  trackingCode  String? // شماره پیگیری کارت‌به‌کارت
+  receiptNote   String?
+  receiptImageId String? @unique
+  gateway       String? // JSON response
+  error         String?
+  idempotencyKey String? @unique
+  verifiedById  String?
+  verifiedAt    DateTime?
+  createdAt     DateTime @default(now())
+  order         Order   @relation(fields: [orderId], references: [id])
+  invoice       Invoice? @relation(fields: [invoiceId], references: [id])
+  user          User    @relation(fields: [userId], references: [id])
+  receiptImage  MedicalImage? @relation("ReceiptImage", fields: [receiptImageId], references: [id])
+  verifiedBy    User?   @relation("PaymentVerifier", fields: [verifiedById], references: [id])
+}
+
+model Shipment {
+  id           String   @id @default(cuid())
+  orderId      String   @unique
+  method       String // MOTORCYCLE | CAR | POST
+  driverName   String?
+  driverPhone  String?
+  receiverPhone String?
+  vehicleType  String?
+  trackingCode String?
+  cost         Int      @default(0)
+  status       String   @default("PREPARING") // PREPARING | SHIPPED | IN_TRANSIT | DELIVERED | FAILED
+  shippingDate DateTime?
+  deliveryDate DateTime?
+  note         String?
+  proofImageId String? @unique
+  createdAt    DateTime @default(now())
+  order        Order        @relation(fields: [orderId], references: [id])
+  proofImage   MedicalImage? @relation("ProofImage", fields: [proofImageId], references: [id])
+}
+
+// ─────────────────────────────── SUPPORT ───────────────────────────────
+
+model Ticket {
+  id          String   @id @default(cuid())
+  code        String   @unique // TKT-XXXX
+  userId      String
+  caseId      String?
+  subject     String
+  category    String   @default("GENERAL") // GENERAL | ORDER | PAYMENT | MEDICAL | SHIPPING | OTHER
+  priority    String   @default("NORMAL") // LOW | NORMAL | HIGH | URGENT
+  status      String   @default("OPEN") // OPEN | IN_PROGRESS | WAITING_USER | WAITING_EXPERT | RESOLVED | CLOSED
+  assignedToId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User            @relation(fields: [userId], references: [id])
+  messages    TicketMessage[]
+}
+
+model TicketMessage {
+  id         String   @id @default(cuid())
+  ticketId   String
+  senderId   String
+  message    String
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  ticket     Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender     User   @relation(fields: [senderId], references: [id])
+}
+
+model Notification {
+  id       String   @id @default(cuid())
+  userId   String
+  type     String // EVENT code
+  titleFa  String
+  titleEn  String
+  bodyFa   String?
+  bodyEn   String?
+  link     String?
+  read     Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SMSLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  recipient String
+  template  String
+  content   String
+  provider  String   @default("KAVENEGAR")
+  status    String   @default("SENT") // QUEUED | SENT | DELIVERED | FAILED
+  deliveryStatus String?
+  error     String?
+  sentAt    DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+}
+
+model Referral {
+  id             String   @id @default(cuid())
+  referrerId     String
+  referredUserId String   @unique
+  ordersCount    Int      @default(0)
+  revenue        Int      @default(0)
+  commission     Int      @default(0)
+  status         String   @default("PENDING") // PENDING | ACTIVE | SETTLED
+  createdAt      DateTime @default(now())
+  referrer       User @relation("Referrer", fields: [referrerId], references: [id])
+  referredUser   User @relation("ReferredUser", fields: [referredUserId], references: [id])
+}
+
+model FollowUp {
+  id          String    @id @default(cuid())
+  caseId      String
+  patientId   String
+  dueDate     DateTime
+  status      String    @default("PENDING") // PENDING | DUE | COMPLETED | OVERDUE | CANCELLED
+  note        String?
+  resultNote  String?
+  completedById String?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  case        MedicalCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  patient     User        @relation("FollowUpPatient", fields: [patientId], references: [id])
+  completedBy User?       @relation("FollowUpCompleter", fields: [completedById], references: [id])
+}
+
+// ─────────────────────────────── AUDIT & FINANCE ───────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String // LOGIN, VIEW_MEDICAL_FILE, EDIT_PRESCRIPTION, APPROVE, PAYMENT ...
+  entity    String
+  entityId  String?
+  oldValues String? // JSON
+  newValues String? // JSON
+  ip        String?
+  device    String?
+  sensitive Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+}
+
+model FinancialTransaction {
+  id          String   @id @default(cuid())
+  type        String // INCOME | EXPENSE | REFUND | COMMISSION | SHIPPING_COST
+  category    String // SALES | SALARY | TRANSPORT | OTHER
+  amount      Int
+  description String?
+  orderId     String?
+  userId      String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  user        User?  @relation("FinTxnUser", fields: [userId], references: [id])
+  createdBy   User?  @relation("FinTxnCreator", fields: [createdById], references: [id])
+}

@@ -1,0 +1,73 @@
+// Notification engine: in-app + SMS log (multi-channel abstraction)
+import { db } from '@/lib/db'
+
+type EventCode =
+  | 'REGISTERED' | 'PROFILE_COMPLETED' | 'QUESTIONNAIRE_DONE' | 'IMAGE_RECEIVED' | 'CASE_IN_QUEUE'
+  | 'ASSIGNED_EXPERT' | 'AI_ANALYZED' | 'ASSESSMENT_READY' | 'USER_APPROVAL_NEEDED' | 'TREATMENT_APPROVED'
+  | 'PRESCRIPTION_CREATED' | 'PRESCRIPTION_REVISED' | 'SENT_TO_DOCTOR' | 'DOCTOR_APPROVED' | 'DOCTOR_COMMENTED'
+  | 'PROFORMA_CREATED' | 'PROFORMA_CONFIRMATION_NEEDED' | 'PAYMENT_PENDING' | 'PAYMENT_CONFIRMED'
+  | 'PAYMENT_REJECTED' | 'ORDER_PREPARING' | 'ORDER_SHIPPED' | 'ORDER_DELIVERED' | 'FOLLOWUP_DUE'
+  | 'REFERRED_AGAIN' | 'CASE_CLOSED' | 'TICKET_UPDATED' | 'RECEIPT_UPLOADED' | 'PRICE_CHANGED' | 'NEW_ORDER'
+
+const TEMPLATES: Record<EventCode, { titleFa: string; titleEn: string; bodyFa: string; bodyEn: string; smsFa: string }> = {
+  REGISTERED: { titleFa: 'خوش آمدید', titleEn: 'Welcome', bodyFa: 'حساب شما با موفقیت ایجاد شد. کد معرف شما آماده است.', bodyEn: 'Your account was created successfully.', smsFa: 'TongueAI: ثبت‌نام شما با موفقیت انجام شد.' },
+  PROFILE_COMPLETED: { titleFa: 'پروفایل تکمیل شد', titleEn: 'Profile Completed', bodyFa: 'اطلاعات پایه شما ذخیره شد.', bodyEn: 'Your basic info was saved.', smsFa: 'TongueAI: پروفایل شما تکمیل شد.' },
+  QUESTIONNAIRE_DONE: { titleFa: 'نتیجه مزاج‌شناسی', titleEn: 'Temperament Result', bodyFa: 'نتیجه مزاج‌شناسی شما در پرونده سلامت ذخیره شد.', bodyEn: 'Your temperament result was saved.', smsFa: 'TongueAI: نتیجه مزاج‌شناسی شما ثبت شد.' },
+  IMAGE_RECEIVED: { titleFa: 'تصویر دریافت شد', titleEn: 'Image Received', bodyFa: 'تصویر شما اعتبارسنجی و پردازش شد.', bodyEn: 'Your image was validated and processed.', smsFa: 'TongueAI: تصویر شما دریافت و پردازش شد.' },
+  CASE_IN_QUEUE: { titleFa: 'پرونده ایجاد شد', titleEn: 'Case Created', bodyFa: 'پرونده شما در صف بررسی کارشناسان قرار گرفت.', bodyEn: 'Your case is queued for expert review.', smsFa: 'TongueAI: پرونده شما در صف کارشناسان قرار گرفت.' },
+  ASSIGNED_EXPERT: { titleFa: 'تخصیص کارشناس', titleEn: 'Expert Assigned', bodyFa: 'پرونده به کارشناس اول تخصیص یافت.', bodyEn: 'A case was assigned to you.', smsFa: 'TongueAI: پرونده جدید به شما تخصیص یافت.' },
+  AI_ANALYZED: { titleFa: 'تحلیل AI انجام شد', titleEn: 'AI Analysis Done', bodyFa: 'تحلیل اولیه هوش مصنوعی آماده بازبینی کارشناس است.', bodyEn: 'AI preliminary analysis awaits expert review.', smsFa: 'TongueAI: تحلیل اولیه انجام شد.' },
+  ASSESSMENT_READY: { titleFa: 'نتیجه ارزیابی اولیه', titleEn: 'Initial Assessment Ready', bodyFa: 'ارزیابی اولیه پرونده شما آماده است؛ لطفاً برای ادامه درمان تأیید کنید.', bodyEn: 'Your initial assessment is ready; please confirm to continue.', smsFa: 'TongueAI: نتیجه ارزیابی اولیه شما آماده است.' },
+  USER_APPROVAL_NEEDED: { titleFa: 'در انتظار تأیید کاربر', titleEn: 'Awaiting User Approval', bodyFa: 'کاربر باید ادامه درمان را تأیید کند.', bodyEn: 'The patient must confirm to continue treatment.', smsFa: 'TongueAI: پرونده در انتظار تأیید بیمار است.' },
+  TREATMENT_APPROVED: { titleFa: 'تأیید ادامه درمان', titleEn: 'Treatment Approved', bodyFa: 'کاربر ادامه درمان را تأیید کرد.', bodyEn: 'The patient approved continuing treatment.', smsFa: 'TongueAI: بیمار ادامه درمان را تأیید کرد.' },
+  PRESCRIPTION_CREATED: { titleFa: 'نسخه ثبت شد', titleEn: 'Prescription Created', bodyFa: 'نسخه جدیدی ثبت شد و در انتظار بازبینی است.', bodyEn: 'A new prescription version was created.', smsFa: 'TongueAI: نسخه جدیدی ثبت شد.' },
+  PRESCRIPTION_REVISED: { titleFa: 'نسخه اصلاح شد', titleEn: 'Prescription Revised', bodyFa: 'نسخه اصلاح و نسخه جدید ایجاد شد.', bodyEn: 'The prescription was revised; a new version exists.', smsFa: 'TongueAI: نسخه اصلاح شد.' },
+  SENT_TO_DOCTOR: { titleFa: 'ارسال به پزشک', titleEn: 'Sent to Doctor', bodyFa: 'نسخه برای تأیید نهایی به پزشک ارسال شد.', bodyEn: 'The prescription was sent to the doctor for final approval.', smsFa: 'TongueAI: نسخه برای تأیید پزشک ارسال شد.' },
+  DOCTOR_APPROVED: { titleFa: 'تأیید پزشک', titleEn: 'Doctor Approved', bodyFa: 'نسخه توسط پزشک تأیید شد.', bodyEn: 'The prescription was approved by the doctor.', smsFa: 'TongueAI: نسخه توسط پزشک تأیید شد.' },
+  DOCTOR_COMMENTED: { titleFa: 'اظهارنظر پزشک', titleEn: 'Doctor Comment', bodyFa: 'پزشک اظهارنظر جدیدی ثبت کرد.', bodyEn: 'The doctor added a comment.', smsFa: 'TongueAI: پزشک اظهارنظر کرد.' },
+  PROFORMA_CREATED: { titleFa: 'پیش‌فاکتور صادر شد', titleEn: 'Proforma Issued', bodyFa: 'پیش‌فاکتور شما آماده است؛ پس از تأیید می‌توانید پرداخت کنید.', bodyEn: 'Your proforma is ready for confirmation and payment.', smsFa: 'TongueAI: پیش‌فاکتور شما صادر شد.' },
+  PROFORMA_CONFIRMATION_NEEDED: { titleFa: 'در انتظار تأیید پیش‌فاکتور', titleEn: 'Awaiting Proforma Confirmation', bodyFa: 'کاربر باید پیش‌فاکتور را تأیید کند.', bodyEn: 'The patient must confirm the proforma.', smsFa: 'TongueAI: پیش‌فاکتور در انتظار تأیید است.' },
+  PAYMENT_PENDING: { titleFa: 'در انتظار پرداخت', titleEn: 'Payment Pending', bodyFa: 'لطفاً پرداخت را تکمیل کنید.', bodyEn: 'Please complete your payment.', smsFa: 'TongueAI: لطفاً پرداخت خود را تکمیل کنید.' },
+  PAYMENT_CONFIRMED: { titleFa: 'پرداخت تأیید شد', titleEn: 'Payment Confirmed', bodyFa: 'پرداخت شما تأیید و سفارش وارد مرحله آماده‌سازی شد.', bodyEn: 'Your payment was verified; the order is being prepared.', smsFa: 'TongueAI: پرداخت شما تأیید شد.' },
+  PAYMENT_REJECTED: { titleFa: 'پرداخت رد شد', titleEn: 'Payment Rejected', bodyFa: 'رسید پرداخت شما تأیید نشد. لطفاً مجدداً اقدام کنید.', bodyEn: 'Your payment receipt was not approved.', smsFa: 'TongueAI: پرداخت شما تأیید نشد.' },
+  ORDER_PREPARING: { titleFa: 'آماده‌سازی سفارش', titleEn: 'Order Preparing', bodyFa: 'سفارش شما در حال آماده‌سازی است.', bodyEn: 'Your order is being prepared.', smsFa: 'TongueAI: سفارش شما در حال آماده‌سازی است.' },
+  ORDER_SHIPPED: { titleFa: 'سفارش ارسال شد', titleEn: 'Order Shipped', bodyFa: 'سفارش شما ارسال شد؛ پیگیری ارسال را ببینید.', bodyEn: 'Your order has been shipped.', smsFa: 'TongueAI: سفارش شما ارسال شد.' },
+  ORDER_DELIVERED: { titleFa: 'سفارش تحویل شد', titleEn: 'Order Delivered', bodyFa: 'سفارش شما تحویل داده شد. شفا باشید!', bodyEn: 'Your order was delivered. Get well soon!', smsFa: 'TongueAI: سفارش شما تحویل شد.' },
+  FOLLOWUP_DUE: { titleFa: 'زمان پیگیری درمان', titleEn: 'Follow-up Due', bodyFa: 'زمان پیگیری درمان شما رسیده است.', bodyEn: 'It is time for your treatment follow-up.', smsFa: 'TongueAI: زمان پیگیری درمان شما رسیده است.' },
+  REFERRED_AGAIN: { titleFa: 'ارجاع مجدد', titleEn: 'Re-referred', bodyFa: 'ارجاع مجدد شما ثبت شد.', bodyEn: 'Your re-referral was registered.', smsFa: 'TongueAI: ارجاع مجدد ثبت شد.' },
+  CASE_CLOSED: { titleFa: 'پرونده بسته شد', titleEn: 'Case Closed', bodyFa: 'پرونده شما بسته شد.', bodyEn: 'Your case was closed.', smsFa: 'TongueAI: پرونده شما بسته شد.' },
+  TICKET_UPDATED: { titleFa: 'به‌روزرسانی تیکت', titleEn: 'Ticket Updated', bodyFa: 'تیکت شما به‌روزرسانی شد.', bodyEn: 'Your ticket was updated.', smsFa: 'TongueAI: تیکت شما به‌روزرسانی شد.' },
+  RECEIPT_UPLOADED: { titleFa: 'رسید کارت‌به‌کارت', titleEn: 'Card Receipt', bodyFa: 'رسید پرداخت ارسال شد و در انتظار تأیید اپراتور است.', bodyEn: 'A card-to-card receipt was uploaded and awaits verification.', smsFa: 'TongueAI: رسید پرداخت دریافت شد.' },
+  PRICE_CHANGED: { titleFa: 'تغییر قیمت', titleEn: 'Price Changed', bodyFa: 'قیمت‌ها به‌روزرسانی شد.', bodyEn: 'Prices were updated.', smsFa: 'TongueAI: قیمت‌ها به‌روزرسانی شد.' },
+  NEW_ORDER: { titleFa: 'سفارش جدید', titleEn: 'New Order', bodyFa: 'سفارش جدیدی ثبت شد.', bodyEn: 'A new order was placed.', smsFa: 'TongueAI: سفایر جدید ثبت شد.' },
+}
+
+export async function notify(
+  userId: string,
+  event: EventCode,
+  opts?: { link?: string; sms?: boolean; phone?: string | null; extraFa?: string; extraEn?: string },
+) {
+  const t = TEMPLATES[event]
+  try {
+    await db.notification.create({
+      data: {
+        userId, type: event, titleFa: t.titleFa + (opts?.extraFa ? ` — ${opts.extraFa}` : ''),
+        titleEn: t.titleEn + (opts?.extraEn ? ` — ${opts.extraEn}` : ''),
+        bodyFa: t.bodyFa, bodyEn: t.bodyEn, link: opts?.link || null,
+      },
+    })
+    if (opts?.sms && opts?.phone) {
+      await db.smsLog.create({
+        data: { userId, recipient: opts.phone, template: event, content: t.smsFa, provider: 'KAVENEGAR', status: 'SENT', deliveryStatus: 'DELIVERED' },
+      })
+    }
+  } catch (e) {
+    console.error('notify failed', e)
+  }
+}
+
+// notify every user holding a role (e.g. all EXPERT_1 users)
+export async function notifyRole(role: string, event: EventCode, opts?: { link?: string }) {
+  const users = await db.user.findMany({ where: { role, isActive: true, deletedAt: null }, select: { id: true } })
+  for (const u of users) await notify(u.id, event, opts)
+}

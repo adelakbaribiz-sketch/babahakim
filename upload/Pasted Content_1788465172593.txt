@@ -1,0 +1,3115 @@
+# MASTER PROMPT — طراحی، ساخت، تست و آماده‌سازی پلتفرم هوش مصنوعی تشخیص از تصویر زبان
+
+تو به عنوان یک **Senior Software Architect + AI Engineer + Full-Stack Engineer + DevOps Engineer + QA Engineer + Cybersecurity Engineer + Product Designer** عمل می‌کنی.
+
+وظیفه تو این است که یک **پلتفرم نرم‌افزاری کامل، امن، مقیاس‌پذیر و Production-Ready** برای تحلیل تصاویر زبان و پرونده سلامت کاربران طراحی، پیاده‌سازی، تست، مستندسازی و برای استقرار روی سرور آماده کنی.
+
+این پروژه باید از ابتدا با معماری حرفه‌ای و قابل توسعه ساخته شود و نباید به شکل Prototype ضعیف، Demo یا کد موقت پیاده‌سازی شود.
+
+---
+
+# 1. هدف اصلی محصول
+
+یک پلتفرم دو زبانه:
+
+* فارسی
+* English
+
+برای مدیریت فرآیند:
+
+ثبت‌نام کاربر
+→ تکمیل مشخصات اولیه
+→ مزاج‌شناسی
+→ بارگذاری تصویر زبان
+→ بارگذاری تصویر چهره در صورت نیاز
+→ فشرده‌سازی و استانداردسازی تصاویر
+→ ایجاد پرونده
+→ قرارگیری در صف کارشناسان
+→ بررسی اولیه توسط کارشناس 1
+→ تشخیص/ارزیابی اولیه
+→ ارسال نتیجه برای کاربر
+→ تأیید کاربر برای ادامه درمان
+→ تعیین نسخه توسط کارشناس 1
+→ بررسی و تعیین نسخه توسط کارشناس 2
+→ ارسال برای دکتر
+→ تأیید/اظهارنظر دکتر
+→ تعیین اقلام دارویی قابل تهیه
+→ تعیین قیمت
+→ تهیه کامل یا ناقص داروها
+→ ایجاد پیش‌فاکتور
+→ ارسال پیش‌فاکتور برای کاربر
+→ تأیید کاربر
+→ پرداخت
+→ آماده‌سازی سفارش
+→ ارسال با پیک / خودرو / پست
+→ ثبت اطلاعات ارسال
+→ پیگیری تحویل
+→ پیگیری روند درمان
+→ ارجاع مجدد
+→ ثبت نتایج جدید
+→ ذخیره داده برای بهبود مدل AI
+
+---
+
+# 2. نکته بسیار مهم درباره AI پزشکی
+
+این سیستم یک نرم‌افزار سلامت است.
+
+AI نباید بدون کنترل انسانی نتیجه پزشکی قطعی و خودکار به کاربر اعلام کند.
+
+معماری باید از ابتدا به صورت:
+
+AI-Assisted Clinical Decision Support
+
+طراحی شود.
+
+یعنی:
+
+AI → تحلیل اولیه و پیشنهاد
+کارشناس → بررسی و اصلاح
+کارشناس دوم → بررسی مجدد
+دکتر → تأیید در موارد تعیین‌شده
+کاربر → مشاهده نتیجه نهایی
+
+هیچ نتیجه پزشکی حساس نباید فقط براساس خروجی خام مدل AI قطعی شود.
+
+در UI نیز در قسمت‌های مربوطه باید قابلیت نمایش:
+
+* AI Confidence
+* عدم قطعیت
+* نیاز به بررسی انسانی
+* توضیحات کارشناس
+* نسخه نهایی تأییدشده
+
+وجود داشته باشد.
+
+همچنین معماری باید قابلیت Audit کامل تمام تصمیم‌ها را داشته باشد.
+
+---
+
+# 3. معماری کلان
+
+معماری پیشنهادی را بر اساس این Stack طراحی و در صورت نیاز با دلیل فنی اصلاح کن:
+
+Backend:
+
+* Python
+* FastAPI
+* Pydantic
+* SQLAlchemy
+* PostgreSQL
+
+Async Processing:
+
+* Celery
+* Redis یا RabbitMQ
+
+AI:
+
+* Python
+* PyTorch
+* OpenCV
+* Pillow
+* Scikit-learn در صورت نیاز
+
+Frontend:
+
+* React
+* TypeScript
+* Next.js
+* TailwindCSS
+
+Authentication:
+
+* JWT
+* Refresh Token
+* RBAC
+* Permission System
+
+Storage:
+
+Object Storage compatible with S3
+
+برای تصاویر:
+
+* Original Image
+* Compressed Image
+* Processed Image
+* AI Input Image
+* Annotated Image
+
+همه باید نسخه‌بندی شوند.
+
+Deployment:
+
+* Docker
+* Docker Compose
+* Nginx
+* HTTPS
+* Environment Variables
+* CI/CD
+* GitHub Actions
+
+Database:
+
+PostgreSQL
+
+Cache / Queue:
+
+Redis
+
+Logging:
+
+Structured Logging
+
+Monitoring:
+
+Health Check
+Metrics
+Error Tracking
+Audit Log
+
+---
+
+# 4. قبل از شروع کدنویسی
+
+ابتدا کل سیستم را تحلیل و طراحی کن.
+
+قبل از نوشتن Implementation نهایی باید این خروجی‌ها ساخته شوند:
+
+1. Product Requirements Document
+2. System Architecture
+3. Database Architecture
+4. Entity Relationship Diagram
+5. API Specification
+6. RBAC Matrix
+7. User Journey
+8. Workflow Diagram
+9. AI Pipeline
+10. Image Processing Pipeline
+11. Security Model
+12. Deployment Architecture
+13. Testing Strategy
+14. CI/CD Strategy
+15. Backup Strategy
+16. Monitoring Strategy
+17. Disaster Recovery Strategy
+
+بعد از آن Implementation را شروع کن.
+
+---
+
+# 5. ماژول کاربران
+
+سیستم باید کاربران زیر را پشتیبانی کند:
+
+### Admin
+
+### Expert 1
+
+### Operator
+
+### User / Patient
+
+### Expert 2
+
+### Doctor
+
+برای هر Role:
+
+Permissionهای دقیق تعریف کن.
+
+از Permissionهای Hardcoded در Frontend خودداری کن.
+
+سیستم باید Role-Based + Permission-Based باشد.
+
+مثلاً:
+
+view_patient
+edit_patient
+view_images
+approve_diagnosis
+create_prescription
+edit_prescription
+approve_prescription
+view_financials
+create_invoice
+approve_payment
+manage_products
+manage_prices
+view_reports
+manage_tickets
+etc.
+
+---
+
+# 6. مدیریت کاربر / بیمار
+
+اطلاعات پایه:
+
+* نام
+* نام خانوادگی
+* شماره موبایل
+* ایمیل در صورت وجود
+* جنسیت
+* تاریخ تولد
+* سن
+* کد ملی در صورت نیاز و با سیاست امنیتی مناسب
+* آدرس
+* کد پستی
+* استان
+* شهر
+* اطلاعات تماس
+* معرف
+* تاریخ ثبت‌نام
+* وضعیت حساب
+
+پرونده سلامت:
+
+* تاریخچه مراجعات
+* تصاویر زبان
+* تصاویر چهره
+* شرح حال
+* نتایج مزاج‌شناسی
+* تشخیص‌های قبلی
+* نسخه‌های قبلی
+* داروهای قبلی
+* دستور مصرف
+* کامنت کارشناسان
+* کامنت پزشک
+* روند درمان
+* Follow-up
+* تاریخ ارجاع بعدی
+* Feedback
+
+---
+
+# 7. سیستم مزاج‌شناسی
+
+یک موتور Questionnaire قابل مدیریت بساز.
+
+Admin بتواند:
+
+* سؤال اضافه کند
+* سؤال حذف کند
+* سؤال ویرایش کند
+* گزینه‌ها را تغییر دهد
+* امتیاز گزینه‌ها را تغییر دهد
+* ترتیب سؤالات را تغییر دهد
+* نسخه Questionnaire ایجاد کند
+
+سیستم باید Versioning داشته باشد.
+
+نتیجه مزاج‌شناسی باید در پرونده کاربر ذخیره شود.
+
+تاریخچه نتایج قبلی هرگز حذف نشود.
+
+---
+
+# 8. سیستم دریافت تصویر زبان
+
+کاربر بتواند تصویر را از:
+
+* Mobile
+* Desktop
+
+ارسال کند.
+
+سیستم باید قبل از ارسال به AI:
+
+1. Validate Image
+2. Validate MIME
+3. Validate Size
+4. Detect Corruption
+5. Remove unnecessary metadata
+6. Resize
+7. Compress
+8. Normalize
+9. Crop در صورت امکان
+10. Quality Assessment
+
+انجام دهد.
+
+برای تصویر زبان:
+
+* Blur Detection
+* Brightness Detection
+* Exposure Detection
+* Resolution Check
+* Orientation Detection
+* Image Quality Score
+
+اضافه کن.
+
+اگر کیفیت تصویر مناسب نبود:
+
+به کاربر پیام بده که تصویر مجدداً ارسال شود.
+
+---
+
+# 9. فشرده‌سازی هوشمند
+
+سیستم باید الگوریتم فشرده‌سازی هوشمند داشته باشد.
+
+هدف:
+
+کاهش حجم بدون از بین رفتن Features مهم پزشکی.
+
+Original:
+
+برای Archive امن ذخیره شود.
+
+Compressed:
+
+برای شبکه
+
+AI Optimized:
+
+برای مدل
+
+Thumbnail:
+
+برای UI
+
+هر فایل باید:
+
+* checksum
+* hash
+* metadata
+* version
+* owner
+* creation date
+
+داشته باشد.
+
+---
+
+# 10. AI IMAGE PIPELINE
+
+AI Pipeline را به صورت مستقل و قابل تعویض طراحی کن.
+
+ساختار:
+
+Image Upload
+→ Validation
+→ Quality Assessment
+→ Preprocessing
+→ Feature Extraction
+→ AI Model
+→ Prediction
+→ Confidence
+→ Explainability
+→ Human Review
+→ Final Decision
+
+مدل AI نباید در Backend اصلی Hardcoded شود.
+
+یک Interface ایجاد کن:
+
+AIModelProvider
+
+تا بعداً بتوان مدل را تعویض کرد.
+
+مثلاً:
+
+TongueModelV1
+TongueModelV2
+TongueModelV3
+
+---
+
+# 11. سیستم یادگیری با مرور زمان
+
+سیستم باید قابلیت Continuous Improvement داشته باشد.
+
+برای هر بررسی:
+
+Input Image
+
+AI Prediction
+
+Expert 1 Result
+
+Expert 2 Result
+
+Doctor Result
+
+Final Result
+
+Outcome
+
+Follow-up
+
+در دیتابیس ذخیره شود.
+
+اما:
+
+مدل نباید مستقیماً و بدون کنترل روی داده جدید Training شود.
+
+یک Data Pipeline بساز:
+
+Collected Data
+→ Validation
+→ De-identification
+→ Quality Control
+→ Label Review
+→ Dataset Version
+→ Training
+→ Validation
+→ Model Evaluation
+→ Approval
+→ Deployment
+
+نسخه مدل نیز ذخیره شود:
+
+model_version
+
+training_dataset_version
+
+training_date
+
+metrics
+
+approval_status
+
+---
+
+# 12. Dataset Management
+
+یک سیستم داخلی برای Dataset Management طراحی کن.
+
+امکانات:
+
+* تصویر
+* Label
+* Expert Label
+* Final Label
+* Confidence
+* Disagreement
+* Review Status
+* Dataset Version
+
+اگر Expert 1 و Expert 2 اختلاف داشتند:
+
+Disagreement Flag ایجاد شود.
+
+---
+
+# 13. سیستم بیماری‌ها
+
+Admin بتواند:
+
+* بیماری ایجاد کند
+* بیماری ویرایش کند
+* بیماری غیرفعال کند
+* توضیحات
+* کد بیماری
+* دسته‌بندی
+* علائم
+* داروهای مرتبط
+* توضیحات کارشناسی
+
+را مدیریت کند.
+
+هر Disease باید:
+
+id
+name_fa
+name_en
+code
+category
+description
+active
+
+داشته باشد.
+
+---
+
+# 14. سیستم داروها / محصولات
+
+محصولات باید شامل:
+
+* نام فارسی
+* نام انگلیسی
+* برند
+* SKU
+* دسته‌بندی
+* تصویر
+* توضیحات
+* قیمت
+* قیمت خرید
+* قیمت فروش
+* موجودی
+* وضعیت
+* داروی بدون نسخه / نیازمند تأیید
+* نحوه مصرف
+* محدودیت‌ها
+
+باشند.
+
+---
+
+# 15. Import قیمت با Excel
+
+Admin بتواند Excel قیمت‌ها را Upload کند.
+
+System باید:
+
+1. فایل را validate کند
+2. ستون‌ها را شناسایی کند
+3. خطاها را نمایش دهد
+4. Preview ارائه کند
+5. قبل از Commit تأیید بگیرد
+6. قیمت‌های جدید را ثبت کند
+7. تاریخچه قیمت‌ها را نگهداری کند
+
+قابلیت:
+
+Increase All Prices +X%
+
+Decrease All Prices -X%
+
+نیز داشته باشد.
+
+مثال:
+
+قیمت محصولات → +10%
+
+اما هیچ قیمت قدیمی نباید از بین برود.
+
+---
+
+# 16. Prescription Engine
+
+نسخه باید Entity مستقل داشته باشد.
+
+ساختار:
+
+Prescription
+
+PrescriptionItem
+
+Drug/Product
+
+Dosage
+
+Frequency
+
+Duration
+
+Instructions
+
+Warnings
+
+Notes
+
+DoctorComment
+
+ExpertComment
+
+Status
+
+Version
+
+CreatedBy
+
+ApprovedBy
+
+CreatedAt
+
+UpdatedAt
+
+هر بار تغییر نسخه:
+
+Version جدید ایجاد شود.
+
+History حفظ شود.
+
+---
+
+# 17. Workflow Engine
+
+Workflow را Hardcoded نساز.
+
+یک Workflow Engine یا State Machine بساز.
+
+مثال Status:
+
+NEW
+
+WAITING_FOR_EXPERT_1
+
+EXPERT_1_REVIEW
+
+INITIAL_ASSESSMENT_READY
+
+WAITING_FOR_USER_APPROVAL
+
+WAITING_FOR_EXPERT_1_PRESCRIPTION
+
+WAITING_FOR_EXPERT_2
+
+WAITING_FOR_DOCTOR
+
+PRESCRIPTION_APPROVED
+
+PREPARING_ORDER
+
+PROFORMA_CREATED
+
+WAITING_FOR_USER_CONFIRMATION
+
+WAITING_FOR_PAYMENT
+
+PAYMENT_CONFIRMED
+
+PREPARING_SHIPMENT
+
+SHIPPED
+
+DELIVERED
+
+FOLLOW_UP
+
+REFERRED_AGAIN
+
+CLOSED
+
+CANCELLED
+
+هر تغییر Status باید:
+
+Actor
+
+Timestamp
+
+Previous Status
+
+New Status
+
+Reason
+
+Comment
+
+را ذخیره کند.
+
+---
+
+# 18. سیستم صف کارشناسان
+
+پرونده‌ها باید در Queue قرار بگیرند.
+
+امکانات:
+
+* صف انتظار
+* اولویت
+* زمان انتظار
+* SLA
+* تخصیص به کارشناس
+* Reassign
+* Claim
+* Release
+* Escalation
+
+داشبورد:
+
+Waiting
+In Progress
+Completed
+Overdue
+
+---
+
+# 19. کارشناس اولیه
+
+امکانات:
+
+* مشاهده پرونده‌های بدون اقدام
+* مشاهده تصاویر
+* مشاهده شرح حال
+* ویرایش شرح حال با Audit
+* اضافه کردن تصویر پزشکی
+* مشاهده نتایج قبلی
+* ثبت بیماری‌ها
+* کامنت
+* تعیین تشخیص اولیه
+* تعیین نسخه
+* ویرایش نسخه
+* دستورالعمل مصرف
+* صوت
+* متن
+* تعیین مدت ارجاع مجدد
+* تدابیر غذایی
+* مشاهده نسخه‌های قبلی
+* مشاهده تاریخچه درمان
+
+گزارش:
+
+روزانه
+هفتگی
+ماهانه
+
+---
+
+# 20. اپراتور
+
+امکانات:
+
+* Dashboard
+* پرونده‌های بدون اقدام
+* پیگیری کاربران
+* SMS History
+* پیش‌فاکتور
+* پرداخت‌ها
+* تحویل
+* تیکت‌ها
+* ارجاع به کارشناسان
+* تماس با کارشناسان
+* وضعیت بیماران
+* ثبت بیماری
+* پیگیری درمان
+* مدیریت محصولات
+* تغییر قیمت
+* تخفیف
+* کارت‌به‌کارت
+* تأیید پرداخت
+* سفارش‌های بدون نسخه
+* داروهای بدون نسخه
+* تماس‌ها
+* Follow-up
+
+سیستم باید Reminder خودکار برای پرونده‌های بدون اقدام ایجاد کند.
+
+---
+
+# 21. کارشناس دوم
+
+امکانات:
+
+* مشاهده Queue
+* مشاهده پرونده
+* بررسی نتیجه Expert 1
+* تعیین نسخه
+* ویرایش نسخه
+* دستور مصرف
+* تعیین قیمت
+* تعیین اقلام موجود
+* تعیین اقلام ناقص
+* ارسال برای Doctor
+* دریافت کامنت Doctor
+* ایجاد Pre-Invoice
+* ارسال برای User
+* مشاهده پرداخت
+* تعیین وضعیت ارسال
+* ثبت اطلاعات ارسال
+* گزارش‌گیری
+* Dynamic Filtering
+* مشاهده Notifications
+* مشاهده Tickets
+* مشاهده روند درمان
+
+---
+
+# 22. دکتر
+
+Doctor Dashboard:
+
+* درخواست‌های در انتظار تأیید
+* پرونده بیمار
+* نسخه
+* پیشنهادهای کارشناسان
+* کامنت
+* Approve
+* Reject
+* Request Revision
+* Ticket
+* History
+
+تمام عملیات Doctor باید Audit Log داشته باشد.
+
+---
+
+# 23. پنل کاربر
+
+کاربر باید بتواند:
+
+* پروفایل
+* پرونده سلامت
+* تصاویر
+* مزاج‌شناسی
+* نتیجه ارزیابی
+* تشخیص/ارزیابی اولیه
+* تأیید ادامه درمان
+* نسخه
+* دستور مصرف
+* پیش‌فاکتور
+* تأیید پیش‌فاکتور
+* پرداخت
+* آپلود رسید کارت‌به‌کارت
+* مشاهده سفارش
+* پیگیری ارسال
+* تیکت
+* Feedback
+* داروهای بدون نسخه
+* سبد خرید
+* خرید
+* مشاهده تاریخچه
+* کد معرف
+
+را مدیریت کند.
+
+---
+
+# 24. سیستم فروشگاه
+
+ایجاد:
+
+Product Catalog
+
+Search
+
+Filter
+
+Category
+
+Brand
+
+Disease
+
+Price
+
+Availability
+
+OTC
+
+Cart
+
+Order
+
+OrderItem
+
+Discount
+
+Coupon
+
+Referral
+
+Invoice
+
+Payment
+
+Shipment
+
+---
+
+# 25. جستجو
+
+جستجوی:
+
+* محصول
+* برند
+* بیماری
+* مزاج
+* دسته‌بندی
+
+وجود داشته باشد.
+
+Search فارسی باید به درستی کار کند.
+
+Normalization فارسی:
+
+ی / ي
+
+ک / ك
+
+اعداد فارسی / انگلیسی
+
+نیم‌فاصله
+
+توکن‌سازی
+
+باید مدیریت شود.
+
+---
+
+# 26. سفارش
+
+Order Status:
+
+CART
+
+PENDING_CONFIRMATION
+
+CONFIRMED
+
+PAYMENT_PENDING
+
+PAID
+
+PREPARING
+
+READY_TO_SHIP
+
+SHIPPED
+
+DELIVERED
+
+CANCELLED
+
+REFUNDED
+
+---
+
+# 27. پرداخت
+
+سیستم باید Payment abstraction داشته باشد.
+
+PaymentProvider interface
+
+تا در آینده Gateway قابل تعویض باشد.
+
+برای زرین‌پال Integration طراحی کن.
+
+همچنین:
+
+* Payment ID
+* Authority
+* Amount
+* Gateway
+* Status
+* Callback
+* Timestamp
+* Error
+* Reference Number
+
+ثبت شود.
+
+هر Payment باید Idempotent باشد.
+
+پرداخت تکراری نباید باعث ثبت سفارش دوباره شود.
+
+---
+
+# 28. کارت‌به‌کارت
+
+کاربر بتواند:
+
+* تصویر رسید
+* مبلغ
+* تاریخ
+* شماره پیگیری
+
+را ارسال کند.
+
+Operator بتواند:
+
+Approve
+Reject
+Request More Information
+
+انجام دهد.
+
+---
+
+# 29. سیستم ارسال
+
+Shipping Method:
+
+* Motorcycle
+* Car
+* Post
+
+فیلدها:
+
+driver_name
+
+driver_phone
+
+receiver_phone
+
+vehicle_type
+
+tracking_code
+
+postal_code
+
+shipment_cost
+
+shipping_date
+
+delivery_date
+
+status
+
+عکس/مدرک تحویل در صورت نیاز.
+
+---
+
+# 30. سیستم تیکت
+
+Ticket:
+
+User
+
+Subject
+
+Category
+
+Priority
+
+Status
+
+AssignedTo
+
+Messages
+
+Attachments
+
+Timestamp
+
+Status:
+
+OPEN
+
+IN_PROGRESS
+
+WAITING_USER
+
+WAITING_EXPERT
+
+RESOLVED
+
+CLOSED
+
+Ticket SLA و Notification داشته باشد.
+
+---
+
+# 31. Notification System
+
+Notification Engine بساز.
+
+Channels:
+
+* داخل سیستم
+* SMS
+* Email
+* Push در صورت نیاز
+
+Notification Eventها:
+
+ثبت‌نام
+
+تکمیل پرونده
+
+دریافت تصویر
+
+ارجاع به کارشناس
+
+آماده شدن نتیجه
+
+نیاز به تأیید کاربر
+
+نسخه
+
+تأیید Doctor
+
+پیش‌فاکتور
+
+پرداخت
+
+ارسال
+
+تحویل
+
+Follow-up
+
+ارجاع مجدد
+
+---
+
+# 32. SMS Log
+
+تمام پیامک‌ها ذخیره شوند:
+
+recipient
+
+template
+
+content
+
+provider
+
+status
+
+sent_at
+
+delivery_status
+
+error
+
+---
+
+# 33. Follow-up Engine
+
+برای کاربران تاریخ Follow-up تعریف شود.
+
+مثلاً:
+
+40 روز بعد
+
+سیستم Reminder ایجاد کند.
+
+Operator Dashboard:
+
+Due Today
+
+Overdue
+
+Upcoming
+
+Completed
+
+---
+
+# 34. سیستم مالی
+
+Admin باید بتواند مشاهده کند:
+
+* درآمد
+* فروش
+* هزینه
+* بدهکاران
+* بستانکاران
+* تسویه‌ها
+* پرداخت اپراتورها
+* حمل و نقل
+* سایر هزینه‌ها
+* پرداخت‌های موفق
+* پرداخت‌های ناموفق
+* Refund
+* سود تقریبی
+* گزارش مالی براساس تاریخ
+* گزارش مالی براساس کاربر
+* گزارش مالی براساس محصول
+* گزارش مالی براساس بازاریاب
+
+---
+
+# 35. گزارشات زرین‌پال
+
+داشبورد:
+
+Transactions
+
+Successful
+
+Failed
+
+Pending
+
+Refund
+
+Amount
+
+Date
+
+User
+
+Order
+
+Reference
+
+بررسی اختلاف تراکنش‌ها نیز وجود داشته باشد.
+
+---
+
+# 36. Referral System
+
+هنگام ثبت‌نام:
+
+Referral Code
+
+ثبت شود.
+
+Referral relationship:
+
+Referrer
+
+Referred User
+
+Orders
+
+Revenue
+
+Commission
+
+Status
+
+باشد.
+
+---
+
+# 37. Dashboard
+
+داشبوردها باید Dynamic باشند.
+
+Admin:
+
+Users
+
+Patients
+
+Cases
+
+Images
+
+Orders
+
+Sales
+
+Revenue
+
+Pending Cases
+
+Experts
+
+Doctors
+
+Payments
+
+Tickets
+
+Follow-ups
+
+Shipping
+
+Operator Costs
+
+---
+
+# 38. Dynamic Reports
+
+سیستم گزارش‌گیری قابل فیلتر بساز.
+
+فیلترها:
+
+User
+
+Doctor
+
+Expert
+
+Operator
+
+Disease
+
+Product
+
+Brand
+
+Date Range
+
+Status
+
+Payment
+
+Order
+
+Referral
+
+City
+
+Province
+
+Case Type
+
+امکان Export:
+
+Excel
+
+CSV
+
+PDF
+
+---
+
+# 39. تقویم شمسی
+
+در UI فارسی:
+
+تقویم شمسی
+
+در Backend:
+
+ترجیحاً DateTime استاندارد و timezone-aware ذخیره شود.
+
+در UI:
+
+Jalali/Persian Date
+
+پشتیبانی شود.
+
+تاریخ‌های ثبت‌شده هرگز با تبدیل اشتباه timezone یا تقویم خراب نشوند.
+
+---
+
+# 40. UI/UX
+
+UI باید کاملاً Professional باشد.
+
+Desktop
+
+Tablet
+
+Mobile
+
+Responsive
+
+RTL برای فارسی
+
+LTR برای انگلیسی
+
+Language switcher.
+
+Dark Mode در صورت مناسب بودن.
+
+Dashboardها باید اطلاعات را سریع نشان دهند.
+
+رنگ وضعیت‌ها:
+
+Pending
+
+In Progress
+
+Completed
+
+Overdue
+
+Cancelled
+
+Paid
+
+Unpaid
+
+Shipped
+
+Delivered
+
+با Status Color مشخص شوند.
+
+---
+
+# 41. Patient Timeline
+
+برای هر بیمار یک Timeline کامل بساز:
+
+Registration
+
+Questionnaire
+
+Image Upload
+
+AI Analysis
+
+Expert Review
+
+Diagnosis
+
+Prescription
+
+Doctor
+
+Invoice
+
+Payment
+
+Shipment
+
+Delivery
+
+Follow-up
+
+هر Event دارای:
+
+timestamp
+
+actor
+
+description
+
+status
+
+باشد.
+
+---
+
+# 42. Audit Log
+
+این بخش بسیار مهم است.
+
+برای عملیات حساس:
+
+Login
+
+Logout
+
+View Medical File
+
+Edit Patient
+
+Edit Diagnosis
+
+Edit Prescription
+
+Approve
+
+Reject
+
+Payment
+
+Price Change
+
+Delete
+
+Export
+
+Download Image
+
+باید:
+
+User
+
+IP
+
+Device
+
+Timestamp
+
+Action
+
+Entity
+
+Old Value
+
+New Value
+
+ثبت شود.
+
+اطلاعات حساس نباید در Log معمولی ذخیره شود.
+
+---
+
+# 43. امنیت
+
+امنیت را در سطح Production پیاده کن.
+
+موارد:
+
+* Password Hashing
+* JWT
+* Refresh Token Rotation
+* RBAC
+* Permission
+* CSRF protection در صورت نیاز
+* Rate Limiting
+* Brute Force Protection
+* Input Validation
+* SQL Injection Protection
+* XSS Protection
+* File Upload Security
+* MIME validation
+* Malware scanning architecture
+* Secure Headers
+* HTTPS
+* Secret Management
+* Encryption
+* Database access control
+* Object storage access control
+* Signed URLs
+* Expiring URLs
+* Audit Logs
+* Session management
+
+---
+
+# 44. Medical Data Security
+
+تصاویر و پرونده‌های کاربران اطلاعات بسیار حساس هستند.
+
+هرگز:
+
+* تصاویر را public نکن
+* URL مستقیم دائمی نده
+* تصاویر را بدون Authorization نمایش نده
+* اطلاعات سلامت را در URL قرار نده
+
+برای مشاهده تصاویر:
+
+Signed URL
+
+با expiration محدود استفاده کن.
+
+---
+
+# 45. API Design
+
+API استاندارد REST طراحی کن.
+
+نمونه:
+
+/api/v1/auth
+/api/v1/users
+/api/v1/patients
+/api/v1/questionnaires
+/api/v1/images
+/api/v1/ai
+/api/v1/diseases
+/api/v1/products
+/api/v1/prescriptions
+/api/v1/orders
+/api/v1/payments
+/api/v1/shipments
+/api/v1/tickets
+/api/v1/notifications
+/api/v1/reports
+/api/v1/audit-logs
+
+OpenAPI Documentation کامل تولید کن.
+
+---
+
+# 46. Background Jobs
+
+کارهای سنگین نباید Request را Block کنند.
+
+استفاده کن از:
+
+Celery + Redis/RabbitMQ
+
+برای:
+
+AI inference
+
+Image processing
+
+Compression
+
+SMS
+
+Email
+
+Reports
+
+Excel processing
+
+Payment reconciliation
+
+Follow-up reminders
+
+Notifications
+
+---
+
+# 47. Database
+
+Database را Normalize و حرفه‌ای طراحی کن.
+
+حداقل Entityها:
+
+User
+
+Role
+
+Permission
+
+PatientProfile
+
+Address
+
+Questionnaire
+
+Question
+
+Answer
+
+TongueImage
+
+FaceImage
+
+MedicalFile
+
+Disease
+
+Diagnosis
+
+Prescription
+
+PrescriptionItem
+
+Product
+
+ProductPriceHistory
+
+Inventory
+
+Order
+
+OrderItem
+
+Invoice
+
+Payment
+
+Shipment
+
+Ticket
+
+TicketMessage
+
+Notification
+
+Referral
+
+FollowUp
+
+AuditLog
+
+AIAnalysis
+
+AIModel
+
+Dataset
+
+DatasetVersion
+
+ExpertReview
+
+DoctorReview
+
+Expense
+
+FinancialTransaction
+
+SMSLog
+
+ContactLog
+
+---
+
+# 48. Soft Delete
+
+برای داده‌های مهم:
+
+Hard Delete ممنوع مگر موارد خاص.
+
+استفاده از:
+
+deleted_at
+
+و وضعیت Active/Inactive.
+
+---
+
+# 49. Backup
+
+Backup Strategy:
+
+Daily Database Backup
+
+Weekly Full Backup
+
+Image Backup
+
+Retention Policy
+
+Restore Test
+
+Disaster Recovery Documentation
+
+بساز.
+
+---
+
+# 50. Docker
+
+کل پروژه باید Dockerized باشد.
+
+حداقل:
+
+frontend
+
+backend
+
+worker
+
+scheduler
+
+postgres
+
+redis
+
+nginx
+
+و در صورت نیاز:
+
+object storage
+
+monitoring
+
+---
+
+# 51. Environment
+
+فایل:
+
+.env.example
+
+بساز.
+
+Secrets نباید Commit شوند.
+
+مثلاً:
+
+DATABASE_URL
+
+REDIS_URL
+
+JWT_SECRET
+
+STORAGE_ENDPOINT
+
+STORAGE_KEY
+
+STORAGE_SECRET
+
+ZARINPAL_MERCHANT_ID
+
+SMS_PROVIDER_KEY
+
+OPENAI/AI_PROVIDER_KEY
+
+و غیره.
+
+---
+
+# 52. GitHub
+
+Repository را به صورت حرفه‌ای آماده کن.
+
+ساختار پیشنهادی:
+
+/frontend
+/backend
+/worker
+/infrastructure
+/docs
+/scripts
+/tests
+/.github
+
+و فایل‌های:
+
+README.md
+
+ARCHITECTURE.md
+
+API.md
+
+DEPLOYMENT.md
+
+SECURITY.md
+
+DATABASE.md
+
+AI.md
+
+TESTING.md
+
+CONTRIBUTING.md
+
+CHANGELOG.md
+
+.env.example
+
+docker-compose.yml
+
+Dockerfile
+
+---
+
+# 53. Git Strategy
+
+Commitها باید منطقی باشند.
+
+مثلاً:
+
+feat(auth)
+
+feat(patient)
+
+feat(ai-pipeline)
+
+feat(prescription)
+
+feat(order)
+
+feat(payment)
+
+feat(shipping)
+
+fix(image-validation)
+
+test(payment)
+
+docs(deployment)
+
+از Commitهای مبهم مانند:
+
+update
+
+test
+
+final
+
+استفاده نکن.
+
+---
+
+# 54. Testing
+
+قبل از تحویل، پروژه باید تست شود.
+
+Unit Tests
+
+Integration Tests
+
+API Tests
+
+Security Tests
+
+Permission Tests
+
+Database Tests
+
+File Upload Tests
+
+Image Processing Tests
+
+Payment Tests
+
+Workflow Tests
+
+Order Tests
+
+Notification Tests
+
+Regression Tests
+
+End-to-End Tests
+
+برای Frontend نیز تست بنویس.
+
+---
+
+# 55. تست Workflow
+
+این سناریوی End-to-End حتماً تست شود:
+
+User Registration
+
+→ Questionnaire
+
+→ Image Upload
+
+→ AI Processing
+
+→ Expert 1
+
+→ Initial Assessment
+
+→ User Approval
+
+→ Prescription 1
+
+→ Expert 2
+
+→ Prescription 2
+
+→ Doctor
+
+→ Approval
+
+→ Order Preparation
+
+→ Proforma
+
+→ User Confirmation
+
+→ Payment
+
+→ Shipment
+
+→ Delivery
+
+→ Follow-up
+
+---
+
+# 56. Failure Handling
+
+برای هر بخش Failure Scenario تعریف کن.
+
+مثلاً:
+
+AI Failure
+
+Payment Failure
+
+SMS Failure
+
+Image Upload Failure
+
+Storage Failure
+
+Database Failure
+
+Worker Failure
+
+Network Failure
+
+Duplicate Payment
+
+Duplicate Order
+
+Callback دوباره
+
+کاربر همزمان چند بار کلیک کند
+
+دو کارشناس یک پرونده را همزمان باز کنند
+
+برای همه آنها:
+
+Idempotency
+
+Locking
+
+Retry
+
+Dead Letter
+
+Error Recovery
+
+پیاده کن.
+
+---
+
+# 57. Observability
+
+سیستم باید Health Endpoint داشته باشد:
+
+/health
+
+/readiness
+
+/liveness
+
+Monitoring برای:
+
+CPU
+
+Memory
+
+Disk
+
+Database
+
+Queue
+
+Worker
+
+API latency
+
+Error rate
+
+AI latency
+
+Storage
+
+Payment
+
+---
+
+# 58. Performance
+
+سیستم باید برای رشد آینده طراحی شود.
+
+از ابتدا قابلیت:
+
+Horizontal Scaling
+
+داشته باشد.
+
+Frontend
+
+Backend
+
+Worker
+
+به صورت مستقل قابل Scale باشند.
+
+---
+
+# 59. Privacy / Compliance Architecture
+
+با توجه به ماهیت سلامت:
+
+Privacy by Design
+
+پیاده شود.
+
+سیستم باید قابلیت:
+
+Data Export
+
+Data Deletion Request
+
+Data Access Log
+
+Consent Management
+
+Privacy Policy Acceptance
+
+Terms Acceptance
+
+را داشته باشد.
+
+قبل از Deployment واقعی، الزامات حقوقی کشور محل ارائه خدمات، حفاظت از داده و مقررات پزشکی باید توسط متخصص حقوقی/Regulatory بررسی شوند. این موضوع را در Documentation به عنوان Production Checklist قرار بده.
+
+---
+
+# 60. AI Evaluation
+
+برای AI صرفاً Accuracy گزارش نکن.
+
+حداقل:
+
+Accuracy
+
+Precision
+
+Recall
+
+F1
+
+Confusion Matrix
+
+Sensitivity
+
+Specificity
+
+Calibration
+
+Per-class performance
+
+Dataset imbalance
+
+را بررسی کن.
+
+همچنین:
+
+Train / Validation / Test Split
+
+و جلوگیری از Data Leakage.
+
+---
+
+# 61. AI Versioning
+
+هر Prediction باید بداند با کدام مدل انجام شده:
+
+model_id
+
+model_version
+
+dataset_version
+
+preprocessing_version
+
+timestamp
+
+confidence
+
+threshold
+
+باشد.
+
+---
+
+# 62. Explainability
+
+هر خروجی AI تا حد امکان شامل دلیل/Feature/Visualization مناسب باشد.
+
+اما هر Explanation نباید به عنوان اثبات قطعی پزشکی نمایش داده شود.
+
+---
+
+# 63. جلوگیری از Leakage
+
+تصاویر یک بیمار نباید به شکل اشتباه همزمان در Train و Test قرار بگیرند.
+
+Dataset Split باید Patient-Level باشد، نه صرفاً Image-Level.
+
+---
+
+# 64. Admin Controls
+
+Admin بتواند:
+
+* Users
+* Roles
+* Permissions
+* Diseases
+* Products
+* Prices
+* Discounts
+* Questionnaires
+* Orders
+* Payments
+* Expenses
+* Reports
+* Experts
+* Doctors
+* Operators
+* Notifications
+* SMS Templates
+* Referral Rules
+* Workflow Settings
+* AI Settings
+
+را مدیریت کند.
+
+---
+
+# 65. Pricing Rules
+
+سیستم باید قابلیت:
+
+Fixed Price
+
+Percentage Increase
+
+Percentage Discount
+
+Coupon
+
+Bulk Update
+
+Price History
+
+را داشته باشد.
+
+تمام تغییرات قیمت Audit شوند.
+
+---
+
+# 66. Prescription Restrictions
+
+محصولات یا داروهایی که نیازمند تأیید متخصص هستند، نباید بدون Workflow لازم خریداری شوند.
+
+محصولات مجاز برای فروش بدون نسخه باید جداگانه تعریف شوند.
+
+---
+
+# 67. Search Engine
+
+برای Search بزرگ‌تر:
+
+در صورت نیاز PostgreSQL Full Text Search یا Elasticsearch/OpenSearch را بررسی کن.
+
+اما تا زمانی که نیاز واقعی وجود ندارد، معماری را بیش از حد پیچیده نکن.
+
+---
+
+# 68. Multi-Tenant Readiness
+
+حتی اگر نسخه اول Single Organization است، Database و Architecture را طوری طراحی کن که در آینده Multi-Tenant شدن ممکن باشد.
+
+---
+
+# 69. Internationalization
+
+تمام متن‌ها را Hardcode نکن.
+
+از i18n استفاده کن.
+
+Persian
+
+English
+
+را از ابتدا پشتیبانی کن.
+
+---
+
+# 70. Accessibility
+
+UI حداقل:
+
+Keyboard navigation
+
+Readable fonts
+
+Proper contrast
+
+ARIA
+
+Responsive
+
+را رعایت کند.
+
+---
+
+# 71. Local Development
+
+پروژه باید با یک دستور قابل اجرا باشد.
+
+مثلاً:
+
+docker compose up -d
+
+یا اسکریپت مشخص:
+
+./scripts/dev.sh
+
+بعد از بالا آمدن:
+
+Frontend
+
+Backend
+
+Database
+
+Redis
+
+Workers
+
+قابل استفاده باشند.
+
+---
+
+# 72. VSCode
+
+پروژه را برای VSCode آماده کن.
+
+بساز:
+
+.vscode/settings.json
+
+.vscode/extensions.json
+
+.vscode/launch.json
+
+.vscode/tasks.json
+
+همچنین Debug configuration برای:
+
+FastAPI
+
+Worker
+
+Tests
+
+Frontend
+
+در نظر بگیر.
+
+---
+
+# 73. Seed Data
+
+Development seed ایجاد کن:
+
+Admin
+
+Expert1
+
+Operator
+
+Expert2
+
+Doctor
+
+Demo User
+
+Demo diseases
+
+Demo products
+
+Demo questionnaire
+
+اما اطلاعات واقعی بیمار هرگز وارد Seed نشود.
+
+---
+
+# 74. Documentation
+
+Documentation فقط توضیح سطحی نباشد.
+
+برای هر بخش:
+
+Architecture
+
+Installation
+
+Environment Variables
+
+Database
+
+API
+
+Authentication
+
+RBAC
+
+AI
+
+Image Pipeline
+
+Payment
+
+Shipping
+
+Testing
+
+Deployment
+
+Backup
+
+Monitoring
+
+Troubleshooting
+
+را بنویس.
+
+---
+
+# 75. Deployment
+
+یک Production Deployment قابل اجرا برای Linux Server آماده کن.
+
+شامل:
+
+Docker Compose Production
+
+Nginx
+
+SSL
+
+Domain
+
+Firewall
+
+Backup
+
+Logging
+
+Monitoring
+
+Environment
+
+Database Migration
+
+Rollback
+
+باشد.
+
+---
+
+# 76. CI/CD
+
+GitHub Actions بساز.
+
+Pipeline:
+
+Lint
+
+Type Check
+
+Unit Tests
+
+Integration Tests
+
+Security Scan
+
+Build
+
+Docker Build
+
+Deploy
+
+Health Check
+
+Rollback
+
+در صورت Fail شدن Pipeline، Deployment متوقف شود.
+
+---
+
+# 77. Security Scanning
+
+حداقل در CI:
+
+Dependency vulnerability scan
+
+Container scan
+
+Secret detection
+
+SAST
+
+را فعال کن.
+
+---
+
+# 78. Database Migration
+
+از migration framework استفاده کن.
+
+مثلاً Alembic.
+
+هیچ تغییر Schema دستی و بدون Migration انجام نشود.
+
+---
+
+# 79. Concurrency
+
+این موارد باید دقیقاً کنترل شوند:
+
+دو کارشناس یک پرونده را Claim کنند.
+
+دو پرداخت ثبت شود.
+
+دو سفارش ساخته شود.
+
+قیمت همزمان تغییر کند.
+
+نسخه همزمان ویرایش شود.
+
+از:
+
+Transaction
+
+Unique Constraints
+
+Optimistic/Pessimistic Locking
+
+Idempotency
+
+استفاده کن.
+
+---
+
+# 80. UX برای کارشناسان
+
+صف کارشناسان باید بسیار سریع باشد.
+
+در صفحه پرونده:
+
+سمت چپ:
+
+Patient Summary
+
+سمت وسط:
+
+Images + AI
+
+سمت راست:
+
+Diagnosis / Prescription / Actions
+
+در پایین:
+
+Timeline
+
+History
+
+Tickets
+
+---
+
+# 81. AI Human Review Interface
+
+صفحه‌ای طراحی کن که Expert بتواند:
+
+تصویر اصلی
+
+تصویر پردازش‌شده
+
+AI Prediction
+
+Confidence
+
+Disease Candidates
+
+را ببیند.
+
+سپس:
+
+Accept
+
+Modify
+
+Reject
+
+و Comment کند.
+
+---
+
+# 82. Data Feedback Loop
+
+بعد از Follow-up:
+
+Outcome
+
+Improved
+
+No Change
+
+Worsened
+
+Unknown
+
+ثبت شود.
+
+این Outcome برای Dataset آینده مورد استفاده قرار گیرد.
+
+---
+
+# 83. جلوگیری از خودآموزی خطرناک
+
+سیستم نباید به صورت خودکار هر Feedback را حقیقت قطعی تلقی کند.
+
+Feedback باید:
+
+Reviewed
+
+Validated
+
+Labelled
+
+شود.
+
+---
+
+# 84. کیفیت کدنویسی
+
+کد باید:
+
+Readable
+
+Typed
+
+Modular
+
+Testable
+
+Maintainable
+
+Secure
+
+باشد.
+
+از:
+
+God Object
+
+Huge Files
+
+Duplicate Logic
+
+Hardcoded Credentials
+
+Magic Numbers
+
+Unnecessary Dependencies
+
+تا حد امکان جلوگیری کن.
+
+---
+
+# 85. API Contract
+
+هم Backend و هم Frontend باید براساس API Contract هماهنگ شوند.
+
+Breaking Change بدون Versioning انجام نشود.
+
+---
+
+# 86. Error Response
+
+Error format استاندارد:
+
+code
+
+message
+
+details
+
+request_id
+
+timestamp
+
+باشد.
+
+---
+
+# 87. Request ID
+
+هر Request یک:
+
+request_id
+
+داشته باشد.
+
+Request ID در Logها قابل Trace باشد.
+
+---
+
+# 88. Logging
+
+Logها Structured JSON باشند.
+
+سطوح:
+
+DEBUG
+
+INFO
+
+WARNING
+
+ERROR
+
+CRITICAL
+
+اطلاعات حساس در Log ذخیره نشوند.
+
+---
+
+# 89. Rate Limiting
+
+برای:
+
+Login
+
+OTP
+
+Image Upload
+
+API
+
+Payment
+
+Ticket
+
+محدودیت مناسب ایجاد کن.
+
+---
+
+# 90. File Security
+
+برای Upload:
+
+* extension validation
+* MIME validation
+* content sniffing
+* file size limit
+* image decode validation
+* random storage filename
+
+انجام شود.
+
+نام فایل کاربر مستقیماً وارد filesystem نشود.
+
+---
+
+# 91. Data Retention
+
+Retention Policy قابل تنظیم باشد.
+
+اما برای داده‌های پزشکی و قانونی قبل از فعال‌سازی حذف خودکار، الزامات حقوقی بررسی شود.
+
+---
+
+# 92. Final Deliverables
+
+در پایان باید این موارد وجود داشته باشد:
+
+1. Source Code کامل
+2. Frontend
+3. Backend
+4. Worker
+5. Database
+6. AI Architecture
+7. Docker
+8. CI/CD
+9. Tests
+10. Documentation
+11. Deployment Files
+12. VSCode Configuration
+13. GitHub Repository Structure
+14. Seed Data
+15. Database Migrations
+16. Security Configuration
+17. Monitoring
+18. Backup
+19. API Documentation
+
+---
+
+# 93. GitHub Repository
+
+پروژه را به صورت تمیز در Git Repository سازماندهی کن.
+
+قبل از Commit نهایی:
+
+* Secrets را حذف کن
+* .env را Commit نکن
+* Build artifacts را Commit نکن
+* Cache را Commit نکن
+* Temporary files را حذف کن
+
+.gitignore حرفه‌ای بساز.
+
+---
+
+# 94. Local VSCode Validation
+
+قبل از اعلام اتمام پروژه، پروژه باید در محیط Local بررسی شود.
+
+Validation:
+
+docker compose build
+
+docker compose up
+
+database migration
+
+seed
+
+backend health
+
+frontend
+
+login
+
+workflow
+
+upload
+
+AI mock/inference
+
+order
+
+payment mock
+
+shipping
+
+reports
+
+tests
+
+را اجرا کن.
+
+هر خطایی پیدا کردی:
+
+خودت اصلاح کن.
+
+---
+
+# 95. Production Readiness Checklist
+
+قبل از تحویل:
+
+[ ] Security
+
+[ ] Database
+
+[ ] Backup
+
+[ ] Monitoring
+
+[ ] Logging
+
+[ ] Error Handling
+
+[ ] API
+
+[ ] Frontend
+
+[ ] Mobile
+
+[ ] AI
+
+[ ] Payment
+
+[ ] SMS
+
+[ ] Shipping
+
+[ ] Reports
+
+[ ] RBAC
+
+[ ] Audit
+
+[ ] Performance
+
+[ ] CI/CD
+
+[ ] Docker
+
+[ ] Nginx
+
+[ ] SSL
+
+[ ] Disaster Recovery
+
+[ ] Documentation
+
+همه بررسی شوند.
+
+---
+
+# 96. حالت کار تو
+
+تو اجازه نداری در میانه پروژه صرفاً بگویی:
+
+"اینجا باید پیاده‌سازی شود"
+
+یا
+
+"بعداً می‌توان این قسمت را ساخت."
+
+هر قابلیت اصلی باید واقعاً Implementation شود یا اگر وابسته به سرویس/کلید خارجی است، Adapter واقعی + Mock قابل اجرا داشته باشد.
+
+---
+
+# 97. اصل مهم در تصمیم‌گیری
+
+هر جا ابهام وجود دارد:
+
+1. بهترین تصمیم مهندسی را بگیر.
+2. تصمیم را در ARCHITECTURE.md ثبت کن.
+3. پروژه را متوقف نکن.
+4. از اضافه کردن پیچیدگی غیرضروری خودداری کن.
+
+---
+
+# 98. حالت توسعه مرحله‌ای
+
+پروژه را در Milestoneهای مشخص بساز:
+
+Milestone 1
+Architecture + Infrastructure
+
+Milestone 2
+Authentication + RBAC
+
+Milestone 3
+Patient + Questionnaire
+
+Milestone 4
+Image Pipeline
+
+Milestone 5
+AI Pipeline
+
+Milestone 6
+Expert 1
+
+Milestone 7
+Expert 2
+
+Milestone 8
+Doctor
+
+Milestone 9
+Products + Prescription
+
+Milestone 10
+Order + Invoice
+
+Milestone 11
+Payment
+
+Milestone 12
+Shipping
+
+Milestone 13
+Tickets + Notifications
+
+Milestone 14
+Reports + Finance
+
+Milestone 15
+Security + Audit
+
+Milestone 16
+Testing
+
+Milestone 17
+Deployment
+
+Milestone 18
+Production Hardening
+
+---
+
+# 99. AI Model Development Strategy
+
+اگر مدل واقعی تشخیص هنوز وجود ندارد:
+
+سیستم را با Mock AI Provider بساز.
+
+اما معماری را طوری طراحی کن که بعداً بتوان:
+
+* مدل Local
+* GPU Server
+* Cloud API
+* Custom PyTorch Model
+
+را بدون تغییر اساسی در Backend جایگزین کرد.
+
+---
+
+# 100. بسیار مهم: عدم جعل نتایج پزشکی
+
+در محیط Demo یا Development هرگز نتیجه ساختگی پزشکی را به عنوان نتیجه واقعی نشان نده.
+
+از:
+
+DEMO / SIMULATED / NOT MEDICAL RESULT
+
+استفاده کن.
+
+---
+
+# 101. هدف نهایی
+
+هدف این نیست که یک Demo ساخته شود.
+
+هدف ساخت یک:
+
+Production-Grade AI Healthcare Platform
+
+است که بتوان آن را روی سرور واقعی Deploy کرد و بعداً توسعه داد.
+
+---
+
+# 102. نحوه گزارش کار
+
+بعد از هر Milestone گزارش بده:
+
+Completed
+
+Files Created
+
+Files Modified
+
+Tests
+
+Bugs Found
+
+Bugs Fixed
+
+Remaining Risks
+
+Next Milestone
+
+اما از توضیحات غیرضروری خودداری کن و تمرکز را روی اجرای واقعی پروژه قرار بده.
+
+---
+
+# 103. معیار اتمام
+
+پروژه زمانی Complete محسوب می‌شود که:
+
+1. Backend اجرا شود.
+2. Frontend اجرا شود.
+3. Database Migration کار کند.
+4. Login کار کند.
+5. RBAC کار کند.
+6. کاربر بتواند پرونده ایجاد کند.
+7. Questionnaire کار کند.
+8. تصویر آپلود شود.
+9. Image Processing کار کند.
+10. AI Pipeline کار کند.
+11. Expert 1 کار کند.
+12. Expert 2 کار کند.
+13. Doctor کار کند.
+14. Prescription کار کند.
+15. Products کار کنند.
+16. Cart کار کند.
+17. Order کار کند.
+18. Invoice کار کند.
+19. Payment Flow کار کند.
+20. Shipment کار کند.
+21. Follow-up کار کند.
+22. Notifications کار کند.
+23. Tickets کار کند.
+24. Reports کار کنند.
+25. Audit Log کار کند.
+26. Tests سبز باشند.
+27. Docker Build موفق باشد.
+28. CI/CD موفق باشد.
+29. Security Scan خطای بحرانی نداشته باشد.
+30. Deployment Documentation کامل باشد.
+
+---
+
+# 104. دستور نهایی
+
+از همین حالا کار را شروع کن.
+
+اول Architecture و Repository Structure را طراحی کن.
+
+سپس Infrastructure را ایجاد کن.
+
+سپس Backend و Database.
+
+سپس Frontend.
+
+سپس Workflow.
+
+سپس AI Pipeline.
+
+سپس Payment / Order / Shipping.
+
+سپس Testing.
+
+سپس Security.
+
+سپس CI/CD.
+
+سپس Production Deployment.
+
+در هر مرحله:
+
+* کد واقعی تولید کن.
+* فایل‌ها را ایجاد کن.
+* تست اجرا کن.
+* خطاها را اصلاح کن.
+* وابستگی‌ها را بررسی کن.
+* Documentation را به‌روز کن.
+
+هرجا امکان بهبود معماری وجود دارد، آن را اعمال کن.
+
+از ایجاد کد نمایشی و بلااستفاده خودداری کن.
+
+در پایان Repository باید به شکلی باشد که یک Developer دیگر بتواند آن را Clone کند، Environment را تنظیم کند، Docker را اجرا کند و پروژه را بالا بیاورد.
+
+مهم‌ترین اصل:
+
+**BUILD → TEST → FIX → SECURITY CHECK → DOCUMENT → CONTINUE**
+
+نه اینکه فقط توضیح بدهی چه چیزی باید ساخته شود.
