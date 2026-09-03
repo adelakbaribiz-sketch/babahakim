@@ -1,5 +1,5 @@
 'use client'
-// TongueCheck (تنگ‌چک) — bilingual AI tongue-diagnosis platform
+// BabaHakim (babahakim / باباحکیم) — bilingual AI tongue-diagnosis platform
 // Single-page app with client-side view routing (all users land on /)
 import React from 'react'
 import { AppProvider, useApp } from '@/contexts/app'

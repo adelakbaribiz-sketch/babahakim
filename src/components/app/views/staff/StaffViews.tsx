@@ -39,8 +39,8 @@ export function StaffDashboard({ navigate }: { navigate: (p: string, params?: Re
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard title={lang === 'fa' ? 'کل پرونده‌ها' : 'Total cases'} value={s.totalCases} icon={<FolderOpen size={18} />} />
         {role === 'EXPERT_1' && <StatCard title={lang === 'fa' ? 'در صف شما' : 'In your queue'} value={s.pendingExpert1} icon={<ListChecks size={18} />} tone="bg-amber-500/10 text-amber-600" />}
-        {role === 'EXPERT_2' && <StatCard title={lang === 'fa' ? 'در انتظار بازبینی' : 'Awaiting review'} value={s.pendingExpert2} icon={<ListChecks size={18} />} tone="bg-teal-500/10 text-teal-600" />}
-        {role === 'DOCTOR' && <StatCard title={lang === 'fa' ? 'در انتظار تأیید' : 'Awaiting approval'} value={s.pendingDoctor} icon={<Stethoscope size={18} />} tone="bg-cyan-500/10 text-cyan-600" />}
+        {role === 'EXPERT_2' && <StatCard title={lang === 'fa' ? 'در انتظار بازبینی' : 'Awaiting review'} value={s.pendingExpert2} icon={<ListChecks size={18} />} tone="bg-[#57AFE2]/15 text-[#173F76] dark:text-[#57AFE2]" />}
+        {role === 'DOCTOR' && <StatCard title={lang === 'fa' ? 'در انتظار تأیید' : 'Awaiting approval'} value={s.pendingDoctor} icon={<Stethoscope size={18} />} tone="bg-[#173F76]/10 text-[#173F76] dark:bg-[#57AFE2]/15 dark:text-[#57AFE2]" />}
         {(role === 'OPERATOR' || role === 'ADMIN') && <>
           <StatCard title={lang === 'fa' ? 'در انتظار پرداخت' : 'Awaiting payment'} value={s.awaitingPayment} icon={<CreditCard size={18} />} tone="bg-rose-500/10 text-rose-600" />
           <StatCard title={lang === 'fa' ? 'پیش‌فاکتور' : 'Proformas'} value={s.proformas} icon={<Hourglass size={18} />} />
@@ -49,7 +49,7 @@ export function StaffDashboard({ navigate }: { navigate: (p: string, params?: Re
         <StatCard title={lang === 'fa' ? 'بیماران' : 'Patients'} value={s.totalPatients} icon={<Users size={18} />} />
         <StatCard title={lang === 'fa' ? 'تیکت‌های باز' : 'Open tickets'} value={s.openTickets} icon={<Bell size={18} />} tone="bg-amber-500/10 text-amber-600" />
         <StatCard title={lang === 'fa' ? 'پیگیری فعال' : 'Follow-ups'} value={s.followups} icon={<ScanHeart size={18} />} />
-        {(role === 'ADMIN' || role === 'OPERATOR' || role === 'EXPERT_2') && <StatCard title={t('revenue')} value={fmtMoney(s.revenue || 0, lang)} icon={<BarChart3 size={18} />} tone="bg-emerald-500/10 text-emerald-600" />}
+        {(role === 'ADMIN' || role === 'OPERATOR' || role === 'EXPERT_2') && <StatCard title={t('revenue')} value={fmtMoney(s.revenue || 0, lang)} icon={<BarChart3 size={18} />} tone="bg-[#57AFE2]/15 text-[#173F76] dark:text-[#57AFE2]" />}
       </div>
 
       <div className="grid lg:grid-cols-3 gap-5">
@@ -221,7 +221,7 @@ export function PaymentsVerifyPage() {
                 {p.status === 'AWAITING_VERIFY' && (
                   <div className="flex gap-2 ms-2">
                     {p.receiptUrl && <Button size="sm" variant="outline" onClick={() => setSel(p)}>{t('receipt')}</Button>}
-                    <Button size="sm" className="gap-1 bg-emerald-600 hover:bg-emerald-700" onClick={() => verify(p.id, 'APPROVE')}><CheckCircle2 size={14} /></Button>
+                    <Button size="sm" className="btn-brand-hover gap-1" onClick={() => verify(p.id, 'APPROVE')}><CheckCircle2 size={14} /></Button>
                     <Button size="sm" variant="outline" className="text-rose-600 gap-1" onClick={() => verify(p.id, 'REJECT', 'رسید نامعتبر')}><XCircle size={14} /></Button>
                   </div>
                 )}
@@ -242,7 +242,7 @@ export function PaymentsVerifyPage() {
             {sel.receiptUrl && <img src={sel.receiptUrl} alt="receipt" className="w-full rounded-lg" />}
             {!sel.receiptUrl && <div className="text-sm text-muted-foreground">رسید تصویری ارسال نشده — شماره پیگیری: {sel.trackingCode || '—'}</div>}
             <div className="flex gap-2 mt-3">
-              <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 gap-1" onClick={() => verify(sel.id, 'APPROVE')}><CheckCircle2 size={14} />{t('confirm')}</Button>
+              <Button className="flex-1 btn-brand-hover gap-1" onClick={() => verify(sel.id, 'APPROVE')}><CheckCircle2 size={14} />{t('confirm')}</Button>
               <Button variant="outline" className="flex-1 text-rose-600 gap-1" onClick={() => verify(sel.id, 'REJECT', 'رسید نامعتبر')}><XCircle size={14} />{t('reject')}</Button>
             </div>
           </div>
@@ -287,7 +287,7 @@ export function ShipmentsPage() {
                 {s.trackingCode && <span className="text-xs text-muted-foreground" dir="ltr">#: {s.trackingCode}</span>}
                 <span className="tabular-nums text-xs text-muted-foreground"><Money amount={s.cost} /></span>
                 <div className="ms-auto flex gap-2">
-                  {s.status === 'SHIPPED' && <Button size="sm" className="gap-1 bg-emerald-600 hover:bg-emerald-700" onClick={() => update(s.id, 'DELIVERED')}><Package size={13} />{lang === 'fa' ? 'تحویل شد' : 'Delivered'}</Button>}
+                  {s.status === 'SHIPPED' && <Button size="sm" className="btn-brand-hover gap-1" onClick={() => update(s.id, 'DELIVERED')}><Package size={13} />{lang === 'fa' ? 'تحویل شد' : 'Delivered'}</Button>}
                   {s.status === 'PREPARING' && <Button size="sm" onClick={() => update(s.id, 'SHIPPED')}><Truck size={13} />{lang === 'fa' ? 'ارسال شد' : 'Ship'}</Button>}
                 </div>
               </CardContent>

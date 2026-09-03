@@ -97,7 +97,7 @@ export function CaseWorkspace({ caseId, onChanged }: { caseId: string; onChanged
               <p className="text-sm leading-relaxed whitespace-pre-wrap">{data.description || '—'}</p>
               <Separator />
               <div className="flex flex-wrap gap-2 text-xs">
-                {data.mizajSnapshot && <Badge className="bg-teal-600 text-white">{t('mizaj')}: {lang === 'fa' ? data.mizajSnapshot.mizajFa : data.mizajSnapshot.mizajEn}</Badge>}
+                {data.mizajSnapshot && <Badge className="bg-[#173F76] text-white">{t('mizaj')}: {lang === 'fa' ? data.mizajSnapshot.mizajFa : data.mizajSnapshot.mizajEn}</Badge>}
                 {data.patientProfile?.heightCm && <Badge variant="outline">{data.patientProfile.heightCm} cm</Badge>}
                 {data.patientProfile?.weightKg && <Badge variant="outline">{data.patientProfile.weightKg} kg</Badge>}
                 {data.patientProfile?.province && <Badge variant="outline">{data.patientProfile.province}{data.patientProfile.city ? ` / ${data.patientProfile.city}` : ''}</Badge>}
@@ -145,7 +145,7 @@ export function CaseWorkspace({ caseId, onChanged }: { caseId: string; onChanged
               <CardContent className="space-y-3">
                 <div className="text-sm leading-relaxed whitespace-pre-wrap">{data.expert1Summary}</div>
                 <div className="grid grid-cols-2 gap-2">
-                  <Button className="bg-emerald-600 hover:bg-emerald-700 gap-1.5" onClick={() => action('USER_APPROVE')}><CheckCircle2 size={16} />{t('continueTreatment')}</Button>
+                  <Button className="btn-brand-hover gap-1.5" onClick={() => action('USER_APPROVE')}><CheckCircle2 size={16} />{t('continueTreatment')}</Button>
                   <Button variant="outline" className="text-rose-600 gap-1.5" onClick={() => action('USER_DECLINE', { reason: 'عدم تمایل به ادامه' })}><XCircle size={16} />{t('declineTreatment')}</Button>
                 </div>
               </CardContent>
@@ -199,7 +199,7 @@ export function CaseWorkspace({ caseId, onChanged }: { caseId: string; onChanged
                 {/* patient: confirm proforma */}
                 {role === 'PATIENT' && data.status === 'PROFORMA_CREATED' && (
                   <div className="grid grid-cols-2 gap-2">
-                    <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => action('CONFIRM_PROFORMA')}>{t('confirmProforma')}</Button>
+                    <Button className="btn-brand-hover" onClick={() => action('CONFIRM_PROFORMA')}>{t('confirmProforma')}</Button>
                     <Button variant="outline" className="text-rose-600" onClick={() => action('REJECT_PROFORMA')}>{t('rejectProforma')}</Button>
                   </div>
                 )}
@@ -297,10 +297,10 @@ function ProgressTrack({ status }: { status: string }) {
     <div className="flex items-center gap-1 overflow-x-auto pb-1">
       {flow.map((s, i) => (
         <React.Fragment key={s}>
-          <div className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] whitespace-nowrap ${i < idx ? 'bg-emerald-600 text-white' : i === idx ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+          <div className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] whitespace-nowrap ${i < idx ? 'bg-[#57AFE2] text-[#173F76] font-medium' : i === idx ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
             {(STATUS_META as Record<string, { fa: string; en: string }>)[s]?.fa || s}
           </div>
-          {i < flow.length - 1 && <div className={`h-0.5 w-4 shrink-0 ${i < idx ? 'bg-emerald-600' : 'bg-muted'}`} />}
+          {i < flow.length - 1 && <div className={`h-0.5 w-4 shrink-0 ${i < idx ? 'bg-[#57AFE2]' : 'bg-muted'}`} />}
         </React.Fragment>
       ))}
     </div>
@@ -384,7 +384,7 @@ export function Expert2Review({ prescription, onSubmit }: {
   const [busy, setBusy] = useState(false)
 
   return (
-    <Card className="border-teal-500/40">
+    <Card className="border-[#57AFE2]/50">
       <CardHeader className="pb-3"><CardTitle className="text-base">{lang === 'fa' ? 'بازبینی کارشناس دوم — اقلام و قیمت' : 'Expert 2 Review — items & pricing'}</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -392,7 +392,7 @@ export function Expert2Review({ prescription, onSubmit }: {
             <div key={r.id} className="rounded-lg border p-3 grid sm:grid-cols-[1fr_auto_auto_auto] gap-2.5 items-center">
               <span className="text-sm font-medium">{prescription.items[i]?.drugName}</span>
               <div className="flex items-center gap-1.5 text-xs">
-                <input type="checkbox" id={`av-${r.id}`} checked={r.available} onChange={(e) => setRows(rows.map((x, idx) => idx === i ? { ...x, available: e.target.checked, missing: !e.target.checked } : x))} className="size-4 accent-emerald-600" />
+                <input type="checkbox" id={`av-${r.id}`} checked={r.available} onChange={(e) => setRows(rows.map((x, idx) => idx === i ? { ...x, available: e.target.checked, missing: !e.target.checked } : x))} className="size-4 accent-[#225BBE]" />
                 <label htmlFor={`av-${r.id}`}>{t('available')}</label>
               </div>
               <div className="flex items-center gap-1.5 text-xs">
@@ -404,7 +404,7 @@ export function Expert2Review({ prescription, onSubmit }: {
           ))}
         </div>
         <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={lang === 'fa' ? 'توضیحات بازبینی کارشناس دوم…' : 'Expert 2 notes…'} />
-        <Button disabled={busy} onClick={async () => { setBusy(true); const ok = await onSubmit(rows, notes); setBusy(false) }} className="gap-1.5 bg-teal-600 hover:bg-teal-700">
+        <Button disabled={busy} onClick={async () => { setBusy(true); const ok = await onSubmit(rows, notes); setBusy(false) }} className="btn-brand-hover gap-1.5">
           <CheckCircle2 size={16} />{lang === 'fa' ? 'ثبت بازبینی و ارسال برای پزشک' : 'Review & send to doctor'}
         </Button>
       </CardContent>
@@ -419,7 +419,7 @@ function DoctorDecision({ onSubmit }: { onSubmit: (decision: 'APPROVE' | 'REJECT
   const [days, setDays] = useState('40')
   const [busy, setBusy] = useState(false)
   return (
-    <Card className="border-cyan-500/40">
+    <Card className="border-[#173F76]/40">
       <CardHeader className="pb-3"><CardTitle className="text-base">{t('doctorComment')}</CardTitle></CardHeader>
       <CardContent className="space-y-3">
         <Textarea rows={3} value={comment} onChange={(e) => setComment(e.target.value)} placeholder={lang === 'fa' ? 'اظهارنظر پزشک…' : 'Doctor comment…'} />
@@ -430,7 +430,7 @@ function DoctorDecision({ onSubmit }: { onSubmit: (decision: 'APPROVE' | 'REJECT
           </div>
         </div>
         <div className="grid grid-cols-3 gap-2">
-          <Button className="bg-emerald-600 hover:bg-emerald-700 gap-1" disabled={busy} onClick={async () => { setBusy(true); await onSubmit('APPROVE', comment, Number(days) || 40); setBusy(false) }}><CheckCircle2 size={15} />{t('confirm')}</Button>
+          <Button className="btn-brand-hover gap-1" disabled={busy} onClick={async () => { setBusy(true); await onSubmit('APPROVE', comment, Number(days) || 40); setBusy(false) }}><CheckCircle2 size={15} />{t('confirm')}</Button>
           <Button variant="outline" className="gap-1" disabled={busy} onClick={async () => { setBusy(true); await onSubmit('REVISION', comment, Number(days) || 40); setBusy(false) }}>↺ {lang === 'fa' ? 'اصلاح' : 'Revise'}</Button>
           <Button variant="outline" className="text-rose-600 gap-1" disabled={busy} onClick={async () => { setBusy(true); await onSubmit('REJECT', comment, Number(days) || 40); setBusy(false) }}><XCircle size={15} />{t('reject')}</Button>
         </div>
@@ -497,7 +497,7 @@ function OperatorShipping({ caseId, status, onSubmit }: { caseId: string; status
             </Dialog>
           </>
         ) : (
-          <Button className="w-full gap-1.5 bg-emerald-600 hover:bg-emerald-700" onClick={deliver} disabled={busy}><PackageCheck size={15} />{lang === 'fa' ? 'ثبت تحویل' : 'Mark delivered'}</Button>
+          <Button className="w-full btn-brand-hover gap-1.5" onClick={deliver} disabled={busy}><PackageCheck size={15} />{lang === 'fa' ? 'ثبت تحویل' : 'Mark delivered'}</Button>
         )}
       </div>
     </SectionCard>

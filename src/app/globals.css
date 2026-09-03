@@ -3,11 +3,41 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ─── BabaHakim Official Design Tokens (§2–3 Master Branding) ─────────── */
+:root {
+  --bh-primary-dark: #173F76;
+  --bh-primary: #225BBE;
+  --bh-primary-light: #57AFE2;
+  --bh-neutral: #DEDBDB;
+  /* Derived shades (only from the 4 brand colors) */
+  --bh-primary-dark-90: #15386A;   /* #173F76 darkened 10% */
+  --bh-primary-hover: #1D4FA6;     /* darker #225BBE for hover */
+  --bh-primary-active: #18418A;    /* active/pressed */
+  --bh-sky-15: #E7F1FA;            /* #57AFE2 @ ~14% on white */
+  --bh-sky-25: #CFE4F5;
+  --bh-navy-08: #EDF1F7;           /* #173F76 @ ~8% on white */
+  --bh-navy-15: #DCE4EF;
+  --bh-navy-30: #B6C4D8;
+  --bh-navy-60: #64799A;           /* muted foreground base */
+  --bh-ink: #0F2A50;               /* body text — darker #173F76 */
+  --bh-neutral-40: #F4F3F3;        /* #DEDBDB lightened surface */
+  --bh-neutral-60: #EAE9E9;
+  --bh-surface-dark-1: #0D1B30;    /* dark mode bg — navy derived */
+  --bh-surface-dark-2: #12233C;    /* dark card */
+  --bh-surface-dark-3: #1A2E4D;    /* dark elevated */
+  --bh-surface-dark-4: #233757;    /* dark hover */
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-vazir), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
+  /* Brand utilities: bg-brand-dark / text-brand / bg-brand-light / border-brand-neutral */
+  --color-brand-dark: var(--bh-primary-dark);
+  --color-brand: var(--bh-primary);
+  --color-brand-light: var(--bh-primary-light);
+  --color-brand-neutral: var(--bh-neutral);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -44,72 +74,74 @@
 }
 
 :root {
+  /* shadcn tokens mapped to the BabaHakim palette */
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: #FFFFFF;
+  --foreground: #0F2A50;
+  --card: #FFFFFF;
+  --card-foreground: #0F2A50;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F2A50;
+  --primary: #225BBE;            /* Primary Button / CTA / active (§4) */
+  --primary-foreground: #FFFFFF;
+  --secondary: #E7F1FA;          /* subtle brand surface (sky tint) */
+  --secondary-foreground: #173F76;
+  --muted: #F4F3F3;              /* neutral-derived surface */
+  --muted-foreground: #64799A;   /* navy-derived gray */
+  --accent: #E7F1FA;             /* hover/selected tint */
+  --accent-foreground: #173F76;
+  --destructive: #DC2626;        /* standard error (§9) */
+  --border: #DEDBDB;             /* Neutral Gray (§4) */
+  --input: #DEDBDB;
+  --ring: #225BBE;               /* focus (§20) */
+  --chart-1: #225BBE;            /* Charts (§22) */
+  --chart-2: #57AFE2;
+  --chart-3: #173F76;
+  --chart-4: #9CCBEF;
+  --chart-5: #DEDBDB;
+  --sidebar: #173F76;            /* Sidebar (§7) */
+  --sidebar-foreground: #D5E1F0;
+  --sidebar-primary: #225BBE;    /* active items */
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #225BBE;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(222, 219, 219, 0.25);
+  --sidebar-ring: #57AFE2;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Dark mode preserves brand identity (§28) — navy-derived surfaces, NOT inverted */
+  --background: #0D1B30;
+  --foreground: #E7EEF8;
+  --card: #12233C;
+  --card-foreground: #E7EEF8;
+  --popover: #12233C;
+  --popover-foreground: #E7EEF8;
+  --primary: #57AFE2;            /* brand sky — AA contrast on navy */
+  --primary-foreground: #0F2A50;
+  --secondary: #1A2E4D;
+  --secondary-foreground: #CFE4F5;
+  --muted: #1A2E4D;
+  --muted-foreground: #8FA5C2;
+  --accent: #233757;
+  --accent-foreground: #CFE4F5;
+  --destructive: #F87171;
+  --border: rgba(222, 219, 219, 0.18);
+  --input: rgba(222, 219, 219, 0.3);
+  --ring: #57AFE2;
+  --chart-1: #57AFE2;
+  --chart-2: #9CCBEF;
+  --chart-3: #225BBE;
+  --chart-4: #D5E1F0;
+  --chart-5: #64799A;
+  --sidebar: #0F2440;
+  --sidebar-foreground: #CFE4F5;
+  --sidebar-primary: #57AFE2;
+  --sidebar-primary-foreground: #0F2A50;
+  --sidebar-accent: #225BBE;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(222, 219, 219, 0.18);
+  --sidebar-ring: #57AFE2;
 }
 
 @layer base {
@@ -119,4 +151,8 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Primary CTA hover/active — derived darker #225BBE (§8) */
+  .btn-brand-hover:hover { background-color: var(--bh-primary-hover); }
+  /* Table row hover — very subtle #57AFE2 tint (§19) */
+  .table-row-hover:hover { background-color: rgba(87, 175, 226, 0.08); }
 }

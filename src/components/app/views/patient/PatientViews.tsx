@@ -40,7 +40,7 @@ export function PatientDashboard({ navigate }: { navigate: (p: string, params?: 
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard title={t('myCases')} value={data.stats.totalCases} icon={<FolderOpen size={18} />} />
-        <StatCard title={t('status') + ' (فعال)'} value={data.stats.activeCases} icon={<Activity size={18} />} tone="bg-emerald-500/10 text-emerald-600" />
+        <StatCard title={t('status') + ' (فعال)'} value={data.stats.activeCases} icon={<Activity size={18} />} tone="bg-[#57AFE2]/15 text-[#173F76] dark:text-[#57AFE2]" />
         <StatCard title={t('orders')} value={data.stats.totalOrders} icon={<Package size={18} />} />
         <StatCard title={t('tickets')} value={data.stats.openTickets} icon={<Ticket size={18} />} tone="bg-amber-500/10 text-amber-600" />
       </div>
@@ -75,7 +75,7 @@ export function PatientDashboard({ navigate }: { navigate: (p: string, params?: 
         <SectionCard title={t('mizaj')}>
           {data.lastMizaj ? (
             <div className="space-y-2">
-              <Badge className="bg-teal-600 text-white text-sm py-1.5 px-3">{lang === 'fa' ? data.lastMizaj.mizajFa : data.lastMizaj.mizajEn}</Badge>
+              <Badge className="bg-[#173F76] text-white text-sm py-1.5 px-3">{lang === 'fa' ? data.lastMizaj.mizajFa : data.lastMizaj.mizajEn}</Badge>
               <div className="text-xs text-muted-foreground"><JalaliDate date={data.lastMizaj.createdAt} /></div>
               <Button variant="outline" size="sm" onClick={() => navigate('questionnaire')}>{t('retake')}</Button>
             </div>
@@ -238,9 +238,11 @@ export function QuestionnairePage() {
   if (result) {
     return (
       <div className="max-w-xl mx-auto space-y-5">
-        <Card className="border-teal-500/40 bg-gradient-to-br from-teal-500/10 to-transparent">
+        <Card className="border-[#57AFE2]/50 bg-gradient-to-br from-[#57AFE2]/15 to-transparent">
           <CardContent className="p-8 text-center space-y-4">
-            <Sparkles size={40} className="mx-auto text-teal-500" />
+            <div className="mx-auto size-16 rounded-2xl bg-[#173F76] flex items-center justify-center">
+              <Sparkles size={34} className="text-[#57AFE2]" />
+            </div>
             <div className="text-xs text-muted-foreground">{t('mizajResult')}</div>
             <div className="text-3xl font-black">{lang === 'fa' ? result.mizajFa : result.mizajEn}</div>
             <div className="flex justify-center flex-wrap gap-2">
@@ -270,7 +272,7 @@ export function QuestionnairePage() {
         <h1 className="text-xl font-bold">{t('questionnaire')}</h1>
         <span className="text-xs text-muted-foreground ms-auto tabular-nums">{lang === 'fa' ? `${new Intl.NumberFormat('fa-IR').format(answered)}/${new Intl.NumberFormat('fa-IR').format(total)}` : `${answered}/${total}`}</span>
       </div>
-      <Progress value={(answered / total) * 100} />
+      <Progress value={(answered / total) * 100} className="[&>div]:bg-[#57AFE2]" />
       <div className="space-y-4">
         {page.map((qq) => (
           <Card key={qq.id}>

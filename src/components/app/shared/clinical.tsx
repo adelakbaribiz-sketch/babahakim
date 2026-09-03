@@ -268,17 +268,17 @@ export function PaymentPanel({ order, onDone }: {
         <Dialog open={!!gw} onOpenChange={(o) => !o && setGw(null)}>
           <DialogContent className="max-w-sm">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2"><CreditCard size={18} className="text-amber-500" />{t('paymentGateway')}</DialogTitle>
+              <DialogTitle className="flex items-center gap-2"><CreditCard size={18} className="text-[#225BBE]" />{t('paymentGateway')}</DialogTitle>
               <DialogDescription>Zarinpal · {gw?.merchant}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 text-center">
-              <div className="rounded-xl bg-amber-500/10 p-4">
+              <div className="rounded-xl bg-[#57AFE2]/10 p-4">
                 <div className="text-xs text-muted-foreground">{t('amount')}</div>
                 <div className="text-2xl font-black tabular-nums"><Money amount={gw?.amount || 0} /></div>
                 <div className="text-[10px] text-muted-foreground mt-1" dir="ltr">Authority: {gw?.authority?.slice(0, 20)}…</div>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Button className="bg-emerald-600 hover:bg-emerald-700 gap-1" onClick={() => gatewayPay(true)} disabled={busy}><CheckCircle2 size={16} />{t('confirm')}</Button>
+                <Button className="btn-brand-hover gap-1" onClick={() => gatewayPay(true)} disabled={busy}><CheckCircle2 size={16} />{t('confirm')}</Button>
                 <Button variant="outline" className="gap-1 text-rose-600" onClick={() => gatewayPay(false)} disabled={busy}><XCircle size={16} />{t('cancel')}</Button>
               </div>
             </div>

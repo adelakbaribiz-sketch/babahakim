@@ -100,7 +100,7 @@ export function AdminPricesPage() {
                 <Input type="number" value={percent} onChange={(e) => setPercent(e.target.value)} dir="ltr" />
               </div>
               <div className="flex gap-2">
-                <Button onClick={doBulk} disabled={busy || !percent} className="bg-emerald-600 hover:bg-emerald-700 gap-1">+٪ افزایش</Button>
+                <Button onClick={doBulk} disabled={busy || !percent} className="btn-brand-hover gap-1">+٪ افزایش</Button>
                 <Button onClick={() => doBulkWithSign(false)} variant="outline" className="gap-1">−٪ کاهش</Button>
               </div>
             </div>
@@ -165,9 +165,9 @@ export function AdminReportsPage() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard title={t('revenue')} value={fmtMoney(data.summary.income, lang)} tone="bg-emerald-500/10 text-emerald-600" icon={<BarChart3 size={18} />} />
+        <StatCard title={t('revenue')} value={fmtMoney(data.summary.income, lang)} tone="bg-[#57AFE2]/15 text-[#173F76] dark:text-[#57AFE2]" icon={<BarChart3 size={18} />} />
         <StatCard title={t('expenses')} value={fmtMoney(data.summary.expenses, lang)} tone="bg-rose-500/10 text-rose-600" icon={<BarChart3 size={18} />} />
-        <StatCard title={t('profit')} value={fmtMoney(data.summary.profit, lang)} tone="bg-teal-500/10 text-teal-600" icon={<BarChart3 size={18} />} />
+        <StatCard title={t('profit')} value={fmtMoney(data.summary.profit, lang)} tone="bg-[#173F76]/10 text-[#173F76] dark:bg-[#57AFE2]/15 dark:text-[#57AFE2]" icon={<BarChart3 size={18} />} />
         <StatCard title={lang === 'fa' ? 'پرداخت موفق / ناموفق' : 'Paid / failed'} value={`${data.summary.paidCount} / ${data.summary.failedCount}`} icon={<BarChart3 size={18} />} />
       </div>
 
@@ -175,12 +175,12 @@ export function AdminReportsPage() {
         <SectionCard title={lang === 'fa' ? 'درآمد ۱۴ روز اخیر (میلیون تومان)' : 'Revenue last 14 days (M Toman)'}>
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={chartData}>
-              <defs><linearGradient id="rev" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.35} /><stop offset="95%" stopColor="#10b981" stopOpacity={0} /></linearGradient></defs>
+              <defs><linearGradient id="rev" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#225BBE" stopOpacity={0.35} /><stop offset="95%" stopColor="#225BBE" stopOpacity={0} /></linearGradient></defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="date" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
               <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-              <Area type="monotone" dataKey="amount" stroke="#10b981" fill="url(#rev)" strokeWidth={2} />
+              <Area type="monotone" dataKey="amount" stroke="#225BBE" fill="url(#rev)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </SectionCard>
@@ -193,7 +193,7 @@ export function AdminReportsPage() {
                 <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={0} angle={-20} textAnchor="end" height={50} />
                 <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                <Bar dataKey="revenue" fill="#0d9488" radius={[4, 4, 0, 0]} name="M" />
+                <Bar dataKey="revenue" fill="#57AFE2" radius={[4, 4, 0, 0]} name="M" />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -408,7 +408,7 @@ export function AdminAIModelsPage() {
       <SectionCard title={lang2('دیتاست یادگیری (AI vs انسان)', 'Learning dataset (AI vs human)')}>
         <div className="grid grid-cols-3 gap-3 mb-4">
           <StatCard title={lang2('کل تحلیل‌ها', 'Total analyses')} value={data.datasetStats.total} />
-          <StatCard title={lang2('بازبینی‌شده', 'Human reviewed')} value={data.datasetStats.reviewed} tone="bg-emerald-500/10 text-emerald-600" />
+          <StatCard title={lang2('بازبینی‌شده', 'Human reviewed')} value={data.datasetStats.reviewed} tone="bg-[#57AFE2]/15 text-[#173F76] dark:text-[#57AFE2]" />
           <StatCard title={lang2('میانگین اطمینان', 'Avg confidence')} value={`${Math.round(data.datasetStats.avgConfidence * 100)}%`} />
         </div>
         {data.dataset.length === 0 ? <EmptyState /> : (

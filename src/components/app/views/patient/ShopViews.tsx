@@ -76,7 +76,7 @@ function ProductCard({ p }: { p: { id: string; sku: string; nameFa: string; name
   return (
     <Card className="overflow-hidden hover:border-primary/40 transition-colors">
       <CardContent className="p-4 space-y-2.5">
-        <div className="aspect-square rounded-lg bg-gradient-to-br from-primary/10 to-teal-500/10 flex items-center justify-center text-4xl select-none">💊</div>
+        <div className="aspect-square rounded-lg bg-gradient-to-br from-[#173F76]/10 to-[#57AFE2]/20 flex items-center justify-center text-4xl select-none">💊</div>
         <div>
           <div className="font-bold text-sm leading-snug">{lang === 'fa' ? p.nameFa : p.nameEn}</div>
           <div className="text-xs text-muted-foreground">{p.brand} · {p.category}</div>
@@ -350,7 +350,7 @@ export function NotificationsPage() {
             <Card key={n.id} className={n.read ? 'opacity-60' : ''}>
               <CardContent className="p-3.5">
                 <div className="flex items-start gap-2">
-                  {!n.read && <span className="size-2 rounded-full bg-rose-500 mt-2 shrink-0" />}
+                  {!n.read && <span className="size-2 rounded-full bg-[#57AFE2] mt-2 shrink-0" />}
                   <div className="min-w-0">
                     <div className="font-medium text-sm">{lang === 'fa' ? n.titleFa : n.titleEn}</div>
                     <div className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{lang === 'fa' ? n.bodyFa : n.bodyEn}</div>

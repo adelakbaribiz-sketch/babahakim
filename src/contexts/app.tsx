@@ -35,7 +35,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [notifCount, setNotifCount] = useState(0)
 
   useEffect(() => {
-    const saved = typeof window !== 'undefined' ? (localStorage.getItem('ta_lang') as Lang | null) : null
+    const saved = typeof window !== 'undefined' ? (localStorage.getItem('bh_lang') as Lang | null) : null
     if (saved === 'fa' || saved === 'en') queueMicrotask(() => setLangState(saved))
     fetch('/api/v1/auth/me').then(async (r) => {
       if (r.ok) {
@@ -50,7 +50,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     document.documentElement.lang = lang
     document.documentElement.dir = lang === 'fa' ? 'rtl' : 'ltr'
-    if (typeof window !== 'undefined') localStorage.setItem('ta_lang', lang)
+    if (typeof window !== 'undefined') localStorage.setItem('bh_lang', lang)
   }, [lang])
 
   const setLang = useCallback((l: Lang) => setLangState(l), [])

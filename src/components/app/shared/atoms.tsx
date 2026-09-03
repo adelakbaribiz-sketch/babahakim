@@ -16,8 +16,9 @@ export function StatusBadge({ status, kind = 'case' }: { status: string; kind?: 
     kind === 'payment' ? PAYMENT_STATUS_META[status] :
     kind === 'ticket' ? TICKET_STATUS_META[status] : STATUS_META[status as keyof typeof STATUS_META]
   if (!meta) return <Badge variant="secondary">{status}</Badge>
+  // meta.color carries both bg-* and text-* brand/semantic classes (§9)
   return (
-    <Badge className={`${meta.color} text-white border-none font-normal`}>
+    <Badge className={`${meta.color} border-none font-normal`}>
       {lang === 'fa' ? meta.fa : meta.en}
     </Badge>
   )

@@ -5,7 +5,7 @@ type Dict = Record<string, [string, string]> // [fa, en]
 
 const D: Dict = {
   // brand / common
-  appName: ['تنگ‌چِک', 'TongueCheck'],
+  appName: ['باباحکیم', 'BabaHakim'],
   appDesc: ['پلتفرم هوشمند تحلیل تصویر زبان و مدیریت درمان', 'AI-powered tongue analysis & treatment platform'],
   // nav
   dashboard: ['داشبورد', 'Dashboard'],

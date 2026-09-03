@@ -4,7 +4,8 @@ import { useApp } from '@/contexts/app'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Sparkles, ScanHeart, ShieldCheck, UserCheck, Stethoscope, Truck, Bot, Languages, CheckCircle2, Activity } from 'lucide-react'
+import { Logo } from '@/components/app/shared/Logo'
+import { ScanHeart, ShieldCheck, UserCheck, Stethoscope, Truck, Bot, Languages, CheckCircle2, Activity } from 'lucide-react'
 
 export function Landing() {
   const { t, lang, setLang, navigate } = useApp()
@@ -19,12 +20,11 @@ export function Landing() {
   ]
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50 via-background to-teal-50/50 dark:from-emerald-950/30 dark:via-background dark:to-teal-950/20">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#173F76]/[0.05] via-background to-[#57AFE2]/[0.07] dark:from-[#173F76]/20 dark:via-background dark:to-[#57AFE2]/10">
       <header className="h-16 flex items-center px-4 md:px-8 max-w-6xl w-full mx-auto">
-        <div className="flex items-center gap-2">
-          <div className="size-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center"><Sparkles size={20} /></div>
-          <span className="font-bold text-lg">{t('appName')}</span>
-        </div>
+        <button onClick={() => navigate('landing')} className="flex items-center gap-2" aria-label={t('appName')}>
+          <Logo size={38} variant="dark" showText textClassName="text-lg" />
+        </button>
         <div className="ms-auto flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => setLang(lang === 'fa' ? 'en' : 'fa')} className="gap-1.5">
             <Languages size={16} /> {lang === 'fa' ? 'English' : 'فارسی'}
@@ -36,7 +36,7 @@ export function Landing() {
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 md:px-8 py-10 md:py-16">
         <section className="grid lg:grid-cols-2 gap-10 items-center">
           <div className="space-y-6">
-            <Badge className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/10">
+            <Badge className="bg-[#57AFE2]/15 text-[#173F76] dark:text-[#9CCBEF] border-[#57AFE2]/30 hover:bg-[#57AFE2]/15">
               <Bot size={13} className="me-1" /> AI-Assisted Clinical Decision Support
             </Badge>
             <h1 className="text-3xl md:text-5xl font-black leading-tight tracking-tight">
@@ -50,19 +50,26 @@ export function Landing() {
             <p className="text-xs text-muted-foreground">{t('disclaimerMedical')}</p>
           </div>
           <div className="relative">
-            <Card className="overflow-hidden border-2 border-primary/15 shadow-xl">
+            <Card className="overflow-hidden border-brand-neutral shadow-xl shadow-[#173F76]/10">
               <CardContent className="p-0">
-                <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 p-6 flex items-center justify-center">
+                <div className="bg-[#173F76] p-8 flex items-center justify-center relative overflow-hidden">
+                  {/* subtle AI scan grid */}
+                  <div className="absolute inset-0 opacity-[0.14]" style={{ backgroundImage: 'linear-gradient(rgba(87,175,226,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(87,175,226,.6) 1px, transparent 1px)', backgroundSize: '26px 26px' }} />
                   <div className="relative">
-                    <div className="text-8xl select-none" style={{ filter: 'drop-shadow(0 10px 15px rgb(13 148 136 / 0.3))' }}>👅</div>
-                    <div className="absolute -top-2 -end-6 size-9 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg"><CheckCircle2 size={18} /></div>
+                    {/* stylized tongue mark in brand colors */}
+                    <svg width="130" height="130" viewBox="0 0 100 100" fill="none" aria-hidden="true" className="drop-shadow-lg">
+                      <path d="M50 12 C69 12 80 27 80 46 C80 71 66 88 50 88 C34 88 20 71 20 46 C20 27 31 12 50 12 Z" fill="#57AFE2" />
+                      <path d="M50 28 C53 40 53 58 50 74" stroke="#173F76" strokeWidth="4" strokeLinecap="round" opacity="0.5" />
+                      <line x1="10" y1="40" x2="90" y2="40" stroke="#FFFFFF" strokeWidth="5" strokeLinecap="round" opacity="0.92" />
+                    </svg>
+                    <div className="absolute -top-2 -end-5 size-9 rounded-full bg-[#57AFE2] text-[#173F76] flex items-center justify-center shadow-lg"><CheckCircle2 size={18} /></div>
                   </div>
                 </div>
                 <div className="p-4 space-y-2.5">
-                  {[['رنگ بدنه: طبیعی', 'Body color: normal', 78], ['پوشش: سفید غلیظ', 'Coating: thick white', 85], ['رطوبت: معتدل', 'Moisture: moderate', 61]].map(([fa, en, conf]) => (
+                  {[['رنگ بدنه: طبیعی', 'Body color: normal', 78, '#57AFE2'], ['پوشش: سفید غلیظ', 'Coating: thick white', 85, '#225BBE'], ['رطوبت: معتدل', 'Moisture: moderate', 61, '#57AFE2']].map(([fa, en, conf, bar]) => (
                     <div key={fa as string} className="flex items-center justify-between text-sm">
                       <span className="flex items-center gap-2">
-                        <span className="size-2 rounded-full bg-primary" />
+                        <span className="size-2 rounded-full" style={{ backgroundColor: bar as string }} />
                         {lang === 'fa' ? fa : en}
                       </span>
                       <span className="tabular-nums text-xs text-muted-foreground">
@@ -81,9 +88,9 @@ export function Landing() {
           <h2 className="text-xl font-bold mb-6">{t('howItWorks')}</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {steps.map((s, i) => (
-              <Card key={i} className="border-border/60">
+              <Card key={i} className="border-brand-neutral">
                 <CardContent className="p-5 flex items-start gap-4">
-                  <div className="size-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">{s.icon}</div>
+                  <div className="size-10 rounded-lg bg-[#173F76]/10 text-[#173F76] dark:bg-[#57AFE2]/15 dark:text-[#57AFE2] flex items-center justify-center shrink-0">{s.icon}</div>
                   <div>
                     <div className="text-xs text-muted-foreground">{t('step')} {lang === 'fa' ? new Intl.NumberFormat('fa-IR').format(i + 1) : i + 1}</div>
                     <div className="font-medium text-sm leading-relaxed">{lang === 'fa' ? s.fa : s.en}</div>
@@ -102,7 +109,7 @@ export function Landing() {
           ].map((f, i) => (
             <Card key={i} className="border-border/60">
               <CardContent className="p-5 space-y-3">
-                <div className="size-11 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center">{f.icon}</div>
+                <div className="size-11 rounded-xl bg-[#57AFE2]/15 text-[#225BBE] dark:text-[#57AFE2] flex items-center justify-center">{f.icon}</div>
                 <div className="font-bold">{f.title}</div>
                 <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
               </CardContent>
@@ -111,7 +118,7 @@ export function Landing() {
         </section>
       </main>
 
-      <footer className="border-t py-5 px-4 text-center text-xs text-muted-foreground">
+      <footer className="bg-[#173F76] dark:bg-[#0F2440] text-white/80 py-5 px-4 text-center text-xs">
         © 2026 {t('appName')} · {t('appDesc')}
       </footer>
     </div>

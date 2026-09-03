@@ -70,7 +70,7 @@ export function AdminUsersPage() {
                   {u.isActive ? (
                     <Button variant="outline" size="sm" className="gap-1 text-amber-600 h-8" onClick={() => patch(u.id, { isActive: false })}><ShieldOff size={13} />غیرفعال</Button>
                   ) : (
-                    <Button variant="outline" size="sm" className="gap-1 text-emerald-600 h-8" onClick={() => patch(u.id, { isActive: true })}><ShieldCheck size={13} />فعال</Button>
+                    <Button variant="outline" size="sm" className="gap-1 text-[#225BBE] dark:text-[#57AFE2] h-8" onClick={() => patch(u.id, { isActive: true })}><ShieldCheck size={13} />فعال</Button>
                   )}
                 </div>
               </CardContent>
