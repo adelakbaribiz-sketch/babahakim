@@ -87,3 +87,28 @@ Stage Summary:
 - Files changed: 17 (globals.css, layout.tsx, page.tsx, i18n.ts, contexts/app.tsx, constants.ts, AppShell.tsx, Logo.tsx [new], Landing.tsx, AuthView.tsx, clinical.tsx, atoms.tsx, CaseWorkspace.tsx, PatientViews.tsx, ShopViews.tsx, StaffViews.tsx, AdminViews.tsx, AdminViews2.tsx, docs/BRANDING.md [new])
 - Remaining risks: DB seeded data still contains old case codes prefix "TC-" (cosmetic, data-level not UI); Landing/Auth lack theme toggle (light-only by design for public pages); Turbopack HMR emits a benign internal TypeError artifact in dev console (framework-level, not app code)
 - Next milestone: continue Master Prompt milestones (PRD/architecture docs, Docker production stack, CI/CD, testing hardening)
+
+---
+Task ID: 3
+Agent: Main agent (Super Z)
+Task: PHASE 01 — Product Requirements & System Specification: full product/business analysis, 5 requirement documents + Requirement Traceability Matrix
+
+Work Log:
+- Pre-stage audit (rule 4): read worklog (2 prior stages), git log, full re-read of the 104-section Master Prompt spec (3115 lines, chunked), inspected constants.ts (6 roles / 31 permissions / 21 case statuses / 19 transitions / order-payment-ticket metas / mizaj options), prisma models (36), notify.ts (31 event templates), confirmed coupon/discount implementation status for honest RTM reporting
+- Authored 6 documents under /docs (Persian, English technical terms):
+  1. PRD.md — product vision, 8 non-negotiable principles, 6 personas, 23-module scope (M01-M20), 154 FR + 25 NFR with Must/Should/Could priorities + spec-section + honest implementation status, notification catalog (31 implemented + 3 planned events), approval catalog (10 gates G1-G10), patient lifecycle model, KPIs, 10 risks, phase roadmap (18 spec milestones → 6 phases), bilingual glossary
+  2. USER-STORIES.md — 126 stories across 20 epics + 16 cross-cutting edge/resilience stories (142 total), each linked FR/BR/AC, MoSCoW priorities
+  3. BUSINESS-RULES.md — 69 numbered BRs across 10 domains (AUTH/MED/WF/FIN/PRV/CAT/I18N/NTF/IMG/AUD/HIST/RBAC) + full RBAC matrix (31 permissions × 6 roles + 4 governance rules) + complete state catalog (21 case / 11 order / 6 payment / 6 ticket / 12 entity statuses) + 19-transition workflow engine table + 30 Engineering Decisions (ED-01..30) resolving all spec ambiguities
+  4. USE-CASES.md — actor-goal model, 18-stage patient lifecycle mapped to statuses/gates, sequence diagram, 30 use cases (main/alternate/exception flows), 6 golden-path E2E scenarios (incl. §55 mandatory flow), 32-entry edge-case catalog (EC-*) + 11 systemic failure-handling strategies (idempotency/locking/retry/dead-letter/recovery)
+  5. ACCEPTANCE-CRITERIA.md — 150 testable criteria in Given/When/Then format (126 domain + 16 edge + 8 NFR) with test-type tags (U/I/API/E2E/SEC/UI/PERF), Definition of Done for the phase
+  6. REQUIREMENTS-TRACEABILITY-MATRIX.md — FR→US→UC→BR→AC→status→verification mapping for all 154 FRs + 25 NFRs, explicit NFR table, full 104-section Master Prompt coverage table (98 full + 6 routed to later phases), coverage stats, honest v1 debt list
+- Wrote scripts/validate-phase01-docs.py (persistent validation per rule 9): cross-document ID resolution (multi-segment domains FR-AI-D/AC-EC/US-EC), range/slash shorthand expansion (X-01..03, X-01/02), word-boundary guards, orphan detection, US-EC↔AC-EC 1:1 mapping check, stats-vs-claims check, secret/PHI scanning
+- Test→Fix cycle (3 iterations): fixed 5 undefined BR references (added §1.0 BR-AUTH-01..03, §1.8 BR-IMG-01, §1.9 BR-AUD-01/BR-HIST-01, §2 BR-RBAC-01..04), replaced RTM's grouped NFR ranges with explicit rows, fixed invalid US-EC-SRCH/US-EC-ADM refs, added EC-ADM-01 to edge catalog, corrected stats claims (FR 154, BR 69, AC 150), restored accidentally-deleted FR-PROF-04 row
+- Final validation: PASS — FR=154/154, NFR=25/25, US=142/142, BR=69/69 traced; 0 errors, 0 warnings; no secrets/PHI
+
+Stage Summary:
+- Deliverables: docs/PRD.md, docs/USER-STORIES.md, docs/BUSINESS-RULES.md, docs/USE-CASES.md, docs/ACCEPTANCE-CRITERIA.md, docs/REQUIREMENTS-TRACEABILITY-MATRIX.md, scripts/validate-phase01-docs.py
+- 154 FR / 25 NFR / 142 US / 30 UC / 69 BR / 30 ED / 150 AC / 32 EC fully cross-traced; all 10 approval gates and 31 notification events cataloged; 18-stage patient cycle modeled with state mapping
+- Key engineering decisions recorded: ED-03 (doctor approval mandatory for all cases in v1), ED-08 (user-gate SLA auto-close 30d), ED-13 (reassessment = new case with lineage), ED-25 (stack-agnostic requirements, architecture decision routed to Phase 02), ED-06 (partial drug availability policy)
+- Remaining risks: RTM status column reflects code-level truth only as of Phase 00 (statuses I/P/R) — must be re-validated in Phase 04 test runs; ED-25 architecture decision pending; known v1 debt items (TC- prefix seed data, TongueAI SMS template prefix) logged for Phase 02 cleanup
+- Next: PHASE 02 — System Architecture (ARCHITECTURE.md, DATABASE.md/ERD, API.md/OpenAPI, SECURITY.md, deployment architecture) per PRD §12 roadmap
