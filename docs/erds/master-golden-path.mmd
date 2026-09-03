@@ -1,0 +1,104 @@
+erDiagram
+    users {
+        varchar phone UK
+        bigint role_id FK
+        boolean is_active
+        varchar referral_code UK
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+    patient_profiles {
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    medical_files {
+        varchar code
+        varchar status
+        varchar priority
+        bigint reassessment_of_file_id FK
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+    images {
+        varchar status
+        int version
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+    ai_analyses {
+        bigint ai_model_id FK
+        bigint dataset_version_id FK
+        varchar status
+        bigint id PK
+        timestamptz created_at
+    }
+    prescriptions {
+        int version
+        varchar status
+        bigint superseded_by_prescription_id FK
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+    products {
+        varchar sku
+        boolean is_active
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+    orders {
+        varchar code
+        varchar status
+        bigint subtotal
+        bigint discount
+        bigint total
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+    payments {
+        varchar code
+        bigint amount
+        varchar status
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    shipments {
+        varchar status
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    follow_ups {
+        bigint medical_file_id FK
+        timestamptz due_date
+        varchar status
+        varchar outcome
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+    users ||--o| patient_profiles : "1:1 soft"
+    users ||--o{ medical_files : "patient soft"
+    medical_files ||--o{ images : "attached soft"
+    medical_files ||--o{ ai_analyses : "analysed soft"
+    medical_files ||--o{ prescriptions : "treated soft"
+    prescriptions ||--o{ orders : "fulfilled soft"
+    products ||--o{ orders : "catalog soft"
+    orders ||--|| invoices : "invoiced FK(commerce)"
+    orders ||--o| payments : "paid soft"
+    orders ||--o| shipments : "shipped soft"
+    medical_files ||--o{ follow_ups : "followed FK(cr)"

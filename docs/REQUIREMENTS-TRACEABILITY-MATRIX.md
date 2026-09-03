@@ -17,6 +17,7 @@
 >
 > ۱۴۰۵/۰۶/۱۴ (2026-09-04) — PHASE 03 (M1 کامل): معماری سیستم — انتخاب **Modular Monolith** (ADR-0001/ED-35)، ۱۵ Bounded Context + قواعد وابستگی Tier و ضد-چرخه (ADR-0002/ED-36)، اجزای ۱۱گانه (Frontend/Backend/Worker/DB/Cache/Queue/ObjectStorage/AI/Notification/Payment/Shipping — ADR-0003..0012، ED-37..46). اسناد: `docs/ARCHITECTURE.md` + `docs/ARCHITECTURE-DIAGRAM.md` + `docs/ADR/`×14. اعتبارسنجی ساختاری: `scripts/validate-phase03-docs.py` (PASS). یادداشت توالی فازها: §12 PRD.
 
+> ۱۴۰۵/۰۶/۱۴ (2026-09-04) — PHASE 04 (بخش D1/D2 نقشه): معماری و پیاده‌سازی کامل پایگاه داده PostgreSQL — ۱۵ Schema = ۱۵ Bounded Context، ۴۹ جدول (۴۰ Entity §47 + ۹ پشتیبان)، ۳۴ FK درون-Context + Soft-Ref بین-Context (D4)، ۱۶۷ Check Constraint، ۱۹۰ ایندکس (Partial/BRIN/trgm)، ۴۴ تریگر امنیتی (Append-Only/Hard-Delete-Forbidden/updated_at)، ۴ Migration با Alembic + ERD ×۱۷. اسناد: `docs/DATABASE.md` + `docs/DATABASE-ERD.md` + ADR-0013. تست: ۸۵/۸۵ PASS (pytest — فقط از مسیر Migration).
 ## 1) ماتریس اصلی — Functional Requirements
 
 ### دامنه AUTH / PROF / MIZAJ
@@ -334,7 +335,7 @@
 | 94 | Local VSCode Validation | فاز 05 چک‌لیست | ⏳ فاز 05 |
 | 95 | Production Checklist | فاز 05 + PRD C1 | ⏳ فاز 05 |
 | 96 | ممنوعیت «باید پیاده شود» | RTM وضعیت صادقانه (I/P/R) | ✅ |
-| 97 | تصمیم‌گیری ابهام | ED-01..ED-46 (فاز 01: 01..30 · فاز 02: 31..34 · فاز 03: 35..46) | ✅ |
+| 97 | تصمیم‌گیری ابهام | ED-01..ED-58 (فاز 01: 01..30 · فاز 02: 31..34 · فاز 03: 35..46 · فاز 04: 47..58) | ✅ |
 | 98 | ۱۸ Milestone | PRD §12 | ✅ |
 | 99 | AI Model Strategy | ED-01/25 · FR-AI-01 | ✅ |
 | 100 | عدم جعل پزشکی | BR-MED-07 · ED-15 | ✅ |

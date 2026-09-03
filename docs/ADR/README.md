@@ -25,6 +25,7 @@
 | [ADR-0010](./ADR-0010-architecture-enforcement-ci.md) | اجرای قواعد معماری در CI | Accepted | ED-44 | ESLint + dependency-cruiser + architecture.test |
 | [ADR-0011](./ADR-0011-deployment-topology.md) | توپولوژی استقرار (Compose/Prod) | Accepted | ED-45 | web/worker/postgres/redis/minio/ai/caddy |
 | [ADR-0012](./ADR-0012-observability.md) | Observability ساخت‌یافته | Accepted | ED-46 | JSON logging + metrics + correlationId + OTel-ready |
+| [ADR-0013](./ADR-0013-alembic-ddl-source-of-truth.md) | Alembic مرجع یکتای DDL — Prisma فقط Introspection | Accepted | ED-47 | Supersede جزئی ADR-0004 (ابزار Migration) |
 
 ## ساختار هر ADR
 

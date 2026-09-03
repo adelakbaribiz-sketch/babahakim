@@ -1,0 +1,59 @@
+erDiagram
+    addresses {
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+    answers {
+        bigint response_id FK
+        bigint question_id FK
+        bigint option_id FK
+        bigint id PK
+        timestamptz created_at
+    }
+    contact_logs {
+        varchar outcome
+        bigint id PK
+        timestamptz created_at
+    }
+    patient_profiles {
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    question_options {
+        bigint question_id FK
+        bigint id PK
+        timestamptz created_at
+    }
+    questionnaire_responses {
+        bigint questionnaire_id FK
+        bigint id PK
+        timestamptz created_at
+    }
+    questionnaires {
+        int version
+        boolean is_active UK
+        bigint id PK
+        timestamptz created_at
+        timestamptz deleted_at
+    }
+    questions {
+        bigint questionnaire_id FK
+        boolean is_active
+        bigint id PK
+        timestamptz created_at
+    }
+    referrals {
+        varchar status
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    questionnaires ||--|{ questionnaire_responses : "questionnaire_id"
+    questionnaires ||--|{ questions : "questionnaire_id"
+    questions ||--|{ question_options : "question_id"
+    questionnaire_responses ||--|{ answers : "response_id"
+    questions ||--|{ answers : "question_id"
+    question_options ||--|{ answers : "option_id"

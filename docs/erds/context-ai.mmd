@@ -1,0 +1,41 @@
+erDiagram
+    ai_analyses {
+        bigint ai_model_id FK
+        bigint dataset_version_id FK
+        varchar status
+        bigint id PK
+        timestamptz created_at
+    }
+    ai_models {
+        int version
+        bigint training_dataset_version_id FK
+        boolean is_active
+        bigint id PK
+        timestamptz created_at
+    }
+    dataset_items {
+        bigint dataset_version_id FK
+        varchar outcome
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    dataset_versions {
+        bigint dataset_id FK
+        int version
+        varchar status
+        bigint id PK
+        timestamptz created_at
+    }
+    datasets {
+        varchar status
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+    datasets ||--|{ dataset_versions : "dataset_id"
+    dataset_versions ||--o{ ai_models : "training_dataset_version_id"
+    dataset_versions ||--|{ dataset_items : "dataset_version_id"
+    ai_models ||--o{ ai_analyses : "ai_model_id"
+    dataset_versions ||--o{ ai_analyses : "dataset_version_id"

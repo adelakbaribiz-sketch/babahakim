@@ -1,0 +1,60 @@
+erDiagram
+    case_events {
+        bigint medical_file_id FK
+        bigint id PK
+        timestamptz created_at
+    }
+    diagnoses {
+        bigint medical_file_id FK
+        bigint disease_id FK
+        bigint id PK
+        timestamptz created_at
+    }
+    diseases {
+        varchar code
+        boolean is_active
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+    doctor_reviews {
+        bigint medical_file_id FK
+        varchar decision
+        bigint id PK
+        timestamptz created_at
+    }
+    expert_reviews {
+        bigint medical_file_id FK
+        varchar stage
+        varchar decision
+        bigint id PK
+        timestamptz created_at
+    }
+    follow_ups {
+        bigint medical_file_id FK
+        timestamptz due_date
+        varchar status
+        varchar outcome
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+    medical_files {
+        varchar code
+        varchar status
+        varchar priority
+        bigint reassessment_of_file_id FK
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+    medical_files ||--o{ medical_files : "reassessment_of_file_id"
+    medical_files ||--|{ case_events : "medical_file_id"
+    medical_files ||--|{ diagnoses : "medical_file_id"
+    diseases ||--o{ diagnoses : "disease_id"
+    medical_files ||--|{ doctor_reviews : "medical_file_id"
+    medical_files ||--|{ expert_reviews : "medical_file_id"
+    medical_files ||--|{ follow_ups : "medical_file_id"

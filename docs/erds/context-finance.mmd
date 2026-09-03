@@ -1,0 +1,13 @@
+erDiagram
+    expenses {
+        bigint amount
+        varchar status
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    financial_transactions {
+        bigint amount
+        bigint id PK
+        timestamptz created_at
+    }

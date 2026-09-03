@@ -1,0 +1,59 @@
+flowchart LR
+    administration[administration]
+    ai[ai]
+    clinical_review[clinical_review]
+    commerce[commerce]
+    finance[finance]
+    identity[identity]
+    medical_records[medical_records]
+    notifications[notifications]
+    patients[patients]
+    payments[payments]
+    prescriptions[prescriptions]
+    products[products]
+    reporting[reporting]
+    shipping[shipping]
+    tickets[tickets]
+    administration -. "1 soft-ref" .-> identity
+    ai -. "1 soft-ref" .-> clinical_review
+    ai -. "5 soft-ref" .-> identity
+    ai -. "2 soft-ref" .-> medical_records
+    clinical_review -. "4 soft-ref" .-> ai
+    clinical_review -. "7 soft-ref" .-> identity
+    clinical_review -. "1 soft-ref" .-> patients
+    clinical_review -. "3 soft-ref" .-> prescriptions
+    commerce -. "1 soft-ref" .-> clinical_review
+    commerce -. "3 soft-ref" .-> identity
+    commerce -. "1 soft-ref" .-> patients
+    commerce -. "1 soft-ref" .-> prescriptions
+    commerce -. "2 soft-ref" .-> products
+    finance -. "1 soft-ref" .-> clinical_review
+    finance -. "2 soft-ref" .-> commerce
+    finance -. "3 soft-ref" .-> identity
+    finance -. "1 soft-ref" .-> medical_records
+    finance -. "1 soft-ref" .-> patients
+    finance -. "1 soft-ref" .-> payments
+    medical_records -. "1 soft-ref" .-> clinical_review
+    medical_records -. "1 soft-ref" .-> identity
+    notifications -. "2 soft-ref" .-> identity
+    patients -. "1 soft-ref" .-> clinical_review
+    patients -. "8 soft-ref" .-> identity
+    patients -. "1 soft-ref" .-> tickets
+    payments -. "2 soft-ref" .-> commerce
+    payments -. "2 soft-ref" .-> identity
+    payments -. "1 soft-ref" .-> medical_records
+    prescriptions -. "1 soft-ref" .-> clinical_review
+    prescriptions -. "2 soft-ref" .-> identity
+    prescriptions -. "1 soft-ref" .-> products
+    products -. "2 soft-ref" .-> clinical_review
+    products -. "1 soft-ref" .-> commerce
+    products -. "2 soft-ref" .-> identity
+    products -. "1 soft-ref" .-> shipping
+    reporting -. "1 soft-ref" .-> products
+    shipping -. "1 soft-ref" .-> commerce
+    shipping -. "1 soft-ref" .-> medical_records
+    tickets -. "1 soft-ref" .-> clinical_review
+    tickets -. "3 soft-ref" .-> identity
+    tickets -. "1 soft-ref" .-> medical_records
+    classDef ctx fill:#EFF6FF,stroke:#225BBE,color:#173F76;
+    class administration,ai,clinical_review,commerce,finance,identity,medical_records,notifications,patients,payments,prescriptions,products,reporting,shipping,tickets ctx

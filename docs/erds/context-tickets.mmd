@@ -1,0 +1,16 @@
+erDiagram
+    ticket_messages {
+        bigint ticket_id FK
+        bigint id PK
+        timestamptz created_at
+    }
+    tickets {
+        varchar code
+        varchar priority
+        varchar status
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+    tickets ||--|{ ticket_messages : "ticket_id"

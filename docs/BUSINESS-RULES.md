@@ -330,6 +330,19 @@
 | ED-45 | توپولوژی استقرار؟ | docker-compose: web/worker/postgres/redis/minio/ai/caddy؛ یک Image دو Entry Point؛ prod: Scale افقی Stateless (JWT)؛ Migration قبل از Deploy (Expand-Contract) | قید C4 (VSCode+Docker) | ADR-0011 |
 | ED-46 | Observability؟ | JSON logging (pino) با requestId/jobId/correlationId (بدون داده سلامتی) + Prometheus metrics در web/worker/ai + آستانه‌های DLQ/Callback/Backlog؛ OTel-ready | اشکال‌زدایی صف/پرداخت/AI؛ پایه فاز Deployment | ADR-0012 |
 
+| ED-47 | ابزار DDL در PostgreSQL؟ | Alembic (SQLAlchemy) مرجع یکتای Schema؛ Prisma فقط Introspection (db pull) در فاز بعد | فرمان صریح PHASE 04 + ADR-0013 | ADR-0013 |
+| ED-48 | نوع PK؟ | BIGINT IDENTITY (نه UUID) — درج ترتیبی/ایندکس فشرده؛ Multi-Tenant آینده با tenant_id + RLS | §68 + Performance | DATABASE.md §2 |
+| ED-49 | Soft-Delete فراگیر؟ | دامنه‌ای‌ها ✓؛ رکوردهای مالی/حقوقی (payments/invoices/expenses/ai_analyses) هیچ حذفی ندارند — فقط status | قوی‌تر از §48 | DATABASE.md §7 |
+| ED-50 | اصلاح رکورد مالی؟ | قلم معکوس ADJUSTMENT در Ledger Append-Only — هرگز UPDATE | استاندارد حسابداری | DATABASE.md §8 |
+| ED-51 | ENUM پستگرس؟ | نه — VARCHAR + CHECK؛ افزودن مقدار = Migration عادی قابل Rollback | تجربه ALTER TYPE غیرتراکنشی | DATABASE.md §2 |
+| ED-52 | ContactLog کجا؟ | Context patients؛ کانال/جهت/نتیجه + Soft-Ref تیکت/پرونده | §47 بدون تعیین جایگاه | DATABASE.md §3 |
+| ED-53 | بازبینی کارشناس/پزشک؟ | expert_reviews و doctor_reviews مستقل از Prescription — سابقه تصمیم حفظ می‌شود | فرمان Entity مستقل | DATABASE.md §3 |
+| ED-54 | Inventory؟ | جدول 1:1 + inventory_movements دفتر خبری (علامت + balance_after)؛ منبع حقیقت Ledger | فرمان PHASE 04 + §14 | DATABASE.md §5 |
+| ED-55 | پاسخ پرسشنامه نرمال؟ | جدول answers به‌جای JSON + UNIQUE(response, question) | §47 «Normalize» | DATABASE.md §3 |
+| ED-56 | FK بین-Context؟ | ممنوع فیزیکی — Soft-Ref ایندکس‌دار + تست کاتالوگ | ADR-0004/D4 | DATABASE.md §4 |
+| ED-57 | جستجوی فارسی؟ | GIN-trgm روی متن نرمال‌شده — نه FTS کامل تا نیاز واقعی | §67 | DATABASE.md §9 |
+| ED-58 | جداول بزرگ Append-Only؟ | BRIN الان؛ Partitions هنگام >10M ردیف | قاعده ۱۵ مقیاس‌پذیری | DATABASE.md §12 |
+
 ---
 
 ## تغییرات آتی این سند

@@ -1,0 +1,47 @@
+erDiagram
+    cart_items {
+        bigint cart_id FK
+        int quantity
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    carts {
+        varchar status
+        bigint converted_order_id FK
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    invoices {
+        varchar code
+        bigint order_id FK
+        varchar status
+        bigint subtotal
+        bigint discount
+        bigint total
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    order_items {
+        bigint order_id FK
+        int quantity
+        bigint id PK
+        timestamptz created_at
+    }
+    orders {
+        varchar code
+        varchar status
+        bigint subtotal
+        bigint discount
+        bigint total
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+    orders ||--o{ carts : "converted_order_id"
+    orders ||--|{ invoices : "order_id"
+    orders ||--|{ order_items : "order_id"
+    carts ||--|{ cart_items : "cart_id"

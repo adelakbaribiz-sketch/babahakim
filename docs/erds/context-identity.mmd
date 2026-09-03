@@ -1,0 +1,39 @@
+erDiagram
+    permissions {
+        varchar code UK
+        bigint id PK
+        timestamptz created_at
+    }
+    refresh_tokens {
+        bigint user_id FK
+        varchar token_hash UK
+        bigint replaced_by_token_id FK
+        bigint id PK
+        timestamptz created_at
+    }
+    role_permissions {
+        bigint role_id PK
+        bigint permission_id PK
+    }
+    roles {
+        varchar code UK
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+    users {
+        varchar phone UK
+        bigint role_id FK
+        boolean is_active
+        varchar referral_code UK
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+    roles ||--|{ role_permissions : "role_id"
+    permissions ||--|{ role_permissions : "permission_id"
+    roles ||--|{ users : "role_id"
+    users ||--|{ refresh_tokens : "user_id"
+    refresh_tokens ||--o{ refresh_tokens : "replaced_by_token_id"

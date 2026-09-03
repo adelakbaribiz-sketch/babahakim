@@ -1,0 +1,34 @@
+erDiagram
+    disease_products {
+        bigint disease_id PK
+        bigint product_id PK
+    }
+    inventories {
+        bigint product_id FK
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    inventory_movements {
+        bigint product_id FK
+        int quantity
+        bigint id PK
+        timestamptz created_at
+    }
+    product_price_history {
+        bigint product_id FK
+        bigint id PK
+        timestamptz created_at
+    }
+    products {
+        varchar sku
+        boolean is_active
+        bigint id PK
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+    products ||--|{ disease_products : "product_id"
+    products ||--|{ inventories : "product_id"
+    products ||--|{ inventory_movements : "product_id"
+    products ||--|{ product_price_history : "product_id"

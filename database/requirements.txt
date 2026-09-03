@@ -1,0 +1,7 @@
+# BabaHakim — database subproject dependencies (PHASE 04)
+# Install: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+SQLAlchemy>=2.0
+alembic>=1.13
+psycopg2-binary>=2.9
+pytest>=8.0
+pgserver>=0.0.4          # embedded PostgreSQL (no root) — dev/test only

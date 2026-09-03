@@ -616,7 +616,7 @@ Registration ─→ Questionnaire ─→ Image Upload ─→ AI Analysis ─→ 
 | **Phase 01** (انجام‌شده) | مستندسازی نیازمندی | PRD، User Stories، Business Rules، Use Cases، Acceptance Criteria، RTM |
 | **Phase 02** (انجام‌شده — توالی واقعی جلوتر از نقشه) | M17 (بخش Workflow) + مقدمات M16 | موتور گردش کار اعلانی + ۸ ماشین وضعیت + ۵۱ تست واحد |
 | **Phase 03** (همین فاز — M1 کامل) | M1 (Architecture) | ARCHITECTURE.md + ARCHITECTURE-DIAGRAM.md + ADR×12 + قواعد وابستگی و ضد-چرخه |
-| **Phase 04** | M15 (Security + Audit) + فعال‌سازی Enforcement معماری (ADR-0010) | Hardening امنیتی، Rate Limiting کامل، Malware Scan، تست معماری CI |
+| **Phase 04** (انجام‌شده — D1/D2 به‌جای M15، طبق فرمان محصول) | M15 (بخش Database) — معماری و پیاده‌سازی PostgreSQL: ۱۵ Schema/۴۹ جدول/۱۶۷ Check/۱۹۰ ایندکس/۴۴ تریگر امنیتی + Alembic + ERD×17 + ۸۵ تست | `docs/DATABASE.md` · `DATABASE-ERD.md` · ADR-0013 · ED-47..58 |
 | **Phase 05** | M16 (Testing) + مهاجرت SQLite→PostgreSQL (ADR-0004) | پوشش Unit/Integration/E2E + تست‌های Workflow ۱۸ مرحله‌ای |
 | **Phase 06** | M17 (Deployment) + M18 (Hardening) | Docker Production، Nginx/SSL، CI/CD، Monitoring (ADR-0012)، Backup/DR |
 | **Phase 07+** | توسعه محصول | Coupon مستقل، Email/Push، OTP، Export داده، MLOps واقعی، PWA |
