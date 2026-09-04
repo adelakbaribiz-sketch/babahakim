@@ -56,16 +56,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setLang = useCallback((l: Lang) => setLangState(l), [])
 
   const api = useCallback(async <T,>(path: string, init?: RequestInit & { json?: unknown }): Promise<T> => {
+    const csrf = () => {
+      try {
+        const m = document.cookie.match(/(?:^|;\s*)ta_csrf=([^;]+)/)
+        return m ? m[1] : ''
+      } catch {
+        return ''
+      }
+    }
     const doFetch = () =>
       fetch(path, {
         ...init,
-        headers: { ...(init?.json !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(init?.headers || {}) },
+        headers: {
+          ...(init?.json !== undefined ? { 'Content-Type': 'application/json' } : {}),
+          // PHASE 05: double-submit CSRF (middleware enforces equality with cookie)
+          ...((init?.method || 'GET').toUpperCase() !== 'GET' ? { 'x-csrf-token': csrf() } : {}),
+          ...(init?.headers || {}),
+        },
         body: init?.json !== undefined ? JSON.stringify(init.json) : init?.body,
         credentials: 'same-origin',
       })
     let res = await doFetch()
     if (res.status === 401 && path !== '/api/v1/auth/me') {
-      const refreshed = await fetch('/api/v1/auth/refresh', { method: 'POST' })
+      const refreshed = await fetch('/api/v1/auth/refresh', {
+        method: 'POST',
+        headers: { 'x-csrf-token': csrf() },
+      })
       if (refreshed.ok) res = await doFetch()
     }
     const data = await res.json().catch(() => ({}))
@@ -102,7 +118,15 @@ export function useApp(): AppState {
 }
 
 export function logoutUser(setUser: (u: SessionUser | null) => void, navigate: (p: string) => void) {
-  fetch('/api/v1/auth/logout', { method: 'POST' }).finally(() => {
+  const csrf = (() => {
+    try {
+      const m = document.cookie.match(/(?:^|;\s*)ta_csrf=([^;]+)/)
+      return m ? m[1] : ''
+    } catch {
+      return ''
+    }
+  })()
+  fetch('/api/v1/auth/logout', { method: 'POST', headers: { 'x-csrf-token': csrf } }).finally(() => {
     setUser(null)
     navigate('landing')
   })

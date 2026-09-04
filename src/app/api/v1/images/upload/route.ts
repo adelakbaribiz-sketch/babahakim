@@ -4,9 +4,23 @@ import { ok, fail, audit, parseJSON } from '@/lib/api'
 import { getAuth } from '@/lib/auth'
 import { storeImage, IMAGE_TYPES } from '@/lib/storage'
 import { notify } from '@/lib/notify'
+import { rateLimit, rateLimited, LIMITS } from '@/lib/security/rate-limit'
 
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_SIZE = 10 * 1024 * 1024
+
+// Magic-byte signatures (PHASE 05, T-UP-01): the declared MIME can lie;
+// actual content must be JPEG/PNG/WebP or the file is rejected pre-pipeline.
+const MAGIC: Array<{ mime: string; test: (b: Buffer) => boolean }> = [
+  { mime: 'image/jpeg', test: (b) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
+  { mime: 'image/png', test: (b) => b.length > 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 },
+  { mime: 'image/webp', test: (b) => b.length > 12 && b.slice(0, 4).toString('ascii') === 'RIFF' && b.slice(8, 12).toString('ascii') === 'WEBP' },
+]
+
+function sniffMime(buf: Buffer): string | null {
+  for (const m of MAGIC) if (m.test(buf)) return m.mime
+  return null
+}
 
 // POST /api/v1/images/upload (multipart: file, type, caseId?)
 // Pipeline: validate MIME/size/corruption → strip metadata → variants (original/compressed/ai/thumb) → quality gate
@@ -26,8 +40,20 @@ export async function POST(req: NextRequest) {
   if (!ALLOWED_MIME.includes(file.type)) return fail('فرمت فایل مجاز نیست (JPG / PNG / WebP)')
   if (file.size > MAX_SIZE) return fail('حجم فایل بیش از ۱۰ مگابایت است')
 
+  // per-user upload rate limit (abuse/flooding guard)
+  const rl = rateLimit(`upload:${auth.user.id}`, LIMITS.upload.limit, LIMITS.upload.windowMs)
+  if (!rl.allowed) {
+    await audit(req, auth.user.id, 'UPLOAD_RATE_LIMITED', 'MedicalImage', null, null, { retryAfter: rl.retryAfterSec })
+    return rateLimited(rl)
+  }
+
   const buf = Buffer.from(await file.arrayBuffer())
   if (buf.length === 0) return fail('فایل خالی است')
+  const sniffed = sniffMime(buf)
+  if (!sniffed) {
+    await audit(req, auth.user.id, 'UPLOAD_MAGIC_REJECT', 'MedicalImage', null, null, { declared: file.type })
+    return fail('محتوای فایل یک تصویر معتبر نیست', 400)
+  }
 
   // case ownership check
   if (caseId) {

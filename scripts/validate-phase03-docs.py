@@ -37,7 +37,8 @@ required += [ADR_DIR / f"{a}-{slug}.md" for a, slug in [
     ("ADR-0007","ai-service-isolation"), ("ADR-0008","domain-events-cross-context"),
     ("ADR-0009","ports-adapters-payment-shipping"), ("ADR-0010","architecture-enforcement-ci"),
     ("ADR-0011","deployment-topology"), ("ADR-0012","observability"),
-    ("ADR-0013","alembic-ddl-source-of-truth")]]
+    ("ADR-0013","alembic-ddl-source-of-truth"),
+    ("ADR-0014","security-middleware-layer"), ("ADR-0015","privacy-data-rights")]]
 for f in required:
     if not f.exists(): err(f"MISSING file: {f}")
 if errors:
@@ -94,7 +95,7 @@ for c in COMPONENTS:
 # ---------- 4. ADR structure ----------
 sec_required = ["## Context","## Decision","## Consequences","## Compliance","وضعیت"]
 adr_files = sorted(ADR_DIR.glob("ADR-*.md"))
-if len(adr_files) != 13: err(f"expected 13 ADR files, found {len(adr_files)}")
+if len(adr_files) != 15: err(f"expected 15 ADR files, found {len(adr_files)}")
 for f in adr_files:
     txt = f.read_text(encoding="utf-8")
     aid = f.stem.split("-")[0] + "-" + f.stem.split("-")[1]
@@ -105,9 +106,11 @@ for f in adr_files:
     ed = re.search(r"ED-(\d\d)", txt)
     if not ed: err(f"{f.name}: no ED reference")
     else:
+        # ADRs map to at least the base ED of their number; phase-05+ ADRs may
+        # legitimately cover ED ranges (e.g. ADR-0014 -> ED-59..62).
         n = int(ed.group(1))
-        expected = 34 + int(aid.split("-")[1])
-        if n != expected: err(f"{f.name}: ED-{n} but expected ED-{expected}")
+        expected_min = 34 + int(aid.split("-")[1])
+        if n < expected_min: err(f"{f.name}: ED-{n} below minimum ED-{expected_min}")
 # README links resolve
 for link in re.findall(r"\]\((\./ADR-[\w-]+\.md)\)", adr_readme):
     if not (ADR_DIR / link[2:]).exists(): err(f"ADR README broken link: {link}")
@@ -117,7 +120,7 @@ for i in range(35, 47):
     if f"| ED-{i} |" not in br: err(f"BUSINESS-RULES.md missing ED-{i}")
     if f"ADR-{i-34:04d}" not in br: err(f"BUSINESS-RULES.md ED-{i} lacks ADR ref")
 ed_count = len(re.findall(r"^\| ED-\d+ \|", br, re.M))
-if ed_count != 58: err(f"ED total count {ed_count} != 58")
+if ed_count != 70: err(f"ED total count {ed_count} != 70")
 
 # ---------- 6. mermaid ----------
 blocks = re.findall(r"```mermaid\n(.*?)```", diag, re.S)
@@ -170,7 +173,7 @@ if "Modular Monolith" not in arch.split("## 2.")[1][:4000]:
     err("ARCHITECTURE.md §2 does not state Modular Monolith decision")
 
 # ---------- report ----------
-ctx_n = 15; comp_n = len(COMPONENTS); adr_n = len(adr_files); ed_n = 58
+ctx_n = 15; comp_n = len(COMPONENTS); adr_n = len(adr_files); ed_n = 70
 print(f"[PHASE-03 validator] contexts={ctx_n} components={comp_n} ADRs={adr_n} EDs(total)={ed_n}")
 print(f"[PHASE-03 validator] mermaid blocks={len(blocks)} (flowchart={types['flowchart']}, sequence={types['sequenceDiagram']})")
 print(f"[PHASE-03 validator] 17-stage keywords: {sum(1 for s in STAGES if s in diag)}/17")

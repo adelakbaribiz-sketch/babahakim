@@ -28,6 +28,7 @@ model User {
   gender           String? // MALE | FEMALE | OTHER
   birthDate        DateTime?
   profileComplete  Boolean   @default(false)
+  mfaEnabled       Boolean   @default(false) // PHASE 05: OTP-based MFA opt-in
   lastLoginAt      DateTime?
   failedLogins     Int       @default(0)
   lockedUntil      DateTime?
@@ -67,13 +68,60 @@ model User {
 }
 
 model RefreshToken {
-  id        String   @id @default(cuid())
-  userId    String
-  tokenHash String   @unique
-  expiresAt DateTime
-  revoked   Boolean  @default(false)
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               String    @id @default(cuid())
+  userId           String
+  tokenHash        String    @unique
+  expiresAt        DateTime
+  revoked          Boolean   @default(false)
+  revokedAt        DateTime? // PHASE 05: when/why (rotation | logout | reuse-kill)
+  revokedReason    String?   // ROTATED | LOGOUT | REUSE_DETECTED | PASSWORD_CHANGE
+  replacedByToken  String?   // PHASE 05: rotation chain (token family)
+  createdAt        DateTime  @default(now())
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────── SECURITY (PHASE 05) ───────────────────────
+model OtpChallenge {
+  id         String    @id @default(cuid())
+  phone      String
+  purpose    String // LOGIN_MFA | PASSWORD_RESET | PHONE_VERIFY
+  codeHash   String // sha256(salt + code) — OTP never stored plaintext
+  expiresAt  DateTime // 2 minutes
+  attempts   Int       @default(0) // max 5, then challenge dead
+  consumedAt DateTime? // single-use
+  ip         String?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, purpose, createdAt])
+}
+
+model ConsentRecord {
+  id          String    @id @default(cuid())
+  userId      String
+  consentType String // TERMS | PRIVACY | DATA_PROCESSING | MEDICAL_IMAGE_AI | MARKETING
+  version     String // e.g. "1.0" — the accepted document version
+  granted     Boolean   @default(true)
+  grantedAt   DateTime  @default(now())
+  revokedAt   DateTime? // MARKETING revocable; core consents while service active
+  ip          String?
+  device      String?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, consentType])
+}
+
+model DeletionRequest {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  reason        String?
+  status        String    @default("PENDING") // PENDING | PROCESSING | COMPLETED | REJECTED
+  note          String?   // admin note (rejection reason / anonymization summary)
+  requestedAt   DateTime  @default(now())
+  processedAt   DateTime?
+  processedById String?   // admin user id
+  anonymizedAt  DateTime? // PII stripped at this moment (ED-69: anonymize, never hard delete)
+
+  @@index([status, requestedAt])
 }
 
 model Role {
@@ -195,6 +243,7 @@ model MedicalImage {
   sizeCompressed Int?
   mime           String
   quality        String? // JSON {score, blur, brightness, exposure, resolution, orientation, issues[]}
+  rejectionReason String? // PHASE 05: why an image was rejected (quality gate | right-to-erasure)
   version        Int      @default(1)
   createdAt      DateTime @default(now())
   owner          User          @relation("ImageOwner", fields: [ownerId], references: [id])

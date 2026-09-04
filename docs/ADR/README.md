@@ -26,6 +26,8 @@
 | [ADR-0011](./ADR-0011-deployment-topology.md) | توپولوژی استقرار (Compose/Prod) | Accepted | ED-45 | web/worker/postgres/redis/minio/ai/caddy |
 | [ADR-0012](./ADR-0012-observability.md) | Observability ساخت‌یافته | Accepted | ED-46 | JSON logging + metrics + correlationId + OTel-ready |
 | [ADR-0013](./ADR-0013-alembic-ddl-source-of-truth.md) | Alembic مرجع یکتای DDL — Prisma فقط Introspection | Accepted | ED-47 | Supersede جزئی ADR-0004 (ابزار Migration) |
+| [ADR-0014](./ADR-0014-security-middleware-layer.md) | لایه اجرای امنیت: Middleware سراسری (Origin+CSRF) + Guardهای مسیر | Accepted | ED-59..62 | پوشش CSRF/Origin بدون بازنویسی ۳۰+ مسیر |
+| [ADR-0015](./ADR-0015-privacy-data-rights.md) | حقوق داده شخصی: Consent نسخه‌دار + Export + حذف از طریق Anonymization | Accepted | ED-67..70 | سازگاری حق فراموشی با تعهد مالی ED-49 |
 
 ## ساختار هر ADR
 

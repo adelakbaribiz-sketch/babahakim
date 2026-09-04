@@ -343,6 +343,19 @@
 | ED-57 | جستجوی فارسی؟ | GIN-trgm روی متن نرمال‌شده — نه FTS کامل تا نیاز واقعی | §67 | DATABASE.md §9 |
 | ED-58 | جداول بزرگ Append-Only؟ | BRIN الان؛ Partitions هنگام >10M ردیف | قاعده ۱۵ مقیاس‌پذیری | DATABASE.md §12 |
 
+| ED-59 | مدیریت Secret؟ | فقط Env: JWT_SECRET≥32 + FIELD_ENC_KEY 32B؛ Production fail-fast (بدون fallback هاردکد)؛ dev با Secret مشتق‌شده هشدار‌دار | قاعده ۶ منشور؛ بسته شدن fallback هاردکد | ADR-0014 |
+| ED-60 | Rate Limit؟ | اسلایدینگ-ویندو درون-پروسه با presets (login 5/5m + IP 15/5m، OTP 3/10m، upload 20/m، export 1/day، register 5/h) + اینترفیس Redis برای Scale | ضد Brute-force/Spray/DoS لایه ۷ | ADR-0014 |
+| ED-61 | CSRF؟ | Double-submit سراسری در Middleware (کوکی==هدر) + Origin/CORS allowlist؛ معاف واحد: callback درگاه (امضای درگاه) | Cookie-Auth SPA؛ پوشش بدون بازنویسی مسیرها | ADR-0014 |
+| ED-62 | هدرهای امنیتی؟ | CSP (self + اجزای لازم) + XFO/nosniff/Referrer/Permissions/COOP + HSTS در prod؛ بدهی: مهاجرت nonce | دفاع لبه اپ | ADR-0014 |
+| ED-63 | OTP/MFA؟ | ۶ رقم CSPRNG، ذخیره sha256(salt:code)، TTL 2m، ۵ تلاش، یک‌بارمصرف، RL ارسال 3/10m، Port SMS؛ مقاصد LOGIN_MFA/PASSWORD_RESET/PHONE_VERIFY | معماری MFA آماده + جریان فعال | ADR-0014 |
+| ED-64 | سرقت Refresh Token؟ | چرخش اتمیک + زنجیره replacedBy + کشف Replay → ابطال کل خانواده + رویداد REFRESH_REUSE_DETECTED | استاندارد OAuth token-family | SECURITY.md §1.3 |
+| ED-65 | رمزنگاری فیلد؟ | AES-256-GCM (پاکت v1:iv:tag:ct) برای ستون‌های حساس؛ تست دستکاری AuthTag | Data-at-Rest در سطح ستون | SECURITY.md §6.2 |
+| ED-66 | دسترسی تصویر staff؟ | Permission صریح (view_images ∨ view_medical_files) سروری — بسته شدن «هر نقش staff»؛ Audit همه دسترسی‌ها + رویداد ACCESS_DENIED | بستن T-INF-01/T-EOP-03 | SECURITY.md §8 |
+| ED-67 | Consent؟ | ConsentRecord نسخه‌دار (TERMS/PRIVACY/DATA_PROCESSING/MEDICAL_IMAGE_AI/MARKETING)؛ فقط MARKETING قابل لغو؛ اعطا در ثبت‌نام + اندپوینت | الزامات Privacy محصول | ADR-0015 |
+| ED-68 | خروجی داده؟ | Export JSON خودکار همه داده کاربر، ۱بار/24h، Audit حساس | Data Portability | ADR-0015 |
+| ED-69 | حذف داده؟ | DeletionRequest → ANONYMIZATION (PII→جاگذار + ابطال نشست + تصاویر REJECTED/RIGHT_TO_ERASURE)؛ تجمیع مالی/بالینی حفظ | سازگاری با ED-49 (حسابداری) | ADR-0015 |
+| ED-70 | De-identification؟ | pseudonymize (شبه‌نام قطعی per-dataset) + redactText (موبایل/ایمیل/کد) برای دیتاست/گزارش | §11/§63 مشخصات؛ ضد Leakage | ADR-0015 |
+
 ---
 
 ## تغییرات آتی این سند
