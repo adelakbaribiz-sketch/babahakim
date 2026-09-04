@@ -297,3 +297,36 @@ Stage Summary:
 - Key decisions: ED-93 لایه‌ای+Shared Kernel منجمد · ED-94 envelope واحد سازگار v1 · ED-96 zod مرز واحد · ED-98 کش HMR-safe آماده Redis · ED-99 سرویس‌ها notify مستقیم نمی‌زنند · ED-100 قرارداد صفحه‌بندی · ED-101 نسخه‌بندی هدر+URL · ED-102 جاب BullMQ-سازگار · ED-103 uow اتمیک · ED-104 گارد موجودی · ED-105 گیت Controller نازک
 - Remaining risks (honest): D-08-1 فهرست‌های ادمین cap ثابت (صفحه‌بندی کامل v1²) · D-08-2/3 Cache و JobQueue تک-نمونه‌ای (port آماده Redis/BullMQ) · D-08-4 گزارش‌ها مستقیم OLTP · D-08-6 CSP unsafe-inline (ارث فاز ۰۵) · AI job همچنان in-process (worker جدا در فاز Deployment)
 - Next: PHASE 09 — UI Rebuild طبق SC-ID (SCREEN-MAP ۷۳ صفحه) روی Design System فاز ۰۷ + Backend فاز ۰۸، یا Deployment (Docker/CI) طبق PRD §12
+
+---
+Task ID: 11
+Agent: Main agent (Super Z)
+Task: PHASE 10 — File & Media Engineering: استانداردسازی Upload/Download/Storage/Compression/Processing/Metadata/Versioning/Access Control/Security + طبقه‌بندی Public/Private/Temporary/Permanent + Lifecycle/Signed URLs/Limits/Allowed Types/Malware/Backup + عدم بلاک شدن درخواست اصلی
+
+Work Log:
+- Pre-stage audit (rule 4): worklog (۱۰ فاز)، git log، بازیابی وضعیت جلسهٔ قطع‌شدهٔ PHASE 09 (frontend-audit-report + e2e 3/17 در لحظهٔ قطع + **مسیر گم‌شدهٔ images/upload در آخرین auto-commit**) — ۱۲ یافته: F1 مسیر آپلود گم، F2 پردازش همزمان بلاک‌کننده (storeImage در رشته درخواست)، F3/F4 بدون طبقه‌بندی/چرخه حیات، F5 version بلااستفاده، F6 تصویر محصول همیشه ۴۰۴ (امضای Product ID روی مسیر MedicalImage)، F7 enum ناسازگار، F8 بدون بدافزار، F9 بدون Backup، F10 حدود دو-منبع، F11 امضا بدون مقید بودن variant، F12 ذخیره‌سازی تخت
+- Prisma: ۳ موجودیت جدید StoredFile/StoredFileVersion/StoredFileVariant (SQLite: enum رشته‌ای + اعتبارسنجی در config) + پل MedicalImage.storedFileId و Product.imageFileId + IMAGE_TYPE واحد؛ db:push
+- موتور src/server/infrastructure/media/ (۷ ماژول): config (MEDIA_POLICY تک‌منبع حدود بیمار/کارکنان + allowlist + TTL + retention، ED-107) · storage-driver (پورت + Local با ۶ ناحیه inbox/files{public,private,temp}/quarantine/trash + کلید محتوا-نشانی + assertSafeKey ضد traversal، ED-109/110) · scanner (L1 امضاها شامل EICAR + L2 ساختاری trailing/RIFF/MZ/PDF-JS + L3 بازکدگذاری + L4 ClamAV clamd INSTREAM، ED-111) · signed-url (HMAC روی fileId.version.variant.exp + timing-safe، ED-112) · processing (sharp: original q95/compressed 1600q82/ai 512/thumb 320 — همه بازکدگذاری و بدون EXIF) · pipeline (acceptUpload سریع → inbox+PENDING+enqueue؛ processFile در worker: scan→quarantine یا renditions→metadata→گیت کیفیت→پل MedicalImage، ED-114) · lifecycle (TTL صندوق ۲۴h، انقضای TEMPORARY، پاک‌سازی سطل ۷ روزه batch≤50 + Audit tick)
+- خطاهای جدید: 413 PAYLOAD_TOO_LARGE / 415 UNSUPPORTED_MEDIA_TYPE در errors.ts
+- mediaFileService (guards/audit/DTO/صفحه‌بندی ED-100) + ۱۰ مسیر: POST/GET /api/v1/files، [id] (GET/PATCH/DELETE)، [id]/versions (GET/POST)، [id]/content (سرو با Cache-Control طبقه‌بندی-آگاه + ETag + Range 206 + nosniff)، [id]/signed-url، admin/media/stats، admin/media/lifecycle (+force) + بازیابی images/upload (۲۰۲) + images/[id] (poll وضعیت + کیفیت) + serveImageFile پل جدید/legacy
+- bootstrap v3: jobs media-process (retry/backoff/DLQ→FAILED) + media-lifecycle تکرارشونده ۵ دقیقه؛ رویدادهای MediaFileReady (→ابطال کش کاتالوگ برای PRODUCT_IMAGE)/MediaFileInfected (→اعلان FILE_QUARANTINED مالک + اپراتورها)/MediaFilePurged؛ ImageUploaded پس از READY پزشکی؛ notify: قالب FILE_QUARANTINED + رفع باگ smsLog→sMSLog
+- رفع F6: catalogService → Product.imageFileId با URL عمومی مستقیم؛ admin products create/patch پذیرای multipart (data JSON + image) → آپلود PUBLIC در موتور + نسخه جدید در جایگزینی
+- فرانت حداقلی: NewCaseView آپلود ۲۰۲ → poll وضعیت تا VALIDATED/REJECTED (۳۰×750ms) با همان UX کیفیت
+- مهاجرت: scripts/migrate-legacy-media.mjs (idempotent) — ۱۵ رکورد legacy → files/private با sha256 محاسبه‌شده + scanEngine=legacy-migrated + مسیرهای legacy همگام
+- Backup/Restore: backup-media.mjs (tar.gz storage+db پس از wal_checkpoint + manifest + sha256 + retention ۱۴ روز — اجرا: 8.21MB/62 فایل) + restore-media.mjs (staging + --yes) + npm scripts
+- گیت: scripts/media-audit.mjs (E1 بدون fs/sharp در مسیرها، E2 تک‌منبعی حدود، E3 ممنوعیت امضا دست‌ساز، E4 گارد کلید، E5 ممنوعیت storeImage، E6 apiRoute، E7 MEDIA_POLICY در lifecycle/bootstrap) — ۰ خطا؛ backend-audit: گارد whitelist برای content (مجوز درون-سرویس) + stats singleton + مسیرهای multipart با zod — ۰ خطا
+- تست: ۳۰ unit (scanner/امضا/سیاست/کلید/خالص‌ها) + ۱۹ integration (۲۰۲→poll→READY، 413/415/400، ماتریس دسترسی، امضا variant-swap/انقضا، versioning تغییرناپذیر v1، قرنطینه EICAR، PUBLIC محصول ناشناس، TEMPORARY+حذف نرم+force purge+stats، لیست مالک-محور) + golden path async + pentest انتظار MIME 415 — رگرسیون: ۱۸۹/۱۸۹ bun test + ۴۵/۴۵ pentest + ۱۷/۱۷ E2E
+- Test→Fix: tsc (پرانتز require/نوع‌ها/readdir Dirent/qualityOk null)، poll مرزی exp==now، uploads zone در driver، assert sanitizeFileName، ثبت بدنه Client (rawGet برای باینری)، DELETED→404 (tombstone)، شماره تلفن تست ۴۰9-تکرار، رنگزگر E2E محلی‌سازی (Toggle light/dark) + **رفع باگ遗留ی PHASE 09: ThemeToggle از useApp().setTheme (ناموجود) → useTheme()** → E2E 17/17
+- مرورگر (agent-browser): لاگین سارا → ارسال درخواست → آپلود تصویر → 202 → poll → Q:100/100 → ایجاد پرونده TC-MTMT7K6C147 → workspace — dev.log پاک (فقط AUTH_REQUIRED آغازین)؛ ناحیه‌ها روی دیسک فعال (public 21/private 108/quarantine 7)
+- مستندات: docs/FILE-MEDIA.md (۱۵ بخش: ممیزی F1..F12، معماری، ماتریس، lifecycle، بدافزار، امضا، حدود، versioning، ذخیره‌سازی، عدم-بلاک، API، backup، تست، بدهی D-10-1..6، رجیستری)؛ رجیستری: PRD §12 (فاز ۰۹ نیمه‌کاره صادقانه + فاز ۱۰ + فاز 11+) + فهرست اسناد، BR +۱۴ ردیف ED-106..119، RTM یادداشت فاز ۰۹/۱۰ + بازه ED-01..119
+- اعتبارسنج‌ها: validate-phase10-docs.py جدید (12 دسته، PASS) + بازتنظیم ۵ اعتبارسنج قدیمی به ED-119 + منبع sniffMime به pipeline — ۸/۸ PASS
+- امنیت: اسکن secret/PHI روی ۷۴ فایل متنی تغییر-یافته = پاک؛ .env ignored (راستی‌آزمایی)؛ storage/ و backups/ و tool-results/ به .gitignore + untrack
+- Git commit 52e42f7 (۱۲۷ فایل)
+
+Stage Summary:
+- Deliverables: موتور فایل/رسانه کامل (۷ ماژول + ۳ موجودیت + ۱۰ مسیر + ۳ اسکریپت عملیاتی + گیت CI + مستند ۱۵-بخشی) · ED-106..119 · ۴۹ تست جدید · ۸/۸ اعتبارسنج
+- دو باگ پروداکشن واقعی رفع شد: F6 (تصاویر محصولات همیشه ۴۰۴ — از ابتدای پروژه) و F11 (امضای بدون-variant — امکان برداشت original با URL معتبر compressed) + بازیابی F1 (مسیر آپلود گم‌شده از جلسه قطع‌شده) + ThemeToggle crash遗留ی فاز ۰۹
+- Verification: ۱۸۹/۱۸۹ bun test · ۴۵/۴۵ pentest · ۱۷/۱۷ E2E مرورگری (رفع آخرین شکست) · سه گیت audit سبز · browser-verified (آپلود async تا ایجاد پرونده) · backup واقعی 8.21MB
+- Key decisions: ED-106..119 (رجیستری کامل در FILE-MEDIA §15) — مهم‌ترینها: ED-114 آپلود ۲۰۲+worker (الزام «عدم بلاک»)، ED-111 اسکن L1..L4 + قرنطینه، ED-112 امضای مقید چهار-جزئی، ED-107 تک‌منبعی حدود
+- Remaining risks (honest): D-10-1 بازکلاس‌بندی فیزیکی فقط در نسخه بعدی · D-10-2 JobQueue/RateLimit تک-نمونه‌ای (پورت Redis) · D-10-3 ClamAV در dev خاموش · D-10-4 دو فایل یتیم uploads/ · D-10-5 UI گالری ادمین → فاز ۰۹ · D-10-6 بدون chunk-upload (کافی برای ۲۵MB)
+- Next: PHASE 09 remediation نیمه‌کاره (۷۳ صفحه SC-ID روی DS فاز ۰۷ + backend فاز ۰۸) یا Deployment طبق PRD §12 فاز 11+
