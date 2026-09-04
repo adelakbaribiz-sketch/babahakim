@@ -16,9 +16,15 @@ import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { SectionCard, StatusBadge, JalaliDate, Money, LoadingRows, EmptyState } from '../shared/atoms'
+import { ApiError } from '@/lib/api-error'
+import { TextAreaField } from '../shared/form'
+import { SectionCard, StatusBadge, JalaliDate, Money, LoadingRows, EmptyState, ErrorState } from '../shared/atoms'
 import { AIAnalysisCard, ImageGallery, PrescriptionCard, PaymentPanel, Timeline } from '../shared/clinical'
 import { STATUS_META } from '@/lib/constants'
+// PHASE 09 (F12/ED-113): action availability derives from the SAME machine
+// the server engine enforces — single source, no duplicated role arrays.
+import { CASE_MACHINE } from '@/lib/workflow/machines/case'
+import { resolveTransition } from '@/lib/workflow/pure'
 import { ArrowLeft, CheckCircle2, XCircle, ClipboardCheck, Pill, FileText, Truck, PackageCheck, CalendarClock, Stethoscope, User, Send, Package } from 'lucide-react'
 
 interface CaseData {
@@ -40,40 +46,51 @@ interface CaseData {
 }
 
 export function CaseWorkspace({ caseId, onChanged }: { caseId: string; onChanged?: () => void }) {
-  const { t, lang, api, user } = useApp()
+  const { t, lang, api, user, can } = useApp()
   const [data, setData] = useState<CaseData | null>(null)
   const [err, setErr] = useState('')
+  const [declineOpen, setDeclineOpen] = useState(false)
+  const [actionBusy, setActionBusy] = useState(false)
 
   const load = useCallback(async () => {
     try {
       const d = await api<{ case: CaseData }>(`/api/v1/cases/${caseId}`)
       setData(d.case)
-    } catch (e) { setErr((e as Error).message) }
+      setErr('')
+    } catch (e) { setErr((e as ApiError).supportRef) }
   }, [api, caseId])
 
   useEffect(() => { load() }, [load])
 
   const refresh = () => { load(); onChanged?.() }
 
+  /** PHASE 09: can this session perform this workflow action here? */
+  const actionAllowed = useCallback((actionName: string, status: string, role: string) => {
+    const t = resolveTransition(CASE_MACHINE, status, actionName, role as never)
+    return !!t && (!t.permission || can(t.permission))
+  }, [can])
+
   async function action(actionName: string, payload?: Record<string, unknown>) {
+    setActionBusy(true)
     try {
       const res = await api(`/api/v1/cases/${caseId}/action`, { method: 'POST', json: { action: actionName, ...payload } })
       if (res && (res as { error?: string }).error) throw new Error((res as { error: string }).error)
-      toast.success('✓')
+      toast.success(t('successTitle'))
       refresh()
       return true
     } catch (e) {
       toast.error((e as Error).message)
       return false
-    }
+    } finally { setActionBusy(false) }
   }
 
-  if (err) return <Alert variant="destructive"><AlertDescription>{err}</AlertDescription></Alert>
+  if (err) return <ErrorState message={err} onRetry={load} />
   if (!data) return <LoadingRows rows={6} />
 
   const role = user?.role || 'PATIENT'
   const latestRx = data.prescriptions[0]
   const rxOrder = data.orders.find((o) => o.type === 'PRESCRIPTION')
+  const act = (actionName: string) => actionAllowed(actionName, data.status, role)
 
   return (
     <div className="space-y-5">
@@ -124,8 +141,8 @@ export function CaseWorkspace({ caseId, onChanged }: { caseId: string; onChanged
             </SectionCard>
           )}
 
-          {/* Expert1: claim + submit assessment */}
-          {role === 'EXPERT_1' && data.status === 'WAITING_FOR_EXPERT_1' && (
+          {/* Expert1: claim + submit assessment (machine-derived, ED-113) */}
+          {act('CLAIM') && (
             <Card className="border-primary/30">
               <CardHeader className="pb-2"><CardTitle className="text-base">{lang === 'fa' ? 'دریافت پرونده' : 'Claim case'}</CardTitle></CardHeader>
               <CardContent>
@@ -134,39 +151,40 @@ export function CaseWorkspace({ caseId, onChanged }: { caseId: string; onChanged
               </CardContent>
             </Card>
           )}
-          {role === 'EXPERT_1' && data.status === 'EXPERT_1_REVIEW' && (
+          {act('SUBMIT_ASSESSMENT') && (
             <AssessmentEditor onSubmit={async (summary) => action('SUBMIT_ASSESSMENT', { summary })} />
           )}
 
-          {/* Patient approval */}
-          {role === 'PATIENT' && data.status === 'WAITING_FOR_USER_APPROVAL' && (
+          {/* Patient approval (reason recorded on decline — server validate hook) */}
+          {act('USER_APPROVE') && (
             <Card className="border-status-warning/40">
               <CardHeader className="pb-2"><CardTitle className="text-base">{t('assessment')} — {t('confirm')}</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 <div className="text-sm leading-relaxed whitespace-pre-wrap">{data.expert1Summary}</div>
                 <div className="grid grid-cols-2 gap-2">
                   <Button className="btn-brand-hover gap-1.5" onClick={() => action('USER_APPROVE')}><CheckCircle2 size={16} />{t('continueTreatment')}</Button>
-                  <Button variant="outline" className="text-destructive gap-1.5" onClick={() => action('USER_DECLINE', { reason: 'عدم تمایل به ادامه' })}><XCircle size={16} />{t('declineTreatment')}</Button>
+                  <Button variant="outline" className="text-destructive gap-1.5" onClick={() => setDeclineOpen(true)}><XCircle size={16} />{t('declineTreatment')}</Button>
                 </div>
+                <DeclineReasonDialog open={declineOpen} onOpenChange={setDeclineOpen} busy={actionBusy} onSubmit={async (reason) => action('USER_DECLINE', { reason })} />
               </CardContent>
             </Card>
           )}
 
-          {/* Expert1: prescription editor */}
-          {role === 'EXPERT_1' && ['WAITING_FOR_EXPERT_1_PRESCRIPTION', 'REVISION_REQUESTED'].includes(data.status) && (
+          {/* Expert1: prescription editor (machine-derived) */}
+          {act('SUBMIT_PRESCRIPTION') && (
             <PrescriptionEditor onSubmit={async (items, notes) => action('SUBMIT_PRESCRIPTION', { items, notes })} />
           )}
 
           {/* prescription display */}
           {latestRx && <PrescriptionCard prescription={latestRx} role={role} />}
 
-          {/* Expert2 review editor */}
-          {role === 'EXPERT_2' && data.status === 'WAITING_FOR_EXPERT_2' && latestRx && (
+          {/* Expert2 review editor (machine-derived) */}
+          {act('EXPERT2_REVIEW') && latestRx && (
             <Expert2Review prescription={latestRx} onSubmit={async (items, notes) => action('EXPERT2_REVIEW', { items, notes })} />
           )}
 
-          {/* Doctor decision */}
-          {role === 'DOCTOR' && data.status === 'WAITING_FOR_DOCTOR' && (
+          {/* Doctor decision (machine-derived — G2 mandatory comment) */}
+          {(act('DOCTOR_APPROVE') || act('DOCTOR_REJECT') || act('DOCTOR_REVISION')) && (
             <DoctorDecision onSubmit={async (decision, comment, followUpDays) => {
               if (decision === 'APPROVE') return action('DOCTOR_APPROVE', { comment, followUpDays })
               if (decision === 'REJECT') return action('DOCTOR_REJECT', { comment })
@@ -196,11 +214,11 @@ export function CaseWorkspace({ caseId, onChanged }: { caseId: string; onChanged
                 <Separator />
                 <div className="flex justify-between font-bold"><span>{t('total')}</span><span><Money amount={rxOrder.total} /></span></div>
 
-                {/* patient: confirm proforma */}
-                {role === 'PATIENT' && data.status === 'PROFORMA_CREATED' && (
+                {/* patient: confirm proforma (machine-derived) */}
+                {act('CONFIRM_PROFORMA') && (
                   <div className="grid grid-cols-2 gap-2">
-                    <Button className="btn-brand-hover" onClick={() => action('CONFIRM_PROFORMA')}>{t('confirmProforma')}</Button>
-                    <Button variant="outline" className="text-destructive" onClick={() => action('REJECT_PROFORMA')}>{t('rejectProforma')}</Button>
+                    <Button className="btn-brand-hover" disabled={actionBusy} onClick={() => action('CONFIRM_PROFORMA')}>{t('confirmProforma')}</Button>
+                    <Button variant="outline" className="text-destructive" disabled={actionBusy} onClick={() => action('REJECT_PROFORMA')}>{t('rejectProforma')}</Button>
                   </div>
                 )}
 
@@ -241,28 +259,16 @@ export function CaseWorkspace({ caseId, onChanged }: { caseId: string; onChanged
             </SectionCard>
           )}
 
-          {/* Expert2/Operator: create proforma after doctor approval */}
-          {['EXPERT_2', 'OPERATOR', 'ADMIN'].includes(role) && data.status === 'PRESCRIPTION_APPROVED' && (
-            <Card className="border-primary/30">
-              <CardHeader className="pb-2"><CardTitle className="text-base">{t('proforma')}</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm text-muted-foreground">{lang === 'fa' ? 'پس از تأیید پزشک، پیش‌فاکتور با اقلام و قیمت‌های تعیین‌شده صادر و به کاربر ارسال می‌شود.' : 'Issue the proforma with priced items and send it to the patient.'}</p>
-                <div className="space-y-1.5 w-48">
-                  <Label className="text-xs">{t('shippingCost')}</Label>
-                  <Input type="number" defaultValue={50000} id="proforma-ship-cost" dir="ltr" />
-                </div>
-                <Button onClick={() => action('CREATE_PROFORMA', { shippingCost: Number((document.getElementById('proforma-ship-cost') as HTMLInputElement)?.value || 50000) })} className="gap-1.5">
-                  <FileText size={16} />{lang === 'fa' ? 'صدور پیش‌فاکتور و ارسال برای کاربر' : 'Issue proforma'}
-                </Button>
-              </CardContent>
-            </Card>
+          {/* Expert2/Operator: create proforma after doctor approval (machine-derived) */}
+          {act('CREATE_PROFORMA') && (
+            <ProformaIssueCard busy={actionBusy} onSubmit={(shippingCost) => action('CREATE_PROFORMA', { shippingCost })} />
           )}
 
-          {/* operator: shipping + delivery actions */}
-          {['OPERATOR', 'EXPERT_2', 'ADMIN'].includes(role) && ['PAYMENT_CONFIRMED', 'PREPARING_SHIPMENT', 'SHIPPED'].includes(data.status) && (
+          {/* operator: shipping + delivery actions (machine-derived) */}
+          {(act('START_SHIPPING') || act('MARK_DELIVERED')) && (
             <OperatorShipping caseId={data.id} status={data.status} onSubmit={refresh} />
           )}
-          {['OPERATOR', 'EXPERT_1', 'ADMIN'].includes(role) && data.status === 'DELIVERED' && (
+          {act('SCHEDULE_FOLLOWUP') && (
             <SectionCard title={t('followups')}>
               <FollowupScheduler caseId={data.id} onSubmit={refresh} />
             </SectionCard>
@@ -278,6 +284,46 @@ export function CaseWorkspace({ caseId, onChanged }: { caseId: string; onChanged
   )
 }
 
+// ── Decline reason dialog (F15: server validate hook requires a reason) ─
+function DeclineReasonDialog({ open, onOpenChange, busy, onSubmit }: { open: boolean; onOpenChange: (o: boolean) => void; busy: boolean; onSubmit: (reason: string) => Promise<boolean> }) {
+  const { t } = useApp()
+  const [reason, setReason] = useState('')
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>{t('declineReason')}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <TextAreaField label={t('declineReason')} rows={3} value={reason} onChange={(e) => setReason(e.target.value)} hint={t('declineReasonHint')} error={reason.length > 0 && reason.trim().length < 5 ? t('descriptionMinError') : undefined} required />
+        </div>
+        <DialogFooter>
+          <Button onClick={async () => { const ok = await onSubmit(reason.trim()); if (ok) { setReason(''); onOpenChange(false) } }} disabled={busy || reason.trim().length < 5}>{t('confirm')}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ── Proforma issue card (F21: controlled input — no getElementById) ──────
+function ProformaIssueCard({ busy, onSubmit }: { busy: boolean; onSubmit: (shippingCost: number) => Promise<boolean> }) {
+  const { t, lang } = useApp()
+  const [shippingCost, setShippingCost] = useState('50000')
+  return (
+    <Card className="border-primary/30">
+      <CardHeader className="pb-2"><CardTitle className="text-base">{t('proforma')}</CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">{lang === 'fa' ? 'پس از تأیید پزشک، پیش‌فاکتور با اقلام و قیمت‌های تعیین‌شده صادر و به کاربر ارسال می‌شود.' : 'Issue the proforma with priced items and send it to the patient.'}</p>
+        <div className="space-y-1.5 w-48">
+          <Label htmlFor="proforma-ship-cost" className="text-xs">{t('shippingCost')}</Label>
+          <Input id="proforma-ship-cost" type="number" value={shippingCost} onChange={(e) => setShippingCost(e.target.value)} dir="ltr" inputMode="numeric" />
+        </div>
+        <Button onClick={() => onSubmit(Number(shippingCost) || 50000)} disabled={busy} className="gap-1.5">
+          <FileText size={16} />{lang === 'fa' ? 'صدور پیش‌فاکتور و ارسال برای کاربر' : 'Issue proforma'}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
 function TeamRow({ icon, label, name }: { icon: React.ReactNode; label: string; name: string }) {
   return (
     <div className="flex items-center gap-2">
@@ -289,16 +335,16 @@ function TeamRow({ icon, label, name }: { icon: React.ReactNode; label: string; 
 }
 
 function ProgressTrack({ status }: { status: string }) {
-  const { t } = useApp()
+  const { lang } = useApp() // PHASE 09 (F19): lang-aware labels (was fa-only)
   const flow = ['WAITING_FOR_EXPERT_1', 'EXPERT_1_REVIEW', 'WAITING_FOR_USER_APPROVAL', 'WAITING_FOR_EXPERT_1_PRESCRIPTION', 'WAITING_FOR_EXPERT_2', 'WAITING_FOR_DOCTOR', 'PRESCRIPTION_APPROVED', 'PROFORMA_CREATED', 'WAITING_FOR_PAYMENT', 'PAYMENT_CONFIRMED', 'SHIPPED', 'DELIVERED']
   const idx = flow.indexOf(status)
   if (idx === -1) return null
   return (
-    <div className="flex items-center gap-1 overflow-x-auto pb-1">
+    <div className="flex items-center gap-1 overflow-x-auto pb-1" role="progressbar" aria-valuemin={1} aria-valuemax={flow.length} aria-valuenow={idx + 1}>
       {flow.map((s, i) => (
         <React.Fragment key={s}>
           <div className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] whitespace-nowrap ${i < idx ? 'bg-status-info text-status-info-fg font-medium' : i === idx ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-            {(STATUS_META as Record<string, { fa: string; en: string }>)[s]?.fa || s}
+            {lang === 'fa' ? (STATUS_META as Record<string, { fa: string; en: string }>)[s]?.fa : (STATUS_META as Record<string, { fa: string; en: string }>)[s]?.en || s}
           </div>
           {i < flow.length - 1 && <div className={`h-0.5 w-4 shrink-0 ${i < idx ? 'bg-brand-light' : 'bg-muted'}`} />}
         </React.Fragment>

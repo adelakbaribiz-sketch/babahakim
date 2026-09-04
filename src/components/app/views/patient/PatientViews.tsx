@@ -1,7 +1,9 @@
 'use client'
 // Patient views: Dashboard, Profile, Questionnaire wizard, New case (upload + quality gate), Cases list
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useApp } from '@/contexts/app'
+import { useApiQuery, useDebounced } from '@/hooks/use-api'
+import { ApiError } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -11,23 +13,28 @@ import { Textarea } from '@/components/ui/textarea'
 import { Progress } from '@/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { SectionCard, StatusBadge, StatCard, JalaliDate, LoadingRows, EmptyState, Money } from '../../shared/atoms'
-import { CaseWorkspace } from '../CaseWorkspace'
+import { SectionCard, StatusBadge, StatCard, JalaliDate, LoadingRows, EmptyState, ErrorState, Money } from '../../shared/atoms'
+// PHASE 09: CaseWorkspace is a lazy chunk (router) — no eager import here.
+import { TextField, TextAreaField } from '../../shared/form'
+import { profileFormSchema, zodFieldErrors } from '@/lib/forms'
+import { useDirty } from '@/hooks/use-api'
 import { fmtMoney } from '@/lib/i18n'
 import { LayoutDashboard, FolderOpen, Package, Ticket, ClipboardList, ImagePlus, ScanHeart, CheckCircle2, Upload, Sparkles, User, Heart, Activity } from 'lucide-react'
 
 // ── Patient Dashboard ───────────────────────────────────────────────────
 export function PatientDashboard({ navigate }: { navigate: (p: string, params?: Record<string, string>) => void }) {
-  const { t, lang, api, user } = useApp()
-  const [data, setData] = useState<{
+  const { t, lang, user } = useApp()
+  // PHASE 09 (ED-109): standard query — loading → error(retry) → content; the
+  // swallowed .catch(() => {}) is gone (F04).
+  const { data, error, loading, refetch } = useApiQuery<{
     stats: { totalCases: number; activeCases: number; totalOrders: number; openTickets: number }
     cases: { id: string; code: string; status: string; createdAt: string }[]
     orders: { id: string; code: string; status: string; total: number; createdAt: string }[]
     lastMizaj: { mizajFa: string; mizajEn: string; createdAt: string } | null
-  } | null>(null)
+  }>('/api/v1/dashboard')
 
-  useEffect(() => { api('/api/v1/dashboard').then(setData).catch(() => {}) }, [api])
-
+  if (loading && !data) return <LoadingRows rows={5} />
+  if (error && !data) return <ErrorState message={error.supportRef} onRetry={refetch} />
   if (!data) return <LoadingRows rows={5} />
   const activeCase = data.cases.find((c) => !['CLOSED', 'CANCELLED'].includes(c.status))
 
@@ -55,7 +62,7 @@ export function PatientDashboard({ navigate }: { navigate: (p: string, params?: 
                   <div className="font-bold">{t('caseCode')} {activeCase.code}</div>
                   <StatusBadge status={activeCase.status} />
                 </div>
-                <p className="text-sm text-muted-foreground">برای مشاهده جزئیات و اقدامات لازم کلیک کنید.</p>
+                <p className="text-sm text-muted-foreground">{t('viewCaseDetails')}</p>
                 <Button onClick={() => navigate('caseDetail', { id: activeCase.id })}>{t('details')}</Button>
               </div>
             ) : (
@@ -82,7 +89,7 @@ export function PatientDashboard({ navigate }: { navigate: (p: string, params?: 
           ) : (
             <div className="space-y-3 text-center py-2">
               <Heart size={28} className="mx-auto text-destructive" />
-              <p className="text-xs text-muted-foreground leading-relaxed">برای شروع، پرسشنامه مزاج‌شناسی را تکمیل کنید.</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{t('startQuestionnaire')}</p>
               <Button size="sm" onClick={() => navigate('questionnaire')} className="gap-1.5"><ClipboardList size={14} />{t('questionnaire')}</Button>
             </div>
           )}
@@ -122,87 +129,101 @@ export function PatientDashboard({ navigate }: { navigate: (p: string, params?: 
 }
 
 // ── Profile ─────────────────────────────────────────────────────────────
+// PHASE 09 (ED-111): zod-validated form (mirror of server profilePatchSchema)
+// with field errors, dirty-guard (SP-5) and save-disabled-until-valid.
 export function ProfilePage() {
-  const { t, api, user } = useApp()
+  const { t, lang, api, user } = useApp()
   const [busy, setBusy] = useState(false)
   const [form, setForm] = useState<Record<string, string>>({})
+  const [baseline, setBaseline] = useState<Record<string, string>>({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const dirty = useDirty(baseline, form)
 
+  const [loaded, setLoaded] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [reload, setReload] = useState(0)
   useEffect(() => {
     api<{ user: Record<string, string>; profile: Record<string, string> | null }>('/api/v1/patients/profile').then((d) => {
       const u: Record<string, string> = { firstName: d.user.firstName || '', lastName: d.user.lastName || '', email: d.user.email || '', gender: d.user.gender || '', birthDate: d.user.birthDate?.slice(0, 10) || '' }
       const p = d.profile || {}
-      setForm({ ...u, ...p, referralCode: d.user.referralCode || '' })
-    }).catch(() => {})
-  }, [api])
+      const next = { ...u, ...p, referralCode: d.user.referralCode || '' }
+      setForm(next); setBaseline(next); setLoaded(true)
+    }).catch((e) => { setLoadError((e as ApiError).supportRef); setLoaded(true) })
+  }, [api, reload])
+  const retryLoad = () => { setLoadError(null); setLoaded(false); setReload((x) => x + 1) }
+  if (!loaded) return <LoadingRows rows={4} />
+  if (loadError) return <ErrorState message={loadError} onRetry={retryLoad} />
 
   const set = (k: string, v: string) => setForm({ ...form, [k]: v })
 
   async function save() {
+    setErrors({})
+    const parsed = profileFormSchema.safeParse(form)
+    if (!parsed.success) { setErrors(zodFieldErrors(parsed.error)); return }
     setBusy(true)
     try {
       await api('/api/v1/patients/profile', { method: 'PUT', json: form })
-      toast.success('✓')
-    } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) }
+      setBaseline(form)
+      toast.success(t('successTitle'))
+    } catch (e) {
+      const err = e as ApiError
+      if (err.fields && Object.keys(err.fields).length) setErrors(err.fields)
+      toast.error(err.message)
+    } finally { setBusy(false) }
   }
-
-  const F = (k: string, label: string, opts?: { type?: string; ltr?: boolean }) => (
-    <div className="space-y-1.5">
-      <Label className="text-xs">{label}</Label>
-      <Input value={form[k] || ''} onChange={(e) => set(k, e.target.value)} type={opts?.type} dir={opts?.ltr ? 'ltr' : undefined} />
-    </div>
-  )
 
   return (
     <div className="space-y-6 max-w-3xl">
       <h1 className="page-title"><User size={24} />{t('profile')}</h1>
       <SectionCard title={t('profile')}>
         <div className="grid sm:grid-cols-2 gap-3">
-          {F('firstName', t('firstName'))}
-          {F('lastName', t('lastName'))}
-          <div className="space-y-1.5"><Label className="text-xs">{t('phone')}</Label><Input value={user?.phone || ''} disabled dir="ltr" /></div>
-          {F('email', t('email'), { ltr: true })}
+          <TextField label={t('firstName')} value={form.firstName || ''} onChange={(e) => set('firstName', e.target.value)} error={errors.firstName} required />
+          <TextField label={t('lastName')} value={form.lastName || ''} onChange={(e) => set('lastName', e.target.value)} error={errors.lastName} required />
           <div className="space-y-1.5">
-            <Label className="text-xs">{lang2('جنسیت', 'Gender')}</Label>
+            <Label className="text-xs" htmlFor="phone-locked">{t('phone')}</Label>
+            <Input id="phone-locked" value={user?.phone || ''} disabled dir="ltr" />
+          </div>
+          <TextField label={t('email')} value={form.email || ''} onChange={(e) => set('email', e.target.value)} error={errors.email} dir="ltr" />
+          <div className="space-y-1.5">
+            <Label className="text-xs" htmlFor="profile-gender">{lang === 'fa' ? 'جنسیت' : 'Gender'}</Label>
             <Select value={form.gender || ''} onValueChange={(v) => set('gender', v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger id="profile-gender"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="MALE">{lang2('مرد', 'Male')}</SelectItem>
-                <SelectItem value="FEMALE">{lang2('زن', 'Female')}</SelectItem>
+                <SelectItem value="MALE">{lang === 'fa' ? 'مرد' : 'Male'}</SelectItem>
+                <SelectItem value="FEMALE">{lang === 'fa' ? 'زن' : 'Female'}</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          {F('birthDate', lang2('تاریخ تولد', 'Birth date'), { type: 'date' })}
-          {F('heightCm', lang2('قد (سانتی‌متر)', 'Height (cm)'), { ltr: true })}
-          {F('weightKg', lang2('وزن (کیلوگرم)', 'Weight (kg)'), { ltr: true })}
-          {F('province', lang2('استان', 'Province'))}
-          {F('city', lang2('شهر', 'City'))}
-          {F('postalCode', lang2('کد پستی', 'Postal code'), { ltr: true })}
-          {F('emergencyPhone', lang2('تماس اضطراری', 'Emergency phone'), { ltr: true })}
+          <TextField label={lang === 'fa' ? 'تاریخ تولد' : 'Birth date'} type="date" value={form.birthDate || ''} onChange={(e) => set('birthDate', e.target.value)} />
+          <TextField label={lang === 'fa' ? 'قد (سانتی‌متر)' : 'Height (cm)'} value={form.heightCm || ''} onChange={(e) => set('heightCm', e.target.value)} error={errors.heightCm} dir="ltr" inputMode="numeric" />
+          <TextField label={lang === 'fa' ? 'وزن (کیلوگرم)' : 'Weight (kg)'} value={form.weightKg || ''} onChange={(e) => set('weightKg', e.target.value)} error={errors.weightKg} dir="ltr" inputMode="numeric" />
+          <TextField label={lang === 'fa' ? 'استان' : 'Province'} value={form.province || ''} onChange={(e) => set('province', e.target.value)} />
+          <TextField label={lang === 'fa' ? 'شهر' : 'City'} value={form.city || ''} onChange={(e) => set('city', e.target.value)} />
+          <TextField label={lang === 'fa' ? 'کد پستی' : 'Postal code'} value={form.postalCode || ''} onChange={(e) => set('postalCode', e.target.value)} error={errors.postalCode} dir="ltr" inputMode="numeric" />
+          <TextField label={lang === 'fa' ? 'تماس اضطراری' : 'Emergency phone'} value={form.emergencyPhone || ''} onChange={(e) => set('emergencyPhone', e.target.value)} error={errors.emergencyPhone} dir="ltr" inputMode="numeric" />
         </div>
         <div className="grid sm:grid-cols-2 gap-3 mt-3">
-          {F('allergies', lang2('حساسیت‌های دارویی/غذایی', 'Allergies'))}
-          {F('pastIllnesses', lang2('بیماری‌های قبلی', 'Past illnesses'))}
+          <TextField label={lang === 'fa' ? 'حساسیت‌های دارویی/غذایی' : 'Allergies'} value={form.allergies || ''} onChange={(e) => set('allergies', e.target.value)} />
+          <TextField label={lang === 'fa' ? 'بیماری‌های قبلی' : 'Past illnesses'} value={form.pastIllnesses || ''} onChange={(e) => set('pastIllnesses', e.target.value)} />
         </div>
-        <div className="mt-3 space-y-1.5">
-          <Label className="text-xs">{lang2('آدرس', 'Address')}</Label>
-          <Textarea rows={2} value={form.addressLine || ''} onChange={(e) => set('addressLine', e.target.value)} />
+        <div className="mt-3">
+          <TextAreaField label={lang === 'fa' ? 'آدرس' : 'Address'} rows={2} value={form.addressLine || ''} onChange={(e) => set('addressLine', e.target.value)} />
         </div>
-        <Button onClick={save} disabled={busy} className="mt-4 gap-1.5"><CheckCircle2 size={16} />{t('save')}</Button>
+        <div className="flex items-center gap-2 mt-4">
+          <Button onClick={save} disabled={busy || !dirty} className="gap-1.5"><CheckCircle2 size={16} />{t('save')}</Button>
+          {dirty && <span className="text-[11px] text-status-warning">{lang === 'fa' ? 'تغییرات ذخیره نشده' : 'Unsaved changes'}</span>}
+        </div>
       </SectionCard>
 
-      <SectionCard title={lang2('کد معرف شما', 'Your referral code')}>
+      <SectionCard title={t('yourReferralCode')}>
         <div className="flex items-center gap-3">
           <code className="rounded-lg bg-muted px-4 py-2 font-mono text-sm" dir="ltr">{form.referralCode || '—'}</code>
-          <Button variant="outline" size="sm" onClick={() => { navigator.clipboard?.writeText(form.referralCode); toast.success('کپی شد ✓') }}>کپی</Button>
+          <Button variant="outline" size="sm" onClick={() => { navigator.clipboard?.writeText(form.referralCode || ''); toast.success(t('copied')) }}>{t('copy')}</Button>
         </div>
-        <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{lang2('این کد را با دوستان خود به اشتراک بگذارید؛ پس از اولین خرید آن‌ها، کمیسیون معرفی ثبت می‌شود.', 'Share this code with friends; a referral commission is recorded after their first purchase.')}</p>
+        <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{t('referralHint')}</p>
       </SectionCard>
     </div>
   )
-}
-
-const lang2 = (fa: string, en: string) => {
-  return (typeof window !== 'undefined' && document.documentElement.lang === 'en') ? en : fa
 }
 
 // ── Questionnaire wizard ────────────────────────────────────────────────
@@ -214,10 +235,12 @@ export function QuestionnairePage() {
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ mizajFa: string; mizajEn: string; scores: Record<string, number>; summary?: string } | null>(null)
 
+  const [loadError, setLoadError] = useState<string | null>(null)
   useEffect(() => {
-    api<{ questionnaire: typeof q }>('/api/v1/questionnaires/active').then((d) => setQ(d.questionnaire)).catch(() => {})
+    api<{ questionnaire: typeof q }>('/api/v1/questionnaires/active').then((d) => setQ(d.questionnaire)).catch((e) => setLoadError((e as ApiError).supportRef))
   }, [api])
 
+  if (loadError) return <ErrorState message={loadError} onRetry={() => { setLoadError(null); window.location.reload() }} />
   if (!q) return <LoadingRows rows={4} />
   if (q.questions.length === 0) return <EmptyState />
 
@@ -281,6 +304,7 @@ export function QuestionnairePage() {
               <div className="grid gap-2">
                 {qq.options.map((o) => (
                   <button key={o.id} onClick={() => setAnswers({ ...answers, [qq.id]: o.id })}
+                    aria-pressed={answers[qq.id] === o.id}
                     className={`text-start rounded-lg border px-3.5 py-2.5 text-sm transition-all ${answers[qq.id] === o.id ? 'border-primary bg-primary/10 font-medium' : 'hover:border-primary/40'}`}>
                     {lang === 'fa' ? o.textFa : o.textEn}
                   </button>
@@ -334,7 +358,7 @@ export function NewCasePage() {
     setBusy(true)
     try {
       const d = await api<{ case: { id: string; code: string } }>('/api/v1/cases', { method: 'POST', json: { description, imageId: uploadResult.image.id, priority } })
-      toast.success(`پرونده ${d.case.code} ایجاد شد ✓`)
+      toast.success(`${t('caseCreated')} — ${d.case.code} ✓`)
       navigate('caseDetail', { id: d.case.id })
     } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) }
   }
@@ -359,10 +383,10 @@ export function NewCasePage() {
                 <div className="space-y-2">
                   {uploadResult.quality && (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
-                      <Metric label={lang === 'fa' ? 'وضوح' : 'Sharpness'} value={`${uploadResult.quality.blur}`} />
-                      <Metric label={lang === 'fa' ? 'روشنایی' : 'Brightness'} value={`${uploadResult.quality.brightness}`} />
-                      <Metric label={lang === 'fa' ? 'نوردهی' : 'Exposure'} value={uploadResult.quality.exposure} />
-                      <Metric label={lang === 'fa' ? 'رزولوشن' : 'Resolution'} value={uploadResult.quality.resolution} />
+                      <Metric label={t('sharpness')} value={`${uploadResult.quality.blur}`} />
+                      <Metric label={t('brightness')} value={`${uploadResult.quality.brightness}`} />
+                      <Metric label={t('exposure')} value={uploadResult.quality.exposure} />
+                      <Metric label={t('resolution')} value={uploadResult.quality.resolution} />
                     </div>
                   )}
                   {uploadResult.issues.length > 0 && (
@@ -371,11 +395,11 @@ export function NewCasePage() {
                     </div>
                   )}
                   <div className="flex gap-2 justify-center">
-                    <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={busy} className="gap-1.5"><Upload size={14} />{lang === 'fa' ? 'تصویر دیگر' : 'Retry image'}</Button>
+                    <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={busy} className="gap-1.5"><Upload size={14} />{t('retryImage')}</Button>
                   </div>
                 </div>
               )}
-              {busy && !uploadResult && <div className="text-center text-sm text-muted-foreground animate-pulse">…{lang === 'fa' ? 'اعتبارسنجی و پردازش تصویر (حذف متادیتا، فشرده‌سازی هوشمند، ۴ نسخه)' : 'Validating & processing (metadata strip, smart compression, 4 variants)'}</div>}
+              {busy && !uploadResult && <div className="text-center text-sm text-muted-foreground animate-pulse">…{t('processingImage')}</div>}
             </div>
           ) : (
             <button onClick={() => inputRef.current?.click()} className="w-full py-10 flex flex-col items-center gap-3 text-muted-foreground hover:text-primary transition-colors">
@@ -388,7 +412,16 @@ export function NewCasePage() {
       </Card>
 
       <SectionCard title={t('description')}>
-        <Textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={lang === 'fa' ? 'شرح کامل مشکل، علائم، مدت زمان، داروهای مصرفی…' : 'Describe your symptoms, duration, current medications…'} />
+        <TextAreaField
+          label={t('description')}
+          rows={4}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder={t('descriptionPlaceholder')}
+          hint={t('descriptionHint')}
+          error={description.length > 0 && description.trim().length < 10 ? t('descriptionMinError') : undefined}
+          required
+        />
         <div className="mt-3 w-44">
           <Label className="text-xs">{t('priority')}</Label>
           <Select value={priority} onValueChange={setPriority}>
@@ -421,25 +454,21 @@ function Metric({ label, value }: { label: string; value: string }) {
 // ── Cases list ──────────────────────────────────────────────────────────
 export function CasesList({ navigate }: { navigate: (p: string, params?: Record<string, string>) => void }) {
   const { t, api } = useApp()
-  const [cases, setCases] = useState<{ id: string; code: string; status: string; priority: string; createdAt: string; waitingHours?: number; images: { id: string }[] }[]>([])
   const [q, setQ] = useState('')
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(() => {
-    queueMicrotask(() => setLoading(true))
-    api<{ cases: typeof cases }>('/api/v1/cases').then((d) => setCases(d.cases)).catch(() => {}).finally(() => setLoading(false))
-  }, [api])
-  useEffect(load, [load])
+  const debouncedQ = useDebounced(q)
+  // PHASE 09 (ED-109): standard query + debounced client filter (F09)
+  const { data, error, loading, refetch } = useApiQuery<{ cases: { id: string; code: string; status: string; priority: string; createdAt: string; waitingHours?: number; images: { id: string }[] }[] }>('/api/v1/cases')
+  const cases = data?.cases || []
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
         <h1 className="text-2xl font-bold">{t('myCases')}</h1>
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} className="w-64 ms-auto" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} className="w-64 ms-auto" aria-label={t('search')} />
       </div>
-      {loading ? <LoadingRows /> : cases.length === 0 ? <EmptyState /> : (
+      {loading && !data ? <LoadingRows /> : error && !data ? <ErrorState message={error.supportRef} onRetry={refetch} /> : loading ? <LoadingRows /> : cases.length === 0 ? <EmptyState /> : (
         <div className="grid gap-3 md:grid-cols-2">
-          {cases.filter((c) => !q || c.code.includes(q)).map((c) => (
+          {cases.filter((c) => !debouncedQ || c.code.includes(debouncedQ)).map((c) => (
             <button key={c.id} onClick={() => navigate('caseDetail', { id: c.id })} className="text-start">
               <Card className="hover:border-primary/50 transition-colors">
                 <CardContent className="p-4 flex items-center gap-3 flex-wrap">
@@ -457,6 +486,4 @@ export function CasesList({ navigate }: { navigate: (p: string, params?: Record<
   )
 }
 
-export function CaseDetailForPatient({ id, navigate }: { id: string; navigate: (p: string, params?: Record<string, string>) => void }) {
-  return <CaseWorkspace caseId={id} onChanged={() => navigate('cases')} />
-}
+

@@ -9,6 +9,7 @@ import { textMatches } from '@/lib/api'
 import { NotFoundError, ValidationError } from '@/server/core/errors'
 import { cached, cacheKeys, cacheTtl } from '@/server/infrastructure/cache'
 import { listMeta } from '@/server/api/envelope'
+import { computeTotals } from '@/server/domain/policies' // PHASE 09 (S2): server-side cart totals
 import type { ListQuery } from '@/server/api/query'
 import type { cartAddSchema, cartPatchSchema } from '@/server/application/dto'
 import type { z } from 'zod'
@@ -73,6 +74,9 @@ export async function getProductWithHistory(id: string) {
 export async function getCart(userId: string) {
   const items = await db.cartItem.findMany({ where: { userId }, include: { product: true } })
   const subtotal = items.reduce((s, i) => s + i.product.currentPrice * i.quantity, 0)
+  // PHASE 09 (S2/F15): totals from the domain policy — single source of truth.
+  // The client renders these fields read-only; it never computes money (ED-110).
+  const { shippingCost, total } = computeTotals(items.map((i) => ({ unitPrice: i.product.currentPrice, quantity: i.quantity })))
   return {
     items: items.map((i) => ({
       id: i.id, productId: i.product.id, nameFa: i.product.nameFa, nameEn: i.product.nameEn,
@@ -80,7 +84,7 @@ export async function getCart(userId: string) {
       requiresPrescription: i.product.requiresPrescription,
       lineTotal: i.product.currentPrice * i.quantity,
     })),
-    subtotal, count: items.reduce((s, i) => s + i.quantity, 0),
+    subtotal, shippingCost, total, count: items.reduce((s, i) => s + i.quantity, 0),
   }
 }
 

@@ -2,6 +2,7 @@
 // Admin: Prices (Excel/CSV import + bulk %) · Reports (charts) · Audit logs · Questionnaire editor · AI models · SMS log
 import React, { useEffect, useState } from 'react'
 import { useApp } from '@/contexts/app'
+import { ApiError } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -10,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
-import { SectionCard, StatCard, JalaliDate, LoadingRows, EmptyState, Money, StatusBadge } from '../../shared/atoms'
+import { SectionCard, StatCard, JalaliDate, LoadingRows, EmptyState, ErrorState, Money, StatusBadge } from '../../shared/atoms'
 import { fmtMoney } from '@/lib/i18n'
 import { Tags, BarChart3, ShieldCheck, FileText, Bot, MessageSquareText, Upload, Percent, CheckCircle2, XCircle, Download } from 'lucide-react'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar } from 'recharts'
@@ -26,8 +27,10 @@ export function AdminPricesPage() {
   const [history, setHistory] = useState<{ id: string; oldPrice?: number; newPrice: number; reason: string; createdAt: string; product: { sku: string; nameFa: string }; changedBy: { firstName: string; lastName: string; role: string } }[]>([])
   const [busy, setBusy] = useState(false)
   const [reload, setReload] = useState(0)
+  const [historyError, setHistoryError] = useState<string | null>(null)
 
-  const loadHistory = () => { api<{ history: typeof history }>('/api/v1/admin/prices').then((d) => setHistory(d.history)).catch(() => {}) }
+  // PHASE 09 (F04): price history errors surface with retry — not swallowed
+  const loadHistory = () => { api<{ history: typeof history }>('/api/v1/admin/prices').then((d) => { setHistory(d.history); setHistoryError(null) }).catch((e) => setHistoryError((e as ApiError).supportRef)) }
   useEffect(loadHistory, [api, reload])
 
   async function doPreview() {
@@ -111,7 +114,7 @@ export function AdminPricesPage() {
         </TabsContent>
 
         <TabsContent value="history" className="mt-4">
-          {history.length === 0 ? <EmptyState /> : (
+          {historyError ? <ErrorState message={historyError} onRetry={() => setReload((x) => x + 1)} /> : history.length === 0 ? <EmptyState /> : (
             <div className="space-y-1.5 text-xs">
               {history.map((h) => (
                 <div key={h.id} className="flex items-center gap-3 flex-wrap rounded-lg border p-2.5">
@@ -151,8 +154,10 @@ export function AdminReportsPage() {
     provinceStats: Record<string, number>
     recentPayments: { code: string; amount: number; method: string; refNumber?: string; user: string; createdAt: string }[]
   } | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  useEffect(() => { api('/api/v1/admin/reports').then(setData).catch(() => {}) }, [api])
+  useEffect(() => { api('/api/v1/admin/reports').then((d) => { setData(d); setLoadError(null) }).catch((e) => setLoadError((e as ApiError).supportRef)) }, [api])
+  if (loadError) return <ErrorState message={loadError} onRetry={() => { setLoadError(null); window.location.reload() }} />
   if (!data) return <LoadingRows rows={6} />
 
   const chartData = data.byDay.map((d) => ({ date: d.date.slice(5), amount: d.amount / 1000000 }))
@@ -265,9 +270,12 @@ export function AdminAuditPage() {
   const [logs, setLogs] = useState<{ id: string; action: string; entity: string; entityId?: string; ip?: string; device?: string; sensitive: boolean; createdAt: string; user?: { firstName: string; lastName: string; role: string; phone: string } | null; oldValues?: Record<string, unknown>; newValues?: Record<string, unknown> }[]>([])
   const [q, setQ] = useState('')
   const [reload, setReload] = useState(0)
+  const [loading, setLoading] = useState(true) // PHASE 09 (F05): no flash-of-empty
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
-    api<{ logs: typeof logs }>(`/api/v1/admin/audit-logs?q=${encodeURIComponent(q)}`).then((d) => setLogs(d.logs)).catch(() => {})
+    queueMicrotask(() => setLoading(true)) // lint-safe: not a synchronous setState in effect body
+    api<{ logs: typeof logs }>(`/api/v1/admin/audit-logs?q=${encodeURIComponent(q)}`).then((d) => { setLogs(d.logs); setLoadError(null) }).catch((e) => setLoadError((e as ApiError).supportRef)).finally(() => setLoading(false))
   }, [api, q, reload])
 
   return (
@@ -276,7 +284,7 @@ export function AdminAuditPage() {
         <h1 className="page-title"><ShieldCheck size={22} />{t('auditLogs')}</h1>
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} className="w-64 ms-auto" />
       </div>
-      {logs.length === 0 ? <EmptyState /> : (
+      {loading ? <LoadingRows /> : loadError ? <ErrorState message={loadError} onRetry={() => setReload((x) => x + 1)} /> : logs.length === 0 ? <EmptyState /> : (
         <div className="space-y-1.5">
           {logs.map((l) => (
             <details key={l.id} className={`rounded-lg border p-3 text-xs ${l.sensitive ? 'border-status-warning/40' : ''}`}>
@@ -302,16 +310,17 @@ export function AdminAuditPage() {
 
 // ── Questionnaire editor (versioned) ────────────────────────────────────
 export function AdminQuestionnairePage() {
-  const { t, api } = useApp()
+  const { t, lang, api } = useApp()
   const [questions, setQuestions] = useState<{ textFa: string; textEn: string; options: { textFa: string; textEn: string; score: number; dimension: string }[] }[]>([{ textFa: '', textEn: '', options: [{ textFa: '', textEn: '', score: 2, dimension: 'HOT' }] }])
   const [busy, setBusy] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     api<{ questionnaire: { questions: { textFa: string; textEn: string; options: { textFa: string; textEn: string; score: number; dimension: string }[] }[] } | null }>('/api/v1/questionnaires/active').then((d) => {
       if (d.questionnaire && d.questionnaire.questions.length > 0) {
         setQuestions(d.questionnaire.questions.map((q) => ({ textFa: q.textFa, textEn: q.textEn, options: q.options.map((o) => ({ textFa: o.textFa, textEn: o.textEn, score: o.score, dimension: o.dimension })) })))
       }
-    }).catch(() => {})
+    }).catch((e) => setLoadError((e as ApiError).supportRef))
   }, [api])
 
   async function save() {
@@ -330,9 +339,9 @@ export function AdminQuestionnairePage() {
     <div className="space-y-4 max-w-3xl">
       <div className="flex items-center gap-3">
         <h1 className="page-title"><FileText size={22} />{t('questionnaireEditor')}</h1>
-        <Button className="ms-auto" disabled={busy || questions.length < 3} onClick={save}>{lang2('ایجاد نسخه جدید', 'Create new version')}</Button>
+        <Button className="ms-auto" disabled={busy || questions.length < 3} onClick={save}>{lang === 'fa' ? 'ایجاد نسخه جدید' : 'Create new version'}</Button>
       </div>
-      <p className="text-xs text-muted-foreground leading-relaxed">{lang2('ذخیره، نسخه جدیدی از پرسشنامه ایجاد می‌کند و نسخه قبلی غیرفعال می‌شود — تاریخچه نتایج کاربران همیشه حفظ می‌شود.', 'Saving creates a new questionnaire version and deactivates the old one — user result history is always preserved.')}</p>
+      <p className="text-xs text-muted-foreground leading-relaxed">{lang === 'fa' ? 'ذخیره، نسخه جدیدی از پرسشنامه ایجاد می‌کند و نسخه قبلی غیرفعال می‌شود — تاریخچه نتایج کاربران همیشه حفظ می‌شود.' : 'Saving creates a new questionnaire version and deactivates the old one — user result history is always preserved.'}</p>
       {questions.map((q, i) => (
         <Card key={i}>
           <CardContent className="p-4 space-y-3">
@@ -363,7 +372,7 @@ export function AdminQuestionnairePage() {
   )
 }
 
-const lang2 = (fa: string, en: string) => (typeof window !== 'undefined' && document.documentElement.lang === 'en' ? en : fa)
+// PHASE 09 (F04): lang2 removed — components use the reactive `lang` from useApp()
 
 // ── AI models & dataset ─────────────────────────────────────────────────
 export function AdminAIModelsPage() {
@@ -373,8 +382,10 @@ export function AdminAIModelsPage() {
     dataset: { id: string; caseCode: string; modelName: string; confidence: number; topPrediction: string; humanReviewed: boolean; createdAt: string }[]
     datasetStats: { total: number; reviewed: number; avgConfidence: number }
   } | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  useEffect(() => { api('/api/v1/admin/ai-models').then(setData).catch(() => {}) }, [api])
+  useEffect(() => { api('/api/v1/admin/ai-models').then((d) => { setData(d); setLoadError(null) }).catch((e) => setLoadError((e as ApiError).supportRef)) }, [api])
+  if (loadError) return <ErrorState message={loadError} onRetry={() => { setLoadError(null); window.location.reload() }} />
   if (!data) return <LoadingRows rows={4} />
 
   return (
@@ -407,11 +418,11 @@ export function AdminAIModelsPage() {
         ))}
       </div>
 
-      <SectionCard title={lang2('دیتاست یادگیری (AI vs انسان)', 'Learning dataset (AI vs human)')}>
+      <SectionCard title={lang === 'fa' ? 'دیتاست یادگیری (AI vs انسان)' : 'Learning dataset (AI vs human)'}>
         <div className="grid grid-cols-3 gap-3 mb-4">
-          <StatCard title={lang2('کل تحلیل‌ها', 'Total analyses')} value={data.datasetStats.total} />
-          <StatCard title={lang2('بازبینی‌شده', 'Human reviewed')} value={data.datasetStats.reviewed} tone="bg-brand-light/15 text-brand-dark dark:text-brand-light" />
-          <StatCard title={lang2('میانگین اطمینان', 'Avg confidence')} value={`${Math.round(data.datasetStats.avgConfidence * 100)}%`} />
+          <StatCard title={lang === 'fa' ? 'کل تحلیل‌ها' : 'Total analyses'} value={data.datasetStats.total} />
+          <StatCard title={lang === 'fa' ? 'بازبینی‌شده' : 'Human reviewed'} value={data.datasetStats.reviewed} tone="bg-brand-light/15 text-brand-dark dark:text-brand-light" />
+          <StatCard title={lang === 'fa' ? 'میانگین اطمینان' : 'Avg confidence'} value={`${Math.round(data.datasetStats.avgConfidence * 100)}%`} />
         </div>
         {data.dataset.length === 0 ? <EmptyState /> : (
           <div className="max-h-96 overflow-y-auto space-y-1.5 text-xs">
@@ -435,12 +446,17 @@ export function AdminAIModelsPage() {
 export function AdminSMSPage() {
   const { t, api } = useApp()
   const [logs, setLogs] = useState<{ id: string; recipient: string; template: string; content: string; provider: string; status: string; deliveryStatus?: string; sentAt: string }[]>([])
-  useEffect(() => { api<{ logs: typeof logs }>('/api/v1/admin/sms-log').then((d) => setLogs(d.logs)).catch(() => {}) }, [api])
+  const [loading, setLoading] = useState(true) // PHASE 09 (F05): no flash-of-empty
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [reload, setReload] = useState(0)
+  useEffect(() => {
+    api<{ logs: typeof logs }>('/api/v1/admin/sms-log').then((d) => { setLogs(d.logs); setLoadError(null) }).catch((e) => setLoadError((e as ApiError).supportRef)).finally(() => setLoading(false))
+  }, [api, reload])
 
   return (
     <div className="space-y-4">
       <h1 className="page-title"><MessageSquareText size={22} />{t('smsLog')}</h1>
-      {logs.length === 0 ? <EmptyState /> : (
+      {loading ? <LoadingRows /> : loadError ? <ErrorState message={loadError} onRetry={() => setReload((x) => x + 1)} /> : logs.length === 0 ? <EmptyState /> : (
         <div className="space-y-1.5 text-xs">
           {logs.map((l) => (
             <div key={l.id} className="tile-row">

@@ -16,7 +16,9 @@
     "db:reset": "prisma migrate reset",
     "test:security": "bun test src/lib/security",
     "pentest": "bash tests/security-pentest.sh",
-    "audit:backend": "node scripts/backend-audit.mjs"
+    "audit:backend": "node scripts/backend-audit.mjs",
+    "audit:frontend": "node scripts/frontend-audit.mjs",
+    "test:e2e": "node tests/e2e/run-e2e.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

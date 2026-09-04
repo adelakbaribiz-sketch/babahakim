@@ -1,6 +1,10 @@
 'use client'
 // BabaHakim Auth (§10–11): brand login/register — clean, professional,
 // Primary Dark #173F76 brand panel + Primary Blue #225BBE CTA
+//
+// PHASE 09 (ED-111): controlled forms validated client-side with zod mirrors
+// (src/lib/forms.ts) — identical messages to the server DTO; server stays
+// authoritative. Login/register now store the server-issued permissions (S1).
 import React, { useState } from 'react'
 import { useApp } from '@/contexts/app'
 import { Button } from '@/components/ui/button'
@@ -10,6 +14,8 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import { Logo } from '@/components/app/shared/Logo'
+import { TextField } from '@/components/app/shared/form'
+import { loginFormSchema, registerFormSchema, zodFieldErrors } from '@/lib/forms'
 import { Languages, LogIn, UserPlus, ShieldCheck, Bot, Stethoscope } from 'lucide-react'
 
 const DEMO = [
@@ -21,21 +27,45 @@ const DEMO = [
   { role: 'بیمار (سارا)', roleEn: 'Patient (Sara)', phone: '09120000006' },
 ]
 
+interface LoginFields { phone: string; password: string }
+interface RegisterFields { phone: string; password: string; firstName: string; lastName: string; referralCode: string }
+
 export function AuthView() {
-  const { t, lang, setLang, navigate, setUser, api } = useApp()
+  const { t, lang, setLang, navigate, setSession, api } = useApp()
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [busy, setBusy] = useState(false)
+  const [login, setLogin] = useState<LoginFields>({ phone: '', password: '' })
+  const [reg, setReg] = useState<RegisterFields>({ phone: '', password: '', firstName: '', lastName: '', referralCode: '' })
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
-  async function submit(e: React.FormEvent<HTMLFormElement>) {
+  async function submitLogin(e: React.FormEvent) {
     e.preventDefault()
-    const form = new FormData(e.currentTarget)
+    setErrors({})
+    const parsed = loginFormSchema.safeParse(login)
+    if (!parsed.success) { setErrors(zodFieldErrors(parsed.error)); return }
     setBusy(true)
     try {
-      const payload = Object.fromEntries(form.entries())
-      const path = mode === 'login' ? '/api/v1/auth/login' : '/api/v1/auth/register'
-      const data = await api<{ user: { id: string; phone: string; role: string; firstName: string; lastName: string; referralCode?: string } }>(path, { method: 'POST', json: payload })
-      setUser(data.user)
-      toast.success(mode === 'login' ? `${t('login')} ✓` : `${t('register')} ✓`)
+      const data = await api<{ user: { id: string; phone: string; role: string; firstName: string; lastName: string; referralCode?: string }; permissions?: string[] }>('/api/v1/auth/login', { method: 'POST', json: parsed.data })
+      setSession(data.user, data.permissions)
+      toast.success(`${t('login')} ✓`)
+      navigate('dashboard')
+    } catch (err) {
+      toast.error((err as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function submitRegister(e: React.FormEvent) {
+    e.preventDefault()
+    setErrors({})
+    const parsed = registerFormSchema.safeParse(reg)
+    if (!parsed.success) { setErrors(zodFieldErrors(parsed.error)); return }
+    setBusy(true)
+    try {
+      const data = await api<{ user: { id: string; phone: string; role: string; firstName: string; lastName: string; referralCode?: string }; permissions?: string[] }>('/api/v1/auth/register', { method: 'POST', json: { ...parsed.data, acceptTerms: true } })
+      setSession(data.user, data.permissions)
+      toast.success(`${t('register')} ✓`)
       navigate('dashboard')
     } catch (err) {
       toast.error((err as Error).message)
@@ -47,8 +77,8 @@ export function AuthView() {
   async function quickLogin(phone: string) {
     setBusy(true)
     try {
-      const data = await api<{ user: { id: string; phone: string; role: string; firstName: string; lastName: string } }>('/api/v1/auth/login', { method: 'POST', json: { phone, password: 'Pass1234' } })
-      setUser(data.user)
+      const data = await api<{ user: { id: string; phone: string; role: string; firstName: string; lastName: string }; permissions?: string[] }>('/api/v1/auth/login', { method: 'POST', json: { phone, password: 'Pass1234' } })
+      setSession(data.user, data.permissions)
       navigate('dashboard')
     } catch (err) {
       toast.error((err as Error).message)
@@ -63,7 +93,7 @@ export function AuthView() {
         <button onClick={() => navigate('landing')} className="flex items-center gap-2" aria-label={t('appName')}>
           <Logo size={34} variant="dark" showText />
         </button>
-        <Button variant="ghost" size="sm" className="ms-auto gap-1.5" onClick={() => setLang(lang === 'fa' ? 'en' : 'fa')}>
+        <Button variant="ghost" size="sm" className="ms-auto gap-1.5" onClick={() => setLang(lang === 'fa' ? 'en' : 'fa')} aria-label={t('switchLang')}>
           <Languages size={16} /> {lang === 'fa' ? 'English' : 'فارسی'}
         </Button>
       </header>
@@ -103,27 +133,27 @@ export function AuthView() {
                 <CardDescription>{t('appDesc')}</CardDescription>
               </CardHeader>
               <CardContent>
-                <Tabs value={mode} onValueChange={(v) => setMode(v as 'login' | 'register')}>
+                <Tabs value={mode} onValueChange={(v) => { setMode(v as 'login' | 'register'); setErrors({}) }}>
                   <TabsList className="grid grid-cols-2 mb-4">
                     <TabsTrigger value="login" className="gap-1.5"><LogIn size={14} />{t('login')}</TabsTrigger>
                     <TabsTrigger value="register" className="gap-1.5"><UserPlus size={14} />{t('register')}</TabsTrigger>
                   </TabsList>
                   <TabsContent value="login">
-                    <form onSubmit={submit} className="space-y-4">
-                      <Field label={t('phone')} name="phone" placeholder="0912…" required dir="ltr" />
-                      <Field label={t('password')} name="password" type="password" placeholder="••••••••" required dir="ltr" />
+                    <form onSubmit={submitLogin} className="space-y-4" noValidate>
+                      <TextField label={t('phone')} value={login.phone} onChange={(e) => setLogin({ ...login, phone: e.target.value })} error={errors.phone} required dir="ltr" placeholder="0912…" inputMode="numeric" autoComplete="tel" />
+                      <TextField label={t('password')} type="password" value={login.password} onChange={(e) => setLogin({ ...login, password: e.target.value })} error={errors.password} required dir="ltr" placeholder="••••••••" autoComplete="current-password" />
                       <Button type="submit" className="w-full btn-brand-hover" disabled={busy}>{t('login')}</Button>
                     </form>
                   </TabsContent>
                   <TabsContent value="register">
-                    <form onSubmit={submit} className="space-y-4">
+                    <form onSubmit={submitRegister} className="space-y-4" noValidate>
                       <div className="grid grid-cols-2 gap-3">
-                        <Field label={t('firstName')} name="firstName" required />
-                        <Field label={t('lastName')} name="lastName" required />
+                        <TextField label={t('firstName')} value={reg.firstName} onChange={(e) => setReg({ ...reg, firstName: e.target.value })} error={errors.firstName} required autoComplete="given-name" />
+                        <TextField label={t('lastName')} value={reg.lastName} onChange={(e) => setReg({ ...reg, lastName: e.target.value })} error={errors.lastName} required autoComplete="family-name" />
                       </div>
-                      <Field label={t('phone')} name="phone" placeholder="0912…" required dir="ltr" />
-                      <Field label={t('password')} name="password" type="password" required dir="ltr" />
-                      <Field label={t('referralCode')} name="referralCode" dir="ltr" />
+                      <TextField label={t('phone')} value={reg.phone} onChange={(e) => setReg({ ...reg, phone: e.target.value })} error={errors.phone} required dir="ltr" placeholder="0912…" inputMode="numeric" autoComplete="tel" />
+                      <TextField label={t('password')} type="password" value={reg.password} onChange={(e) => setReg({ ...reg, password: e.target.value })} error={errors.password} required dir="ltr" hint={lang === 'fa' ? 'حداقل ۸ کاراکتر شامل حرف و رقم' : 'At least 8 characters with letters and digits'} autoComplete="new-password" />
+                      <TextField label={t('referralCode')} value={reg.referralCode} onChange={(e) => setReg({ ...reg, referralCode: e.target.value })} error={errors.referralCode} dir="ltr" />
                       <Button type="submit" className="w-full btn-brand-hover" disabled={busy}>{t('register')}</Button>
                     </form>
                   </TabsContent>
@@ -147,15 +177,6 @@ export function AuthView() {
         </div>
       </main>
       <footer className="border-t border-brand-neutral py-4 text-center text-[11px] text-muted-foreground px-4">{t('disclaimerMedical')}</footer>
-    </div>
-  )
-}
-
-function Field({ label, name, type = 'text', placeholder, required, dir }: { label: string; name: string; type?: string; placeholder?: string; required?: boolean; dir?: 'ltr' | 'rtl' }) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={name} className="text-foreground">{label}</Label>
-      <Input id={name} name={name} type={type} placeholder={placeholder} required={required} dir={dir} autoComplete="off" />
     </div>
   )
 }

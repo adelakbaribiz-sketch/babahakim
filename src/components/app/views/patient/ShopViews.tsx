@@ -2,6 +2,8 @@
 // Shop / Cart / Orders / Tickets / Followups / Notifications views
 import React, { useCallback, useEffect, useState } from 'react'
 import { useApp } from '@/contexts/app'
+import { useApiQuery, useDebounced } from '@/hooks/use-api'
+import { ApiError } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -11,7 +13,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { SectionCard, StatusBadge, JalaliDate, Money, LoadingRows, EmptyState } from '../../shared/atoms'
+import { SectionCard, StatusBadge, JalaliDate, Money, LoadingRows, EmptyState, ErrorState } from '../../shared/atoms'
+import { ticketFormSchema, zodFieldErrors } from '@/lib/forms'
+import { TextField, TextAreaField } from '../../shared/form'
 import { PaymentPanel, ShipmentCard } from './shopSupport'
 import { fmtMoney } from '@/lib/i18n'
 import { ShoppingBag, ShoppingCart, Package, Ticket as TicketIcon, Bell, Plus, Minus, Trash2, CheckCircle2, Pill } from 'lucide-react'
@@ -19,24 +23,27 @@ import { ShoppingBag, ShoppingCart, Package, Ticket as TicketIcon, Bell, Plus, M
 // ── Shop ────────────────────────────────────────────────────────────────
 export function ShopPage() {
   const { t, lang, api } = useApp()
-  const [data, setData] = useState<{ products: { id: string; sku: string; nameFa: string; nameEn: string; brand: string; category: string; price: number; stock: number; requiresPrescription: boolean; usageFa?: string }[]; categories: string[] } | null>(null)
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('')
   const [otc, setOtc] = useState('')
+  const [data, setData] = useState<{ products: { id: string; sku: string; nameFa: string; nameEn: string; brand: string; category: string; price: number; stock: number; requiresPrescription: boolean; usageFa?: string }[]; categories: string[] } | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const debouncedQ = useDebounced(q) // PHASE 09 (F09): no request storm per keystroke
 
   useEffect(() => {
     const cat2 = cat === 'ALL' ? '' : cat
     const otc2 = otc === 'ALL' ? '' : otc
-    const url = `/api/v1/products?q=${encodeURIComponent(q)}${cat2 ? `&category=${encodeURIComponent(cat2)}` : ''}${otc2 ? `&otc=${otc2}` : ''}`
-    api<{ products: typeof data extends null ? never : NonNullable<typeof data>['products'] }>(url).then((d) => setData(d as never)).catch(() => {})
-  }, [api, q, cat, otc])
+    const url = `/api/v1/products?q=${encodeURIComponent(debouncedQ)}${cat2 ? `&category=${encodeURIComponent(cat2)}` : ''}${otc2 ? `&otc=${otc2}` : ''}`
+    api<{ products: { id: string; sku: string; nameFa: string; nameEn: string; brand: string; category: string; price: number; stock: number; requiresPrescription: boolean; usageFa?: string }[]; categories: string[] }>(url).then((d) => setData(d)).catch((e) => setLoadError((e as ApiError).supportRef))
+  }, [api, debouncedQ, cat, otc])
+  if (loadError) return <ErrorState message={loadError} onRetry={() => { setLoadError(null); setQ('') }} />
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
         <h1 className="page-title"><ShoppingBag size={22} />{t('shop')}</h1>
         <div className="ms-auto flex gap-2 flex-wrap">
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} className="w-52" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} className="w-52" aria-label={t('search')} />
           <Select value={cat} onValueChange={setCat}>
             <SelectTrigger className="w-36"><SelectValue placeholder={t('all')} /></SelectTrigger>
             <SelectContent>
@@ -94,13 +101,18 @@ function ProductCard({ p }: { p: { id: string; sku: string; nameFa: string; name
 }
 
 // ── Cart ────────────────────────────────────────────────────────────────
+// PHASE 09 (F15/ED-110): ALL money values (shipping, total) come from the
+// server cart (domain computeTotals) — the client never computes prices.
 export function CartPage() {
   const { t, lang, api, navigate } = useApp()
-  const [data, setData] = useState<{ items: { id: string; productId: string; nameFa: string; nameEn: string; price: number; quantity: number; lineTotal: number; stock: number }[]; subtotal: number; count: number } | null>(null)
+  const [data, setData] = useState<{ items: { id: string; productId: string; nameFa: string; nameEn: string; price: number; quantity: number; lineTotal: number; stock: number }[]; subtotal: number; shippingCost: number; total: number; count: number } | null>(null)
   const [busy, setBusy] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const load = useCallback(() => { api('/api/v1/cart').then(setData).catch(() => {}) }, [api])
+  const load = useCallback(() => { api('/api/v1/cart').then(setData).catch((e) => setLoadError((e as ApiError).supportRef)) }, [api])
   useEffect(load, [load])
+
+  if (loadError) return <ErrorState message={loadError} onRetry={() => { setLoadError(null); load() }} />
 
   async function setQty(itemId: string, qty: number) {
     try { await api('/api/v1/cart', { method: 'PATCH', json: { itemId, quantity: qty } }); load() } catch (e) { toast.error((e as Error).message) }
@@ -143,8 +155,8 @@ export function CartPage() {
           <Card>
             <CardContent className="p-4 space-y-2">
               <div className="flex justify-between text-sm"><span>{t('subtotal')}</span><span className="tabular-nums"><Money amount={data.subtotal} /></span></div>
-              <div className="flex justify-between text-sm text-muted-foreground"><span>{t('shippingCost')}</span><span className="tabular-nums"><Money amount={50000} /></span></div>
-              <div className="flex justify-between font-bold text-base pt-2 border-t"><span>{t('total')}</span><span className="tabular-nums"><Money amount={data.subtotal + 50000} /></span></div>
+              <div className="flex justify-between text-sm text-muted-foreground"><span>{t('shippingCost')}</span><span className="tabular-nums"><Money amount={data.shippingCost} /></span></div>
+              <div className="flex justify-between font-bold text-base pt-2 border-t"><span>{t('total')}</span><span className="tabular-nums"><Money amount={data.total} /></span></div>
               <Button className="w-full mt-2" disabled={busy} onClick={checkout}><Package size={16} />{t('checkout')}</Button>
             </CardContent>
           </Card>
@@ -157,20 +169,17 @@ export function CartPage() {
 // ── Orders ──────────────────────────────────────────────────────────────
 export function OrdersPage() {
   const { t, api } = useApp()
-  const [orders, setOrders] = useState<{ id: string; code: string; status: string; type: string; total: number; createdAt: string; items: { nameFa: string; quantity: number; total: number }[]; shipment?: { id: string; method: string; status: string; driverName?: string; trackingCode?: string; shippingDate?: string; deliveryDate?: string; cost?: number } | null; payments: { id: string }[] }[]>([])
+  // PHASE 09 (F05): loading init — no flash-of-empty before data arrives
+  const { data, error, loading, refetch } = useApiQuery<{ orders: { id: string; code: string; status: string; type: string; total: number; createdAt: string; items: { nameFa: string; quantity: number; total: number }[]; shipment?: { id: string; method: string; status: string; driverName?: string; trackingCode?: string; shippingDate?: string; deliveryDate?: string; cost?: number } | null; payments: { id: string }[] }[] }>('/api/v1/orders')
+  const orders = data?.orders || []
   const [expanded, setExpanded] = useState<string | null>(null)
-  const [reload, setReload] = useState(0)
 
-  useEffect(() => {
-    api<{ orders: typeof orders }>('/api/v1/orders').then((d) => setOrders(d.orders)).catch(() => {})
-  }, [api, reload])
-
-  const refresh = () => setReload((x) => x + 1)
+  const refresh = refetch
 
   return (
     <div className="space-y-4">
       <h1 className="page-title"><Package size={22} />{t('orders')}</h1>
-      {orders.length === 0 ? <EmptyState /> : (
+      {loading ? <LoadingRows /> : error ? <ErrorState message={error.supportRef} onRetry={refetch} /> : orders.length === 0 ? <EmptyState /> : (
         <div className="space-y-3">
           {orders.map((o) => (
             <Card key={o.id}>
@@ -214,22 +223,26 @@ export function OrdersPage() {
 // ── Tickets ─────────────────────────────────────────────────────────────
 export function TicketsPage() {
   const { t, lang, api, user } = useApp()
-  const [tickets, setTickets] = useState<{ id: string; code: string; subject: string; category: string; priority: string; status: string; createdAt: string; messages: { id: string; message: string; isInternal: boolean; createdAt: string; sender: { firstName: string; lastName: string; role: string } }[] }[]>([])
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ subject: '', category: 'GENERAL', message: '' })
   const [reply, setReply] = useState('')
   const [busy, setBusy] = useState(false)
-  const [reload, setReload] = useState(0)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  // PHASE 09 (F05): loading → error → empty → content + zod-validated create (F13)
+  const { data, error, loading, refetch } = useApiQuery<{ tickets: { id: string; code: string; subject: string; category: string; priority: string; status: string; createdAt: string; messages: { id: string; message: string; isInternal: boolean; createdAt: string; sender: { firstName: string; lastName: string; role: string } }[] }[] }>('/api/v1/tickets')
+  const tickets = data?.tickets || []
 
-  useEffect(() => {
-    api<{ tickets: typeof tickets }>('/api/v1/tickets').then((d) => setTickets(d.tickets)).catch(() => {})
-  }, [api, reload])
+  const CATEGORY_LABEL: Record<string, string> = { GENERAL: t('catGeneral'), ORDER: t('catOrder'), PAYMENT: t('catPayment'), MEDICAL: t('catMedical'), SHIPPING: t('catShipping'), OTHER: t('catOther') }
+  const PRIORITY_LABEL: Record<string, string> = { LOW: t('prLow'), NORMAL: t('prNormal'), HIGH: t('prHigh'), URGENT: t('prUrgent') }
 
   async function create() {
+    setErrors({})
+    const parsed = ticketFormSchema.safeParse(form)
+    if (!parsed.success) { setErrors(zodFieldErrors(parsed.error)); return }
     setBusy(true)
     try {
       await api('/api/v1/tickets', { method: 'POST', json: form })
-      toast.success('✓'); setOpen(false); setForm({ subject: '', category: 'GENERAL', message: '' }); setReload((x) => x + 1)
+      toast.success(t('successTitle')); setOpen(false); setForm({ subject: '', category: 'GENERAL', message: '' }); refetch()
     } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) }
   }
 
@@ -238,7 +251,7 @@ export function TicketsPage() {
     setBusy(true)
     try {
       await api(`/api/v1/tickets/${id}`, { method: 'POST', json: { message: reply } })
-      setReply(''); setReload((x) => x + 1)
+      setReply(''); refetch()
     } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) }
   }
 
@@ -249,14 +262,14 @@ export function TicketsPage() {
         {user?.role === 'PATIENT' && <Button size="sm" className="ms-auto gap-1.5" onClick={() => setOpen(true)}>+ {t('newTicket')}</Button>}
       </div>
 
-      {tickets.length === 0 ? <EmptyState /> : tickets.map((tk) => (
+      {loading ? <LoadingRows /> : error ? <ErrorState message={error.supportRef} onRetry={refetch} /> : tickets.length === 0 ? <EmptyState /> : tickets.map((tk) => (
         <Card key={tk.id}>
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-bold tabular-nums text-sm">{tk.code}</span>
               <span className="text-sm">{tk.subject}</span>
               <StatusBadge status={tk.status} kind="ticket" />
-              <Badge variant="outline" className="text-[10px]">{tk.priority}</Badge>
+              <Badge variant="outline" className="text-[10px]">{PRIORITY_LABEL[tk.priority] || tk.priority}</Badge>
               <span className="ms-auto text-xs text-muted-foreground"><JalaliDate date={tk.createdAt} /></span>
             </div>
             <div className="space-y-2">
@@ -281,17 +294,17 @@ export function TicketsPage() {
         <DialogContent>
           <DialogHeader><DialogTitle>{t('newTicket')}</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div className="space-y-1.5"><Label>{t('subject')}</Label><Input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} /></div>
+            <TextField label={t('subject')} value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} error={errors.subject} required />
             <div className="space-y-1.5">
-              <Label>{lang === 'fa' ? 'دسته' : 'Category'}</Label>
+              <Label htmlFor="ticket-category">{lang === 'fa' ? 'دسته' : 'Category'}</Label>
               <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="ticket-category"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {['GENERAL', 'ORDER', 'PAYMENT', 'MEDICAL', 'SHIPPING', 'OTHER'].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {['GENERAL', 'ORDER', 'PAYMENT', 'MEDICAL', 'SHIPPING', 'OTHER'].map((c) => <SelectItem key={c} value={c}>{CATEGORY_LABEL[c]}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5"><Label>{t('message')}</Label><Textarea rows={3} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} /></div>
+            <TextAreaField label={t('message')} rows={3} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} error={errors.message} required />
           </div>
           <DialogFooter><Button onClick={create} disabled={busy || !form.subject || !form.message}>{t('submit')}</Button></DialogFooter>
         </DialogContent>
@@ -302,17 +315,18 @@ export function TicketsPage() {
 
 // ── Follow-ups ──────────────────────────────────────────────────────────
 export function FollowupsPage() {
-  const { t, api } = useApp()
-  const [data, setData] = useState<{ followups: { id: string; dueDate: string; status: string; note?: string; resultNote?: string; case: { code: string; status: string } }[] } | null>(null)
+  const { t } = useApp()
+  const { data, error, loading, refetch } = useApiQuery<{ followups: { id: string; dueDate: string; status: string; note?: string; resultNote?: string; case: { code: string; status: string } }[] }>('/api/v1/followups')
 
-  useEffect(() => { api('/api/v1/followups').then(setData).catch(() => {}) }, [api])
-  if (!data) return <LoadingRows />
+  if (loading) return <LoadingRows />
+  if (error) return <ErrorState message={error.supportRef} onRetry={refetch} />
+  const followups = data?.followups || []
   return (
     <div className="space-y-4 max-w-3xl">
       <h1 className="text-2xl font-bold">{t('followups')}</h1>
-      {data.followups.length === 0 ? <EmptyState /> : (
+      {followups.length === 0 ? <EmptyState /> : (
         <div className="space-y-2">
-          {data.followups.map((f) => (
+          {followups.map((f) => (
             <Card key={f.id}>
               <CardContent className="p-3.5 flex items-center gap-3 flex-wrap text-sm">
                 <span className="tabular-nums text-muted-foreground">{f.case.code}</span>
@@ -330,21 +344,18 @@ export function FollowupsPage() {
 
 // ── Notifications page ──────────────────────────────────────────────────
 export function NotificationsPage() {
-  const { t, lang, api } = useApp()
-  const [items, setItems] = useState<{ id: string; titleFa: string; titleEn: string; bodyFa?: string; bodyEn?: string; read: boolean; createdAt: string }[]>([])
-
-  const load = useCallback(() => {
-    api<{ notifications: typeof items }>('/api/v1/notifications').then((d) => setItems(d.notifications)).catch(() => {})
-  }, [api])
-  useEffect(load, [load])
+  const { t, lang, api, refreshNotifCount } = useApp()
+  const { data, error, loading, refetch } = useApiQuery<{ notifications: { id: string; titleFa: string; titleEn: string; bodyFa?: string; bodyEn?: string; read: boolean; createdAt: string }[] }>('/api/v1/notifications')
+  const items = data?.notifications || []
+  const load = refetch
 
   return (
     <div className="space-y-4 max-w-2xl">
       <div className="flex items-center gap-3">
         <h1 className="page-title"><Bell size={22} />{t('notifications')}</h1>
-        <Button variant="outline" size="sm" className="ms-auto" onClick={async () => { await api('/api/v1/notifications', { method: 'PATCH', json: {} }); load() }}>{t('markAllRead')}</Button>
+        <Button variant="outline" size="sm" className="ms-auto" onClick={async () => { await api('/api/v1/notifications', { method: 'PATCH', json: {} }); load(); refreshNotifCount() }}>{t('markAllRead')}</Button>
       </div>
-      {items.length === 0 ? <EmptyState /> : (
+      {loading ? <LoadingRows /> : error ? <ErrorState message={error.supportRef} onRetry={refetch} /> : items.length === 0 ? <EmptyState /> : (
         <div className="space-y-2">
           {items.map((n) => (
             <Card key={n.id} className={n.read ? 'opacity-60' : ''}>

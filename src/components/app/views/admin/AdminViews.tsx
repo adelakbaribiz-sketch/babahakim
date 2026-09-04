@@ -1,7 +1,9 @@
 'use client'
 // Admin views: Users, Diseases, Products management
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useApp } from '@/contexts/app'
+import { useApiQuery, useDebounced } from '@/hooks/use-api'
+import { ApiError } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -12,26 +14,25 @@ import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { SectionCard, JalaliDate, LoadingRows, EmptyState, Money, StatusBadge } from '../../shared/atoms'
+import { SectionCard, JalaliDate, LoadingRows, EmptyState, ErrorState, Money, StatusBadge, ConfirmDialog } from '../../shared/atoms'
+import { productFormSchema, zodFieldErrors } from '@/lib/forms'
 import { ROLE_LABELS, ROLE_PERMISSIONS } from '@/lib/constants'
 import { Users2, Stethoscope, Pill, Plus, ShieldCheck, ShieldOff, CheckCircle2, Microscope, MessageSquare } from 'lucide-react'
 
 // ── Users ───────────────────────────────────────────────────────────────
 export function AdminUsersPage() {
   const { t, lang, api } = useApp()
-  const [users, setUsers] = useState<{ id: string; firstName: string; lastName: string; phone: string; email?: string; role: string; isActive: boolean; referralCode?: string; createdAt: string; lastLoginAt?: string; profile?: { province?: string; city?: string } | null }[]>([])
   const [q, setQ] = useState('')
   const [role, setRole] = useState('')
-  const [reload, setReload] = useState(0)
+  const [roleConfirm, setRoleConfirm] = useState<{ id: string; next: string; name: string } | null>(null)
+  const debouncedQ = useDebounced(q)
+  const { data, error, loading, refetch } = useApiQuery<{ users: { id: string; firstName: string; lastName: string; phone: string; email?: string; role: string; isActive: boolean; referralCode?: string; createdAt: string; lastLoginAt?: string; profile?: { province?: string; city?: string } | null }[] }>(`/api/v1/admin/users?q=${encodeURIComponent(debouncedQ)}${role && role !== 'ALL' ? `&role=${role}` : ''}`)
+  const users = data?.users || []
 
-  useEffect(() => {
-    api<{ users: typeof users }>(`/api/v1/admin/users?q=${encodeURIComponent(q)}${role && role !== 'ALL' ? `&role=${role}` : ''}`).then((d) => setUsers(d.users)).catch(() => {})
-  }, [api, q, role, reload])
-
-  async function patch(id: string, data: Record<string, unknown>) {
+  async function patch(id: string, data2: Record<string, unknown>) {
     try {
-      await api('/api/v1/admin/users', { method: 'PATCH', json: { id, ...data } })
-      toast.success('✓'); setReload((x) => x + 1)
+      await api('/api/v1/admin/users', { method: 'PATCH', json: { id, ...data2 } })
+      toast.success(t('successTitle')); refetch()
     } catch (e) { toast.error((e as Error).message) }
   }
 
@@ -40,7 +41,7 @@ export function AdminUsersPage() {
       <div className="flex items-center gap-3 flex-wrap">
         <h1 className="page-title"><Users2 size={22} />{t('users')}</h1>
         <div className="ms-auto flex gap-2">
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} className="w-52" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} className="w-52" aria-label={t('search')} />
           <Select value={role} onValueChange={setRole}>
             <SelectTrigger className="w-40"><SelectValue placeholder={t('all')} /></SelectTrigger>
             <SelectContent>
@@ -50,7 +51,7 @@ export function AdminUsersPage() {
           </Select>
         </div>
       </div>
-      {users.length === 0 ? <EmptyState /> : (
+      {loading ? <LoadingRows /> : error ? <ErrorState message={error.supportRef} onRetry={refetch} /> : users.length === 0 ? <EmptyState /> : (
         <div className="space-y-2">
           {users.map((u) => (
             <Card key={u.id}>
@@ -59,10 +60,23 @@ export function AdminUsersPage() {
                   <div className="font-medium">{u.firstName} {u.lastName}</div>
                   <div className="text-xs text-muted-foreground" dir="ltr">{u.phone}{u.email ? ` · ${u.email}` : ''}</div>
                 </div>
-                <Select value={u.role} onValueChange={(v) => patch(u.id, { role: v })}>
-                  <SelectTrigger className="w-36 h-8 text-xs"><SelectValue /></SelectTrigger>
+                {/* PHASE 09: role change is destructive-ish — confirm first (F22) */}
+                <Select value={u.role} onValueChange={(v) => {
+                  if (v === u.role) return
+                  setRoleConfirm({ id: u.id, next: v, name: `${u.firstName} ${u.lastName}` })
+                }}>
+                  <SelectTrigger className="w-36 h-8 text-xs" aria-label={t('roleChangeConfirm')}><SelectValue /></SelectTrigger>
                   <SelectContent>{Object.keys(ROLE_LABELS).map((r) => <SelectItem key={r} value={r}>{lang === 'fa' ? ROLE_LABELS[r as keyof typeof ROLE_LABELS].fa : r}</SelectItem>)}</SelectContent>
                 </Select>
+                {roleConfirm && (
+                  <ConfirmDialog
+                    open
+                    trigger={<span />}
+                    title={t('roleChangeConfirm')}
+                    description={`${roleConfirm.name} → ${lang === 'fa' ? ROLE_LABELS[roleConfirm.next as keyof typeof ROLE_LABELS]?.fa : roleConfirm.next}. ${t('roleChangeHint')}`}
+                    onConfirm={async () => { await patch(roleConfirm.id, { role: roleConfirm.next }); setRoleConfirm(null) }}
+                  />
+                )}
                 <Badge variant="outline" className="text-[10px]">{u.profile?.province || '—'}</Badge>
                 <span className="text-xs text-muted-foreground"><JalaliDate date={u.createdAt} /></span>
                 <div className="ms-auto flex items-center gap-2">
@@ -88,7 +102,8 @@ export function AdminUsersPage() {
               </tr>
             </thead>
             <tbody>
-              {[...new Set(Object.values(ROLE_PERMISSIONS).flat())].sort().slice(0, 18).map((perm) => (
+              {/* PHASE 09 (F22): full 31-permission matrix — was .slice(0,18) */}
+              {[...new Set(Object.values(ROLE_PERMISSIONS).flat())].sort().map((perm) => (
                 <tr key={perm} className="border-b border-border/40">
                   <td className="p-2 font-mono text-[10px]" dir="ltr">{perm}</td>
                   {Object.keys(ROLE_LABELS).map((r) => (
@@ -107,24 +122,22 @@ export function AdminUsersPage() {
 // ── Diseases ────────────────────────────────────────────────────────────
 export function AdminDiseasesPage() {
   const { t, lang, api } = useApp()
-  const [diseases, setDiseases] = useState<{ id: string; code: string; nameFa: string; nameEn: string; category?: string; descriptionFa?: string; symptomsFa?: string; expertNotes?: string; active: boolean }[]>([])
-  const [edit, setEdit] = useState<Partial<{ id: string; code: string; nameFa: string; nameEn: string; category: string; descriptionFa: string; symptomsFa: string; expertNotes: string }>>({})
-  const [reload, setReload] = useState(0)
-
-  useEffect(() => {
-    api<{ diseases: typeof diseases }>('/api/v1/admin/diseases').then((d) => setDiseases(d.diseases)).catch(() => {})
-  }, [api, reload])
+  const [edit, setEdit] = useState<Partial<{ id: string; code: string; nameFa: string; nameEn: string; category: string; descriptionFa: string; symptomsFa: string; expertNotes: string }>>()
+  const { data, error, loading, refetch } = useApiQuery<{ diseases: { id: string; code: string; nameFa: string; nameEn: string; category?: string; descriptionFa?: string; symptomsFa?: string; expertNotes?: string; active: boolean }[] }>('/api/v1/admin/diseases')
+  const diseases = data?.diseases || []
 
   async function save() {
     try {
       if (edit.id) await api('/api/v1/admin/diseases', { method: 'PATCH', json: edit })
       else await api('/api/v1/admin/diseases', { method: 'POST', json: edit })
-      toast.success('✓'); setEdit({}); setReload((x) => x + 1)
+      toast.success(t('successTitle')); setEdit(undefined); refetch()
     } catch (e) { toast.error((e as Error).message) }
   }
   async function toggle(d: { id: string; active: boolean }) {
-    await api('/api/v1/admin/diseases', { method: 'PATCH', json: { id: d.id, active: !d.active } })
-    setReload((x) => x + 1)
+    try {
+      await api('/api/v1/admin/diseases', { method: 'PATCH', json: { id: d.id, active: !d.active } })
+      refetch()
+    } catch (e) { toast.error((e as Error).message) } // PHASE 09: was an unhandled rejection
   }
 
   return (
@@ -133,8 +146,9 @@ export function AdminDiseasesPage() {
         <h1 className="page-title"><Stethoscope size={22} />{t('diseases')}</h1>
         <Button size="sm" className="ms-auto gap-1.5" onClick={() => setEdit({})}><Plus size={14} />{lang === 'fa' ? 'بیماری جدید' : 'New'}</Button>
       </div>
-      <div className="grid gap-2 md:grid-cols-2">
-        {diseases.map((d) => (
+      {loading ? <LoadingRows /> : error ? <ErrorState message={error.supportRef} onRetry={refetch} /> : diseases.length === 0 && !edit ? <EmptyState /> : (
+        <div className="grid gap-2 md:grid-cols-2">
+          {diseases.map((d) => (
           <Card key={d.id} className={!d.active ? 'opacity-60' : ''}>
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
@@ -147,14 +161,15 @@ export function AdminDiseasesPage() {
               {d.expertNotes && <p className="text-xs text-primary"><MessageSquare size={12} className="inline me-1" />{d.expertNotes}</p>}
               <div className="flex gap-2 pt-1">
                 <Button variant="outline" size="sm" className="h-7" onClick={() => setEdit(d)}>{t('details')}</Button>
-                <Button variant="ghost" size="sm" className="h-7" onClick={() => toggle(d)}>{d.active ? 'غیرفعال' : 'فعال'}</Button>
+                <Button variant="ghost" size="sm" className="h-7" onClick={() => toggle(d)}>{d.active ? t('deactivate') : t('activate')}</Button>
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
-      <Dialog open={!!edit || edit === {}} onOpenChange={(o) => !o && setEdit(undefined as never)}>
+      <Dialog open={edit !== undefined} onOpenChange={(o) => !o && setEdit(undefined)}>
         <DialogContent>
           <DialogHeader><DialogTitle>{edit?.id ? t('details') : lang === 'fa' ? 'بیماری جدید' : 'New disease'}</DialogTitle></DialogHeader>
           {edit !== undefined && (
@@ -180,19 +195,18 @@ export function AdminDiseasesPage() {
 // ── Products (management) ───────────────────────────────────────────────
 export function AdminProductsPage() {
   const { t, lang, api } = useApp()
-  const [products, setProducts] = useState<{ id: string; sku: string; nameFa: string; nameEn: string; brand?: string; category?: string; currentPrice: number; purchasePrice: number; stock: number; active: boolean; requiresPrescription: boolean; priceHistory: { id: string; oldPrice?: number; newPrice: number; reason: string; createdAt: string; changedBy: { firstName: string; lastName: string } }[] }[]>([])
   const [edit, setEdit] = useState<Record<string, string | number | boolean>>({})
-  const [reload, setReload] = useState(0)
-
-  useEffect(() => {
-    api<{ products: typeof products }>('/api/v1/admin/products').then((d) => setProducts(d.products)).catch(() => {})
-  }, [api, reload])
+  const { data, error, loading, refetch } = useApiQuery<{ products: { id: string; sku: string; nameFa: string; nameEn: string; brand?: string; category?: string; currentPrice: number; purchasePrice: number; stock: number; active: boolean; requiresPrescription: boolean; priceHistory: { id: string; oldPrice?: number; newPrice: number; reason: string; createdAt: string; changedBy: { firstName: string; lastName: string } }[] }[] }>('/api/v1/admin/products')
+  const products = data?.products || []
 
   async function save() {
+    // PHASE 09 (ED-111): numeric sanity gate mirrors the server product DTO
+    const parsed = productFormSchema.safeParse(edit)
+    if (!parsed.success) { toast.error(Object.values(zodFieldErrors(parsed.error))[0]); return }
     try {
       if (edit.id) await api('/api/v1/admin/products', { method: 'PATCH', json: edit })
       else await api('/api/v1/admin/products', { method: 'POST', json: edit })
-      toast.success('✓'); setEdit({}); setReload((x) => x + 1)
+      toast.success(t('successTitle')); setEdit({}); refetch()
     } catch (e) { toast.error((e as Error).message) }
   }
 
@@ -202,7 +216,7 @@ export function AdminProductsPage() {
         <h1 className="page-title"><Pill size={22} />{t('products')}</h1>
         <Button size="sm" className="ms-auto gap-1.5" onClick={() => setEdit({ sku: '', nameFa: '', currentPrice: 0, stock: 0 })}><Plus size={14} />{lang === 'fa' ? 'محصول جدید' : 'New'}</Button>
       </div>
-      {products.length === 0 ? <EmptyState /> : (
+      {loading ? <LoadingRows /> : error ? <ErrorState message={error.supportRef} onRetry={refetch} /> : products.length === 0 ? <EmptyState /> : (
         <div className="space-y-2">
           {products.map((p) => (
             <Card key={p.id} className={!p.active ? 'opacity-60' : ''}>

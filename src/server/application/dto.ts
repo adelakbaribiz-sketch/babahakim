@@ -32,7 +32,9 @@ export const otpVerifySchema = z.object({
 
 // ── cases ──────────────────────────────────────────────────────────────────
 export const caseCreateSchema = z.object({
-  description: requiredText(4000, 'شرح حال (توضیح مشکل)'),
+  // PHASE 09 (S3/F16): min 10 mirrored server-side — the client gate is UX-only,
+  // the authoritative rule lives here (no frontend-only business rule).
+  description: requiredText(4000, 'شرح حال (توضیح مشکل)').min(10, 'شرح حال باید حداقل ۱۰ کاراکتر باشد'),
   imageId: cuid,
   priority: PRIORITY.default('NORMAL'),
 })

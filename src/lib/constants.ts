@@ -1,9 +1,11 @@
 // Central constants: roles, permissions, workflow states & transitions
 
 // Workflow Engine (Phase 02) — canonical case machine lives in src/lib/workflow/
+// PHASE 09 (F03/ED-107): resolveTransition imports from the PURE module —
+// importing engine.ts here dragged @/lib/db (Prisma) into the browser bundle.
 import { CASE_MACHINE } from '@/lib/workflow/machines/case'
 import type { TransitionDef } from '@/lib/workflow/types'
-import { resolveTransition } from '@/lib/workflow/engine'
+import { resolveTransition } from '@/lib/workflow/pure'
 // PHASE 07 (§9/§27): status colors come ONLY from design-system tokens — never hardcoded
 import { statusClass } from '@/design-system/tokens'
 

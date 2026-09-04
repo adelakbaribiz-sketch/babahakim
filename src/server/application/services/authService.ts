@@ -83,8 +83,12 @@ export async function login(ctx: RequestContext, input: z.infer<typeof loginSche
   await writeAudit(ctx, { userId: user.id, action: 'LOGIN', entity: 'User', entityId: user.id })
   await publish(Events.UserLogin, { userId: user.id }, ctx.reqId)
 
+  // PHASE 09 (S1): permissions at session start — client permission-aware UI needs
+  // the authoritative set without a second /me round-trip (ED-108).
+  const perms = user.role === 'ADMIN' ? ROLE_PERMISSIONS.ADMIN : (ROLE_PERMISSIONS as Record<string, string[]>)[user.role] || []
   return {
     user: { id: user.id, phone: user.phone, firstName: user.firstName, lastName: user.lastName, role: user.role, referralCode: user.referralCode, profileComplete: user.profileComplete },
+    permissions: perms,
   }
 }
 
@@ -125,8 +129,10 @@ export async function register(ctx: RequestContext, input: z.infer<typeof regist
   await writeAudit(ctx, { userId: user.id, action: 'REGISTER', entity: 'User', entityId: user.id, newValues: { acceptTerms: input.acceptTerms } })
   await publish(Events.UserRegistered, user.id, ctx.reqId)
 
+  // PHASE 09 (S1): register also returns permissions (patient ⇒ [] by design).
   return {
     user: { id: user.id, phone: user.phone, firstName: user.firstName, lastName: user.lastName, role: user.role, referralCode: user.referralCode, profileComplete: false },
+    permissions: [] as string[],
   }
 }
 

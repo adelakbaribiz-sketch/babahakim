@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-09-04T03:05:35.275Z",
+  "generatedAt": "2026-09-04T09:21:26.427Z",
   "phase": "PHASE 07 — UI System consistency audit",
-  "filesScanned": 181,
+  "filesScanned": 188,
   "errors": 0,
-  "warnings": 5,
+  "warnings": 6,
   "contrast": {
     "checked": 32,
     "failed": 0
@@ -23,13 +23,18 @@
       },
       {
         "rule": "W1 duplicated className literal",
-        "count": 3,
+        "count": 4,
         "match": "text-[11px] text-muted-foreground leading-relaxed"
       },
       {
         "rule": "W1 duplicated className literal",
         "count": 3,
         "match": "text-sm leading-relaxed whitespace-pre-wrap"
+      },
+      {
+        "rule": "W1 duplicated className literal",
+        "count": 3,
+        "match": "text-sm text-muted-foreground leading-relaxed"
       },
       {
         "rule": "W1 duplicated className literal",

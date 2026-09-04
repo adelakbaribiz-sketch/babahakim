@@ -2,28 +2,33 @@
 // Staff views: Dashboard (role-aware), Case queue, Operator payments & shipments
 import React, { useCallback, useEffect, useState } from 'react'
 import { useApp } from '@/contexts/app'
+import { useApiQuery, useDebounced } from '@/hooks/use-api'
+import { ApiError } from '@/lib/api-error'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { SectionCard, StatusBadge, StatCard, JalaliDate, LoadingRows, EmptyState, Money } from '../../shared/atoms'
-import { CaseWorkspace } from '../CaseWorkspace'
+import { SectionCard, StatusBadge, StatCard, JalaliDate, LoadingRows, EmptyState, ErrorState, Money } from '../../shared/atoms'
+// PHASE 09: CaseWorkspace is a lazy chunk (router) — no eager import/re-export.
 import { fmtMoney } from '@/lib/i18n'
 import { STATUS_META, ROLE_LABELS } from '@/lib/constants'
 import { LayoutDashboard, Users, FolderOpen, ListChecks, CreditCard, Truck, Bell, CheckCircle2, XCircle, Hourglass, ScanHeart, ClipboardCheck, Stethoscope, Package, BarChart3, User } from 'lucide-react'
 
 // ── Staff dashboard ─────────────────────────────────────────────────────
 export function StaffDashboard({ navigate }: { navigate: (p: string, params?: Record<string, string>) => void }) {
-  const { t, lang, api, user } = useApp()
-  const [data, setdata] = useState<{
+  const { t, lang, user } = useApp()
+  // PHASE 09 (ED-109): standard query — error retry instead of swallowed catch
+  const { data, error, loading, refetch } = useApiQuery<{
     stats: Record<string, number>
     queue: { id: string; code: string; status: string; priority: string; createdAt: string; waitingHours: number; patient: { firstName: string; lastName: string; phone: string }; mizajSnapshot?: { mizajFa?: string } | null }[]
     recentEvents: { id: string; action: string; fromStatus?: string; toStatus?: string; comment?: string; createdAt: string; case?: { code: string }; actor?: { firstName: string; lastName: string; role: string } | null }[]
-  } | null>(null)
+  }>('/api/v1/dashboard')
 
-  useEffect(() => { api('/api/v1/dashboard').then(setdata).catch(() => {}) }, [api])
+  if (loading && !data) return <LoadingRows rows={5} />
+  if (error && !data) return <ErrorState message={error.supportRef} onRetry={refetch} />
   if (!data) return <LoadingRows rows={5} />
 
   const s = data.stats
@@ -97,17 +102,11 @@ export function StaffDashboard({ navigate }: { navigate: (p: string, params?: Re
 // ── Queue (staff) ───────────────────────────────────────────────────────
 export function QueuePage({ navigate }: { navigate: (p: string, params?: Record<string, string>) => void }) {
   const { t, lang, api, user } = useApp()
-  const [cases, setCases] = useState<{ id: string; code: string; status: string; priority: string; createdAt: string; waitingHours: number; patient: { firstName: string; lastName: string; phone: string }; mizajSnapshot?: { mizajFa?: string } | null; images: { id: string; type: string }[] }[]>([])
   const [status, setStatus] = useState('')
   const [q, setQ] = useState('')
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(() => {
-    queueMicrotask(() => setLoading(true))
-    api<{ cases: typeof cases }>(`/api/v1/cases${status && status !== 'ALL' ? `?status=${status}` : ''}${q ? `${status ? '&' : '?'}q=${encodeURIComponent(q)}` : ''}`)
-      .then((d) => setCases(d.cases)).catch(() => {}).finally(() => setLoading(false))
-  }, [api, status, q])
-  useEffect(load, [load])
+  const debouncedQ = useDebounced(q) // PHASE 09 (F09): debounced search
+  const { data, error, loading, refetch } = useApiQuery<{ cases: { id: string; code: string; status: string; priority: string; createdAt: string; waitingHours: number; patient: { firstName: string; lastName: string; phone: string }; mizajSnapshot?: { mizajFa?: string } | null; images: { id: string; type: string }[] }[] }>(`/api/v1/cases${status && status !== 'ALL' ? `?status=${status}` : ''}${debouncedQ ? `${status && status !== 'ALL' ? '&' : '?'}q=${encodeURIComponent(debouncedQ)}` : ''}`)
+  const cases = data?.cases || []
 
   const statusOptions = user?.role === 'EXPERT_1' ? ['WAITING_FOR_EXPERT_1', 'EXPERT_1_REVIEW', 'WAITING_FOR_USER_APPROVAL', 'WAITING_FOR_EXPERT_1_PRESCRIPTION', 'REVISION_REQUESTED']
     : user?.role === 'EXPERT_2' ? ['WAITING_FOR_EXPERT_2', 'REVISION_REQUESTED', 'WAITING_FOR_PAYMENT', 'PAYMENT_CONFIRMED', 'PREPARING_SHIPMENT', 'SHIPPED']
@@ -144,7 +143,7 @@ export function QueuePage({ navigate }: { navigate: (p: string, params?: Record<
         </div>
       </div>
 
-      {loading ? <LoadingRows /> : cases.length === 0 ? <EmptyState /> : (
+      {loading ? <LoadingRows /> : error ? <ErrorState message={error.supportRef} onRetry={refetch} /> : cases.length === 0 ? <EmptyState /> : (
         <div className="space-y-2">
           {cases.map((c) => (
             <Card key={c.id} className="hover:border-primary/40 transition-colors">
@@ -176,19 +175,16 @@ export function QueuePage({ navigate }: { navigate: (p: string, params?: Record<
 export function PaymentsVerifyPage() {
   const { t, lang, api } = useApp()
   interface Pay { id: string; code: string; method: string; status: string; amount: number; refNumber?: string; trackingCode?: string; receiptNote?: string; receiptUrl?: string | null; createdAt: string; verifiedBy?: { firstName: string; lastName: string } | null; order: { code: string; user: { firstName: string; lastName: string; phone: string } } }
-  const [pays, setPays] = useState<Pay[]>([])
   const [status, setStatus] = useState('AWAITING_VERIFY')
-  const [reload, setReload] = useState(0)
   const [sel, setSel] = useState<Pay | null>(null)
-
-  useEffect(() => {
-    api<{ payments: Pay[] }>(`/api/v1/payments${status ? `?status=${status}` : ''}`).then((d) => setPays(d.payments)).catch(() => {})
-  }, [api, status, reload])
+  // PHASE 09 (F05/F17): loading init + proper Dialog for the receipt viewer
+  const { data, error, loading, refetch } = useApiQuery<{ payments: Pay[] }>(`/api/v1/payments${status ? `?status=${status}` : ''}`)
+  const pays = data?.payments || []
 
   async function verify(id: string, decision: string, note?: string) {
     try {
       await api(`/api/v1/payments/${id}/verify`, { method: 'POST', json: { decision, note } })
-      toast.success('✓'); setReload((x) => x + 1); setSel(null)
+      toast.success(t('successTitle')); refetch(); setSel(null)
     } catch (e) { toast.error((e as Error).message) }
   }
 
@@ -206,7 +202,7 @@ export function PaymentsVerifyPage() {
         </Select>
       </div>
 
-      {pays.length === 0 ? <EmptyState /> : (
+      {loading ? <LoadingRows /> : error ? <ErrorState message={error.supportRef} onRetry={refetch} /> : pays.length === 0 ? <EmptyState /> : (
         <div className="space-y-2">
           {pays.map((p) => (
             <Card key={p.id}>
@@ -231,23 +227,20 @@ export function PaymentsVerifyPage() {
         </div>
       )}
 
-      {sel && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setSel(null)}>
-          <div className="bg-background rounded-xl p-4 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-3 font-bold text-sm flex items-center justify-between">
-              {t('receipt')} — {sel.code}
-              <Button variant="ghost" size="sm" onClick={() => setSel(null)}>×</Button>
-            </div>
-            { }
-            {sel.receiptUrl && <img src={sel.receiptUrl} alt="receipt" className="w-full rounded-lg" />}
-            {!sel.receiptUrl && <div className="text-sm text-muted-foreground">رسید تصویری ارسال نشده — شماره پیگیری: {sel.trackingCode || '—'}</div>}
-            <div className="flex gap-2 mt-3">
-              <Button className="flex-1 btn-brand-hover gap-1" onClick={() => verify(sel.id, 'APPROVE')}><CheckCircle2 size={14} />{t('confirm')}</Button>
-              <Button variant="outline" className="flex-1 text-destructive gap-1" onClick={() => verify(sel.id, 'REJECT', 'رسید نامعتبر')}><XCircle size={14} />{t('reject')}</Button>
-            </div>
+      {/* PHASE 09 (F17): receipt viewer uses the accessible Dialog (focus trap,
+          Escape, role=dialog) instead of a hand-rolled fixed overlay */}
+      <Dialog open={!!sel} onOpenChange={(o) => !o && setSel(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>{t('receipt')} — {sel?.code}</DialogTitle></DialogHeader>
+          {sel?.receiptUrl
+            ? <img src={sel.receiptUrl} alt={t('receipt')} className="w-full rounded-lg" loading="lazy" />
+            : <div className="text-sm text-muted-foreground">{lang === 'fa' ? 'رسید تصویری ارسال نشده — شماره پیگیری:' : 'No receipt image — tracking code:'} {sel?.trackingCode || '—'}</div>}
+          <div className="flex gap-2">
+            <Button className="flex-1 btn-brand-hover gap-1" onClick={() => sel && verify(sel.id, 'APPROVE')}><CheckCircle2 size={14} />{t('confirm')}</Button>
+            <Button variant="outline" className="flex-1 text-destructive gap-1" onClick={() => sel && verify(sel.id, 'REJECT', 'رسید نامعتبر')}><XCircle size={14} />{t('reject')}</Button>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -255,17 +248,13 @@ export function PaymentsVerifyPage() {
 // ── Operator: shipments ─────────────────────────────────────────────────
 export function ShipmentsPage() {
   const { t, lang, api } = useApp()
-  const [shipments, setShipments] = useState<{ id: string; method: string; status: string; driverName?: string; driverPhone?: string; trackingCode?: string; cost: number; shippingDate?: string; deliveryDate?: string; order: { code: string; status: string; user: { firstName: string; lastName: string; phone: string } } }[]>([])
-  const [reload, setReload] = useState(0)
-
-  useEffect(() => {
-    api<{ shipments: typeof shipments }>('/api/v1/shipments').then((d) => setShipments(d.shipments)).catch(() => {})
-  }, [api, reload])
+  const { data, error, loading, refetch } = useApiQuery<{ shipments: { id: string; method: string; status: string; driverName?: string; driverPhone?: string; trackingCode?: string; cost: number; shippingDate?: string; deliveryDate?: string; order: { code: string; status: string; user: { firstName: string; lastName: string; phone: string } } }[] }>('/api/v1/shipments')
+  const shipments = data?.shipments || []
 
   async function update(id: string, status: string) {
     try {
       await api('/api/v1/shipments', { method: 'PATCH', json: { shipmentId: id, status } })
-      toast.success('✓'); setReload((x) => x + 1)
+      toast.success(t('successTitle')); refetch()
     } catch (e) { toast.error((e as Error).message) }
   }
 
@@ -274,7 +263,7 @@ export function ShipmentsPage() {
   return (
     <div className="space-y-4">
       <h1 className="page-title"><Truck size={22} />{lang === 'fa' ? 'ارسال و تحویل' : 'Shipping & delivery'}</h1>
-      {shipments.length === 0 ? <EmptyState /> : (
+      {loading ? <LoadingRows /> : error ? <ErrorState message={error.supportRef} onRetry={refetch} /> : shipments.length === 0 ? <EmptyState /> : (
         <div className="space-y-2">
           {shipments.map((s) => (
             <Card key={s.id}>
@@ -299,4 +288,3 @@ export function ShipmentsPage() {
   )
 }
 
-export { CaseWorkspace }

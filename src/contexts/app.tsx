@@ -1,7 +1,12 @@
 'use client'
 // App context: auth + language + view navigation + API client (auto refresh on 401)
+//
+// PHASE 09 (ED-108): api() delegates to the typed api-client (ApiError with
+// ED-94 envelope fields); sessions carry the server-issued permission set
+// (login/register now return it — S1); logout goes through the same client.
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { Lang, t as translate } from '@/lib/i18n'
+import { apiFetch, apiLogout, ApiError } from '@/lib/api-client'
 
 export interface SessionUser {
   id: string; phone: string; role: string; firstName: string; lastName: string
@@ -17,34 +22,42 @@ interface AppState {
   dir: 'rtl' | 'ltr'
   user: SessionUser | null
   permissions: string[]
+  /** Set the whole session at once (login/register/refresh paths). */
+  setSession: (u: SessionUser | null, permissions?: string[]) => void
+  /** Back-compat single-user setter (clears permissions when null). */
   setUser: (u: SessionUser | null) => void
+  /** Permission check mirroring server semantics (ADMIN bypass, BR-RBAC-02). */
+  can: (permission: string) => boolean
   view: View
   navigate: (page: string, params?: Record<string, string>) => void
   api: <T = unknown>(path: string, init?: RequestInit & { json?: unknown }) => Promise<T>
   refreshNotifCount: () => void
   notifCount: number
+  /** session boot: done after the first /auth/me attempt (no flash of login) */
+  booted: boolean
 }
 
 const Ctx = createContext<AppState | null>(null)
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>('fa')
-  const [user, setUser] = useState<SessionUser | null>(null)
+  const [user, setUserState] = useState<SessionUser | null>(null)
   const [permissions, setPermissions] = useState<string[]>([])
   const [view, setView] = useState<View>({ page: 'landing' })
   const [notifCount, setNotifCount] = useState(0)
+  const [booted, setBooted] = useState(false)
 
   useEffect(() => {
     const saved = typeof window !== 'undefined' ? (localStorage.getItem('bh_lang') as Lang | null) : null
     if (saved === 'fa' || saved === 'en') queueMicrotask(() => setLangState(saved))
-    fetch('/api/v1/auth/me').then(async (r) => {
-      if (r.ok) {
-        const data = await r.json()
-        setUser(data.user)
+    apiFetch<{ user: SessionUser; permissions?: string[] }>('/api/v1/auth/me')
+      .then((data) => {
+        setUserState(data.user)
         setPermissions(data.permissions || [])
         setView({ page: 'dashboard' })
-      }
-    }).catch(() => {})
+      })
+      .catch(() => {})
+      .finally(() => setBooted(true))
   }, [])
 
   useEffect(() => {
@@ -55,44 +68,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setLang = useCallback((l: Lang) => setLangState(l), [])
 
+  const setSession = useCallback((u: SessionUser | null, perms?: string[]) => {
+    setUserState(u)
+    setPermissions(u ? (perms || []) : [])
+  }, [])
+
+  const setUser = useCallback((u: SessionUser | null) => {
+    setUserState(u)
+    if (!u) setPermissions([])
+  }, [])
+
+  const can = useCallback((permission: string) => {
+    if (!user) return false
+    if (user.role === 'ADMIN') return true // BR-RBAC-02 — mirror of requirePermission
+    return permissions.includes(permission)
+  }, [user, permissions])
+
   const api = useCallback(async <T,>(path: string, init?: RequestInit & { json?: unknown }): Promise<T> => {
-    const csrf = () => {
-      try {
-        const m = document.cookie.match(/(?:^|;\s*)ta_csrf=([^;]+)/)
-        return m ? m[1] : ''
-      } catch {
-        return ''
-      }
-    }
-    const doFetch = () =>
-      fetch(path, {
-        ...init,
-        headers: {
-          ...(init?.json !== undefined ? { 'Content-Type': 'application/json' } : {}),
-          // PHASE 05: double-submit CSRF (middleware enforces equality with cookie)
-          ...((init?.method || 'GET').toUpperCase() !== 'GET' ? { 'x-csrf-token': csrf() } : {}),
-          ...(init?.headers || {}),
-        },
-        body: init?.json !== undefined ? JSON.stringify(init.json) : init?.body,
-        credentials: 'same-origin',
-      })
-    let res = await doFetch()
-    if (res.status === 401 && path !== '/api/v1/auth/me') {
-      const refreshed = await fetch('/api/v1/auth/refresh', {
-        method: 'POST',
-        headers: { 'x-csrf-token': csrf() },
-      })
-      if (refreshed.ok) res = await doFetch()
-    }
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`)
-    return data as T
+    return apiFetch<T>(path, init)
   }, [])
 
   const refreshNotifCount = useCallback(() => {
     if (!user) return
-    api<{ unread: number }>('/api/v1/notifications').then((d) => setNotifCount(d.unread || 0)).catch(() => {})
-  }, [user, api])
+    apiFetch<{ unread: number }>('/api/v1/notifications').then((d) => setNotifCount(d.unread || 0)).catch(() => {})
+  }, [user])
 
   useEffect(() => { refreshNotifCount() }, [refreshNotifCount, user?.id])
 
@@ -104,9 +103,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const t = useCallback((k: string) => translate(k, lang), [lang])
 
   const value = useMemo<AppState>(() => ({
-    lang, setLang, t, dir: lang === 'fa' ? 'rtl' : 'ltr', user, setUser, permissions,
-    view, navigate, api, refreshNotifCount, notifCount,
-  }), [lang, setLang, t, user, permissions, view, navigate, api, refreshNotifCount, notifCount])
+    lang, setLang, t, dir: lang === 'fa' ? 'rtl' : 'ltr', user, setUser, setSession, permissions, can,
+    view, navigate, api, refreshNotifCount, notifCount, booted,
+  }), [lang, setLang, t, user, setUser, setSession, permissions, can, view, navigate, api, refreshNotifCount, notifCount, booted])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
@@ -117,17 +116,12 @@ export function useApp(): AppState {
   return c
 }
 
-export function logoutUser(setUser: (u: SessionUser | null) => void, navigate: (p: string) => void) {
-  const csrf = (() => {
-    try {
-      const m = document.cookie.match(/(?:^|;\s*)ta_csrf=([^;]+)/)
-      return m ? m[1] : ''
-    } catch {
-      return ''
-    }
-  })()
-  fetch('/api/v1/auth/logout', { method: 'POST', headers: { 'x-csrf-token': csrf } }).finally(() => {
-    setUser(null)
+export function logoutUser(setSession: (u: SessionUser | null, p?: string[]) => void, navigate: (p: string) => void) {
+  // PHASE 09 (F08): goes through the API client — one fetch/CSRF implementation.
+  apiLogout().finally(() => {
+    setSession(null)
     navigate('landing')
   })
 }
+
+export { ApiError }
