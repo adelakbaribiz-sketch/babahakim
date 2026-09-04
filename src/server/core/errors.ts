@@ -9,7 +9,7 @@
 
 export type ErrorCode =
   | 'VALIDATION' | 'AUTH_REQUIRED' | 'FORBIDDEN' | 'NOT_FOUND' | 'CONFLICT'
-  | 'BUSINESS_RULE' | 'RATE_LIMITED' | 'INTERNAL'
+  | 'BUSINESS_RULE' | 'RATE_LIMITED' | 'PAYLOAD_TOO_LARGE' | 'UNSUPPORTED_MEDIA_TYPE' | 'INTERNAL'
 
 export class AppError extends Error {
   readonly code: ErrorCode
@@ -71,6 +71,20 @@ export class BusinessRuleError extends AppError {
 export class RateLimitError extends AppError {
   constructor(message = 'تعداد درخواست‌ها بیش از حد مجاز است', details?: { retryAfterSec: number }) {
     super('RATE_LIMITED', message, 429, details)
+  }
+}
+
+/** Upload exceeds the category/role size limit → 413 (PHASE 10, ED-108). */
+export class PayloadTooLargeError extends AppError {
+  constructor(message = 'حجم فایل بیش از حد مجاز است', details?: { limitBytes: number; actualBytes: number }) {
+    super('PAYLOAD_TOO_LARGE', message, 413, details)
+  }
+}
+
+/** MIME/extension/magic-bytes not in the category allowlist → 415 (PHASE 10, ED-108). */
+export class UnsupportedMediaTypeError extends AppError {
+  constructor(message = 'نوع فایل مجاز نیست', details?: { allowed?: string[]; declared?: string; detected?: string }) {
+    super('UNSUPPORTED_MEDIA_TYPE', message, 415, details)
   }
 }
 

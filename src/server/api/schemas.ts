@@ -7,7 +7,9 @@ import { z } from 'zod'
 export const PRIORITY = z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT'])
 export const TICKET_CATEGORY = z.enum(['GENERAL', 'ORDER', 'PAYMENT', 'MEDICAL', 'SHIPPING', 'OTHER'])
 export const SHIPMENT_METHOD = z.enum(['MOTORCYCLE', 'CAR', 'POST'])
-export const IMAGE_TYPE = z.enum(['TONGUE', 'SKIN', 'FACE', 'OTHER'])
+// PHASE 10: unified with MEDIA_POLICY types (storage IMAGE_TYPES parity — the
+// old TONGUE|SKIN|FACE|OTHER set could not express RECEIPT/DELIVERY/PRODUCT)
+export const IMAGE_TYPE = z.enum(['TONGUE', 'FACE', 'RECEIPT', 'DELIVERY', 'PRODUCT', 'AVATAR', 'DOCUMENT'])
 export const PAYMENT_METHOD = z.enum(['ZARINPAL', 'CARD_TO_CARD'])
 export const PAYMENT_DECISION = z.enum(['APPROVE', 'REJECT', 'MORE_INFO'])
 export const AI_AGREEMENT = z.enum(['ACCEPTED', 'REJECTED', 'MODIFIED'])

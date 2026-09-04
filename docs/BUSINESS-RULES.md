@@ -391,6 +391,20 @@
 | ED-103 | تراکنش؟ | withTransaction مرز اتمیک Application؛ Checkout/پروفایل/پرداخت/پرونده اتمیک (رفع باگ بحرانی A2) | یکپارچگی داده | — | BACKEND §3 |
 | ED-104 | موجودی منفی؟ | سیاست domain: assertStockAvailable قبل از نوشتن + re-check داخل tx | ضد race خرید همزمان | §11 | BACKEND §3 |
 | ED-105 | تضمین Controller نازک؟ | گیت CI scripts/backend-audit.mjs (E1..E8+W) exit 1؛ npm audit:backend | جلوگیری از بازگشت بدهی فنی | — | BACKEND §6 |
+| ED-106 | طبقه‌بندی فایل؟ | سه کلاس PUBLIC/PRIVATE/TEMPORARY + چهار وضعیت چرخه حیات ACTIVE/ARCHIVED/DELETED/PURGED روی StoredFile | الزام فاز 10 (Public/Private/Temporary/Permanent) | — | FILE-MEDIA §3 §4 |
+| ED-107 | حدود حجم/نوع فایل؟ | MEDIA_POLICY در media/config.ts = تک‌منبع (per-category × per-role)؛ هاردکد ممنوع (گیت E2) | حکمرانی حدود (الزام فاز 10) | — | FILE-MEDIA §7 |
+| ED-108 | اعتبارسنجی آپلود؟ | لبه مسیر: allowlist + magic bytes + تطابق declared/detected → 413 PAYLOAD_TOO_LARGE / 415 UNSUPPORTED_MEDIA_TYPE | ضد Content-Type spoofing | — | FILE-MEDIA §7 |
+| ED-109 | ذخیره‌سازی؟ | StorageDriver پورت + Local با ۶ ناحیه (inbox/files×3/quarantine/trash) + کلید محتوا-نشانی {sha16}/v{n}/{variant} | الزام فاز 10 (Storage) | — | FILE-MEDIA §9 |
+| ED-110 | ایمنی مسیر فایل؟ | assertSafeKey ساختاری: رد ..، مطلق، backslash، بدون-ناحیه — قبل از هر fs call؛ ورودی کاربر هرگز در مسیر نمی‌نشیند | ضد Path Traversal | — | FILE-MEDIA §9 |
+| ED-111 | بدافزار؟ | اسکن لایه‌ای L1..L4 (امضاها/ساختار/بازکدگذاری/ClamAV) + قرنطینه + اعلان مالک + Audit | الزام فاز 10 (Malware Scanning Strategy) | — | FILE-MEDIA §5 |
+| ED-112 | Signed URL؟ | HMAC مقید به (fileId, version, variant, exp) + timing-safe؛ TTL پیش‌فرض ۳۰۰s — رفع باگ F11 (امضای variant-آزاد) | الزام فاز 10 (Signed URLs) | — | FILE-MEDIA §6 |
+| ED-113 | Versioning؟ | StoredFileVersion تغییرناپذیر (sha256+کلید محتوا-نشانی)؛ نسخه جدید با enqueue؛ نسخه‌های قدیمی با ?v={n} سرو می‌شوند | الزام فاز 10 (Versioning) | — | FILE-MEDIA §8 |
+| ED-114 | پردازش سنگین؟ | آپلود = 202 Accepted؛ scan+renditions+metadata فقط در JobQueue worker (retry/DLQ) — درخواست اصلی هرگز بلاک نمی‌شود | الزام صریح فرمان فاز 10 | — | FILE-MEDIA §10 |
+| ED-115 | سازگاری MedicalImage؟ | پل storedFileId: مسیرهای legacy + status همگام توسط worker؛ مسیر قدیمی تا بازنشسته شدن PHASE 09+ | حفظ قرارداد v1 | — | FILE-MEDIA §2 §11 |
+| ED-116 | رویدادهای رسانه؟ | media.file.ready/infected/purged + اتصال به ابطال کش کاتالوگ و اعلان FILE_QUARANTINED | جداسازی اثر جانبی (ED-99) | — | FILE-MEDIA §11 |
+| ED-117 | چرخه حیات/پشتیبان؟ | lifecycle tick هر ۵ دقیقه (inbox TTL 24h؛ سطل زباله ۷ روز؛ batch≤50 + Audit) + backup:media/restore:media با manifest+sha256 | الزام فاز 10 (Lifecycle/Backup) | — | FILE-MEDIA §4 §12 |
+| ED-118 | دسترسی فایل؟ | ماتریس طبقه‌بندی-آگاه: PUBLIC فقط publicVariants برای ناشناس؛ PRIVATE مالک/ADMIN/مجوز؛ TEMPORARY+انقضا؛ MEDICAL هرگز عمومی؛ رفع F6 (تصویر محصول ۴۰۴) | تداوم ED-66 | — | FILE-MEDIA §3 |
+| ED-119 | گیت موتور رسانه؟ | scripts/media-audit.mjs (E1..E7+W) exit 1؛ npm audit:media | جلوگیری از بازگشت بدهی فنی | — | FILE-MEDIA §13 |
 
 ---
 

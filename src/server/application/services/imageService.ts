@@ -1,10 +1,13 @@
-// ── BabaHakim Backend · Application Service: Images + Privacy (PHASE 08) ──
-// Upload pipeline (magic-byte sniff, quality gate) + medical-file access
-// control (ED-66) + privacy rights (Phase-05 ports, thin wrappers).
+// ── BabaHakim Backend · Application Service: Images + Privacy (PHASE 08/10) ──
+// The /api/v1/images/* surface is a thin bridge onto the PHASE-10 media
+// engine: uploads return 202 and processing happens in the worker; serving
+// resolves renditions from the engine when storedFileId is set (new rows)
+// and from legacy flat paths otherwise (pre-PHASE-10 rows).
+// Medical-file access control keeps the Phase-05 hardened model (ED-66).
 import { db } from '@/lib/db'
 import type { AuthContext } from '@/lib/auth'
 import { getAuth, verifyImageSig } from '@/lib/auth'
-import { readStored, fileExists, storeImage, IMAGE_TYPES } from '@/lib/storage'
+import { IMAGE_TYPES } from '@/lib/storage'
 import { rateLimit, LIMITS } from '@/lib/security/rate-limit'
 import {
   currentConsents, recordConsent, CONSENT_TYPES, CONSENT_DOC_VERSIONS, revokeConsent,
@@ -12,27 +15,19 @@ import {
 } from '@/lib/security/privacy'
 import type { ConsentType } from '@/lib/security/privacy'
 import { NextResponse } from 'next/server'
-import { AppError, NotFoundError, ForbiddenError, RateLimitError, ValidationError } from '@/server/core/errors'
+import { join } from 'path'
+import {
+  AppError, NotFoundError, ForbiddenError, RateLimitError, ValidationError,
+  PayloadTooLargeError, UnsupportedMediaTypeError,
+} from '@/server/core/errors'
 import { writeAudit } from '@/server/infrastructure/audit'
-import { publish, Events } from '@/server/infrastructure/events'
 import { withTransaction } from '@/server/infrastructure/uow'
 import type { RequestContext } from '@/server/core/context'
-import { notify } from '@/lib/notify'
+import { acceptUpload, MediaValidationError, sanitizeFileName } from '@/server/infrastructure/media/pipeline'
+import { getStorageDriver, STORAGE_ROOT } from '@/server/infrastructure/media/storage-driver'
+import { fileExists, readStored } from '@/lib/storage'
 
-// ════════════════════════════ UPLOAD ═══════════════════════════════════════
-
-const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp']
-const MAX_SIZE = 10 * 1024 * 1024
-
-const MAGIC: Array<{ mime: string; test: (b: Buffer) => boolean }> = [
-  { mime: 'image/jpeg', test: (b) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
-  { mime: 'image/png', test: (b) => b.length > 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 },
-  { mime: 'image/webp', test: (b) => b.length > 12 && b.slice(0, 4).toString('ascii') === 'RIFF' && b.slice(8, 12).toString('ascii') === 'WEBP' },
-]
-function sniffMime(buf: Buffer): string | null {
-  for (const m of MAGIC) if (m.test(buf)) return m.mime
-  return null
-}
+// ══════════════════════════ UPLOAD (async, ED-114) ═════════════════════════
 
 export async function uploadImage(
   auth: AuthContext, ctx: RequestContext,
@@ -40,21 +35,11 @@ export async function uploadImage(
 ) {
   const { file, type } = input
   if (!IMAGE_TYPES.includes(type as (typeof IMAGE_TYPES)[number])) throw new ValidationError('نوع تصویر نامعتبر است')
-  if (!ALLOWED_MIME.includes(file.type)) throw new ValidationError('فرمت فایل مجاز نیست (JPG / PNG / WebP)')
-  if (file.size > MAX_SIZE) throw new ValidationError('حجم فایل بیش از ۱۰ مگابایت است')
 
   const rl = rateLimit(`upload:${auth.user.id}`, LIMITS.upload.limit, LIMITS.upload.windowMs)
   if (!rl.allowed) {
     await writeAudit(ctx, { userId: auth.user.id, action: 'UPLOAD_RATE_LIMITED', entity: 'MedicalImage', newValues: { retryAfter: rl.retryAfterSec } })
     throw new RateLimitError(undefined, { retryAfterSec: rl.retryAfterSec })
-  }
-
-  const buf = Buffer.from(await file.arrayBuffer())
-  if (buf.length === 0) throw new ValidationError('فایل خالی است')
-  const sniffed = sniffMime(buf)
-  if (!sniffed) {
-    await writeAudit(ctx, { userId: auth.user.id, action: 'UPLOAD_MAGIC_REJECT', entity: 'MedicalImage', newValues: { declared: file.type } })
-    throw new ValidationError('محتوای فایل یک تصویر معتبر نیست')
   }
 
   if (input.caseId) {
@@ -63,52 +48,93 @@ export async function uploadImage(
     if (auth.user.role === 'PATIENT' && c.patientId !== auth.user.id) throw new ForbiddenError('دسترسی غیرمجاز')
   }
 
-  let stored
+  const buf = Buffer.from(await file.arrayBuffer())
+
+  let accepted
   try {
-    stored = await storeImage(buf, auth.user.id, type as (typeof IMAGE_TYPES)[number])
-  } catch {
-    throw new AppError('BUSINESS_RULE', 'فایل تصویری خراب است یا قابل پردازش نیست | Corrupted image', 422)
+    accepted = await acceptUpload({
+      ownerId: auth.user.id,
+      role: auth.user.role,
+      category: 'MEDICAL_IMAGE',
+      type,
+      declaredMime: file.type,
+      fileName: sanitizeFileName(file.name),
+      buf,
+      caseId: input.caseId || null,
+      accessClassOverride: 'PRIVATE',
+    })
+  } catch (e) {
+    if (e instanceof MediaValidationError) {
+      if (e.kind === 'SIZE') throw new PayloadTooLargeError(e.message, e.details as { limitBytes: number; actualBytes: number } | undefined)
+      if (e.kind === 'MIME' || e.kind === 'MAGIC') throw new UnsupportedMediaTypeError(e.message, e.details as { allowed: string[]; declared?: string } | undefined)
+      throw new ValidationError(e.message, e.details)
+    }
+    throw e
   }
 
-  const qualityOk = stored.quality.score >= 55 && stored.quality.resolutionOk
-
+  // clinical row: the workflow keeps reading MedicalImage; the engine owns bytes
   const rec = await withTransaction(async (tx) =>
     tx.medicalImage.create({
       data: {
         ownerId: auth.user.id, caseId: input.caseId || null, type,
-        status: qualityOk ? 'VALIDATED' : 'REJECTED',
-        originalPath: stored.originalPath, compressedPath: stored.compressedPath,
-        aiPath: stored.aiPath, thumbPath: stored.thumbPath,
-        sha256: stored.sha256, width: stored.width, height: stored.height,
-        sizeOriginal: stored.sizeOriginal, sizeCompressed: stored.sizeCompressed,
-        mime: file.type, quality: JSON.stringify(stored.quality),
+        status: 'PENDING', // set to VALIDATED/REJECTED by the worker bridge
+        storedFileId: accepted.fileId,
+        originalPath: join(STORAGE_ROOT, `inbox/pending-${accepted.fileId}`),
+        sha256: '', width: null, height: null,
+        sizeOriginal: buf.length, sizeCompressed: null,
+        mime: file.type,
       },
     }),
   )
 
-  await publish(Events.ImageUploaded, { userId: auth.user.id, imageId: rec.id }, ctx.reqId)
   await writeAudit(ctx, {
     userId: auth.user.id, action: 'IMAGE_UPLOAD', entity: 'MedicalImage', entityId: rec.id,
-    newValues: { type, quality: stored.quality.score, bytes: stored.sizeOriginal },
+    newValues: { type, bytes: buf.length, storedFileId: accepted.fileId, async: true },
   })
 
+  // 202 Accepted — the media-process worker scans + renders + gates quality
+  return NextResponse.json({
+    image: {
+      id: rec.id, type, status: 'PENDING',
+      storedFileId: accepted.fileId, version: accepted.version,
+      sizeOriginal: buf.length, createdAt: rec.createdAt,
+    },
+    statusUrl: `/api/v1/images/${rec.id}`,
+    qualityOk: null, // available once processing completes (poll statusUrl)
+    message: 'تصویر دریافت شد و در صف اعتبارسنجی و پردازش است',
+    issues: [] as string[],
+  }, { status: 202 })
+}
+
+// ══════════════════════════ STATUS (poll) ══════════════════════════════════
+
+export async function getImageStatus(auth: AuthContext, ctx: RequestContext, id: string) {
+  const image = await db.medicalImage.findUnique({ where: { id } })
+  if (!image) throw new NotFoundError('تصویر یافت نشد')
+  if (auth.user.role === 'PATIENT' && image.ownerId !== auth.user.id) throw new ForbiddenError('دسترسی غیرمجاز')
+  const quality = image.quality ? safeParse(image.quality) : null
+  const q = quality as { score?: number; blur?: number; brightness?: number; exposure?: string; resolution?: string; issues?: string[] } | null
   return {
     image: {
-      id: rec.id, type, status: rec.status, quality: stored.quality,
-      width: stored.width, height: stored.height,
-      sizeOriginal: stored.sizeOriginal, sizeCompressed: stored.sizeCompressed,
-      compressionRatio: +(stored.sizeCompressed / Math.max(1, stored.sizeOriginal)).toFixed(2),
-      sha256: stored.sha256.slice(0, 16), createdAt: rec.createdAt,
+      id: image.id, status: image.status, type: image.type, caseId: image.caseId,
+      storedFileId: image.storedFileId, rejectionReason: image.rejectionReason,
+      width: image.width, height: image.height,
+      sizeOriginal: image.sizeOriginal, sizeCompressed: image.sizeCompressed,
+      sha256: image.sha256 ? image.sha256.slice(0, 16) : null,
+      createdAt: image.createdAt,
     },
-    qualityOk,
-    message: qualityOk
+    quality: q ? { score: q.score ?? 0, blur: q.blur ?? 0, brightness: q.brightness ?? 0, exposure: q.exposure ?? 'NORMAL', resolution: q.resolution ?? '', issues: q.issues ?? [] } : null,
+    qualityOk: image.status === 'VALIDATED',
+    message: image.status === 'VALIDATED'
       ? 'تصویر با موفقیت اعتبارسنجی و پردازش شد'
-      : 'کیفیت تصویر کافی نیست؛ لطفاً مجدداً تصویر واضح‌تری ارسال کنید',
-    issues: stored.quality.issues,
+      : image.status === 'REJECTED'
+        ? 'کیفیت تصویر کافی نیست؛ لطفاً مجدداً تصویر واضح‌تری ارسال کنید'
+        : 'در حال پردازش',
+    issues: (q?.issues ?? []) as string[],
   }
 }
 
-// ════════════════════════════ FILE ACCESS (ED-66) ══════════════════════════
+// ══════════════════════════ FILE ACCESS (ED-66) ════════════════════════════
 
 export async function serveImageFile(
   ctx: RequestContext, id: string, variant: string, exp: string, sig: string,
@@ -121,6 +147,8 @@ export async function serveImageFile(
   let authorized = false
   let viewerId: string | null = null
   if (exp && sig) {
+    // legacy v1 signature covers (imageId, exp) — variant NOT bound; the new
+    // engine signs variant+version (ED-112). Bridge rows keep legacy verify.
     authorized = verifyImageSig(id, exp, sig)
   } else {
     const auth = await getAuth()
@@ -144,6 +172,23 @@ export async function serveImageFile(
     await writeAudit(ctx, { userId: viewerId, action: 'VIEW_MEDICAL_FILE', entity: 'MedicalImage', entityId: id, newValues: { variant } })
   }
 
+  // engine-backed rows: resolve the rendition from the media engine
+  if (image.storedFileId) {
+    const rendition = await resolveEngineRendition(image.storedFileId, variant)
+    if (!rendition) throw new NotFoundError('نسخه پردازش‌شده تصویر یافت نشد (در حال پردازش)')
+    return new NextResponse(new Uint8Array(rendition.data), {
+      headers: {
+        'Content-Type': rendition.mime,
+        'Cache-Control': 'private, max-age=60',
+        'Content-Length': String(rendition.data.length),
+        'Content-Disposition': 'inline',
+        'X-Content-Type-Options': 'nosniff',
+        ETag: `"${image.sha256 || image.storedFileId}-${variant}"`,
+      },
+    })
+  }
+
+  // legacy flat rows (pre-PHASE-10)
   const path = variant === 'thumb' ? image.thumbPath : variant === 'ai' ? image.aiPath : variant === 'original' ? image.originalPath : image.compressedPath
   if (!path || !(await fileExists(path))) throw new NotFoundError('فایل یافت نشد')
   const buf = await readStored(path)
@@ -158,12 +203,36 @@ export async function serveImageFile(
   })
 }
 
+async function resolveEngineRendition(
+  storedFileId: string, variant: string,
+): Promise<{ data: Buffer; mime: string } | null> {
+  const file = await db.storedFile.findUnique({ where: { id: storedFileId } })
+  if (!file) return null
+  if (file.status === 'INFECTED') throw new ForbiddenError('این فایل قرنطینه شده است')
+  if (file.lifecycleState === 'DELETED' || file.lifecycleState === 'PURGED') return null
+  const version = await db.storedFileVersion.findUnique({
+    where: { fileId_version: { fileId: storedFileId, version: file.currentVersion } },
+  })
+  if (!version) return null
+  const rendition = await db.storedFileVariant.findUnique({
+    where: { versionId_variant: { versionId: version.id, variant: variant === 'ai' || variant === 'thumb' || variant === 'original' ? variant : 'compressed' } },
+  })
+  if (!rendition || !rendition.ready) return null
+  const driver = getStorageDriver()
+  const data = await driver.get(rendition.storageKey)
+  return { data, mime: rendition.mime }
+}
+
 async function isOwnCase(userId: string, caseId: string) {
   const c = await db.medicalCase.findUnique({ where: { id: caseId }, select: { patientId: true } })
   return c?.patientId === userId
 }
 
-// ════════════════════════════ PRIVACY ══════════════════════════════════════
+function safeParse(s: string): unknown {
+  try { return JSON.parse(s) } catch { return null }
+}
+
+// ══════════════════════════ PRIVACY ════════════════════════════════════════
 
 export async function listConsents(userId: string) {
   const state = await currentConsents(userId)
@@ -216,4 +285,4 @@ export async function createDeletionRequestFor(auth: AuthContext, ctx: RequestCo
   return { request: { id: res.rec.id, status: res.rec.status, requestedAt: res.rec.requestedAt } }
 }
 
-export { notify }
+export { notify } from '@/lib/notify'

@@ -1,39 +1,34 @@
 {
-  "date": "2026-09-04T09:30:51.145Z",
+  "date": "2026-09-04T10:25:23.416Z",
   "base": "http://localhost:3000",
   "total": 17,
-  "passed": 3,
-  "failed": 14,
+  "passed": 17,
+  "failed": 0,
   "results": [
     {
       "scenario": "E2E-1 auth",
       "name": "landing renders BabaHakim brand (RTL)",
-      "ok": false,
-      "detail": "brand text missing"
+      "ok": true
     },
     {
       "scenario": "E2E-1 auth",
       "name": "html dir=rtl by default",
-      "ok": false,
-      "detail": "document.dir !== rtl"
+      "ok": true
     },
     {
       "scenario": "E2E-1 auth",
       "name": "auth view renders demo accounts",
-      "ok": false,
-      "detail": "demo accounts missing"
+      "ok": true
     },
     {
       "scenario": "E2E-1 auth",
       "name": "patient dashboard renders after login",
-      "ok": false,
-      "detail": "dashboard did not render"
+      "ok": true
     },
     {
       "scenario": "E2E-1 auth",
       "name": "patient nav shows questionnaire entry (S1 permissions in session)",
-      "ok": false,
-      "detail": "patient nav incomplete — permissions missing?"
+      "ok": true
     },
     {
       "scenario": "E2E-1 auth",
@@ -43,38 +38,32 @@
     {
       "scenario": "E2E-2 i18n/theme",
       "name": "switch to EN flips dir to ltr",
-      "ok": false,
-      "detail": "dir not ltr"
+      "ok": true
     },
     {
       "scenario": "E2E-2 i18n/theme",
       "name": "EN nav localized",
-      "ok": false,
-      "detail": "nav not localized to EN"
+      "ok": true
     },
     {
       "scenario": "E2E-2 i18n/theme",
       "name": "dark mode applies html.dark",
-      "ok": false,
-      "detail": "html.dark missing"
+      "ok": true
     },
     {
       "scenario": "E2E-3 rbac",
       "name": "patient session calling admin API → 403 (authoritative server)",
-      "ok": false,
-      "detail": "expected 403 in browser, got: \"err\""
+      "ok": true
     },
     {
       "scenario": "E2E-4 shop",
       "name": "shop renders products",
-      "ok": false,
-      "detail": "products missing"
+      "ok": true
     },
     {
       "scenario": "E2E-4 shop",
       "name": "cart page renders with totals card",
-      "ok": false,
-      "detail": "cart totals missing"
+      "ok": true
     },
     {
       "scenario": "E2E-4 shop",
@@ -84,20 +73,17 @@
     {
       "scenario": "E2E-5 staff",
       "name": "staff dashboard renders (Expert 1)",
-      "ok": false,
-      "detail": "staff dashboard missing"
+      "ok": true
     },
     {
       "scenario": "E2E-5 staff",
       "name": "queue lists cases (or professional empty state)",
-      "ok": false,
-      "detail": "queue shows neither cases nor empty state"
+      "ok": true
     },
     {
       "scenario": "E2E-5 staff",
       "name": "case workspace renders (timeline/care team/progress)",
-      "ok": false,
-      "detail": "workspace not rendered"
+      "ok": true
     },
     {
       "scenario": "E2E-6 states",

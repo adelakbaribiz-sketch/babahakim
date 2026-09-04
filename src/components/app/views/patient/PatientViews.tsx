@@ -331,7 +331,7 @@ export function NewCasePage() {
   const { t, lang, api, navigate } = useApp()
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
-  const [uploadResult, setUploadResult] = useState<{ image: { id: string }; qualityOk: boolean; message: string; issues: string[]; quality?: { score: number; blur: number; brightness: number; exposure: string; resolution: string; issues: string[] } } | null>(null)
+  const [uploadResult, setUploadResult] = useState<{ image: { id: string }; qualityOk: boolean | null; message: string; issues: string[]; quality?: { score: number; blur: number; brightness: number; exposure: string; resolution: string; issues: string[] } } | null>(null)
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState('NORMAL')
   const [busy, setBusy] = useState(false)
@@ -343,10 +343,23 @@ export function NewCasePage() {
       const fd = new FormData()
       fd.append('file', f)
       fd.append('type', 'TONGUE')
-      const d = await api<{ image: { id: string }; qualityOk: boolean; message: string; issues: string[]; quality?: { score: number; blur: number; brightness: number; exposure: string; resolution: string; issues: string[] } }>('/api/v1/images/upload', { method: 'POST', body: fd })
-      setUploadResult(d)
-      if (d.qualityOk) toast.success(d.message)
-      else toast.warning(d.message)
+      // PHASE 10: upload returns 202 (accepted); scan + processing run in the
+      // background worker — poll the status endpoint until a terminal state.
+      const d = await api<{ image: { id: string; status: string }; statusUrl: string; message: string; issues: string[]; qualityOk: boolean | null; quality?: { score: number; blur: number; brightness: number; exposure: string; resolution: string; issues: string[] } }>('/api/v1/images/upload', { method: 'POST', body: fd })
+      const imageId = d.image?.id
+      if (!imageId) throw new Error(d.message || 'خطا در ارسال تصویر')
+      let status = d.image.status
+      let result = { image: { id: imageId }, qualityOk: d.qualityOk, message: d.message, issues: d.issues ?? [], quality: d.quality }
+      for (let i = 0; i < 40 && status !== 'VALIDATED' && status !== 'REJECTED'; i++) {
+        await new Promise((r) => setTimeout(r, 750))
+        const s = await api<{ image: { id: string; status: string }; qualityOk: boolean; message: string; issues: string[]; quality?: { score: number; blur: number; brightness: number; exposure: string; resolution: string; issues: string[] } }>(`/api/v1/images/${imageId}`)
+        status = s.image.status
+        result = { image: { id: imageId }, qualityOk: s.qualityOk, message: s.message, issues: s.issues ?? [], quality: s.quality }
+      }
+      setUploadResult(result)
+      if (status === 'PENDING') toast.warning('پردازش تصویر بیش از حد طول کشید؛ لطفاً دوباره تلاش کنید')
+      else if (result.qualityOk) toast.success(result.message)
+      else toast.warning(result.message)
     } catch (e) {
       toast.error((e as Error).message)
       setFile(null); setPreview(null)

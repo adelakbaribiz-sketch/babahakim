@@ -6,7 +6,7 @@ import { db } from '@/lib/db'
 import type { AuthContext } from '@/lib/auth'
 import { anonymizeUser } from '@/lib/security/privacy'
 import { normalizeFa, textMatches, parseJSON } from '@/lib/api'
-import { AppError, ConflictError, NotFoundError, ValidationError } from '@/server/core/errors'
+import { AppError, ConflictError, NotFoundError, ValidationError, PayloadTooLargeError, UnsupportedMediaTypeError } from '@/server/core/errors'
 import { writeAudit } from '@/server/infrastructure/audit'
 import { withTransaction } from '@/server/infrastructure/uow'
 import { publish, Events } from '@/server/infrastructure/events'
@@ -16,6 +16,7 @@ import type { ListQuery } from '@/server/api/query'
 import type { RequestContext } from '@/server/core/context'
 import type { z } from 'zod'
 import type { adminUserPatchSchema, productSchema, deletionRequestPatchSchema } from '@/server/application/dto'
+import { acceptUpload, MediaValidationError, sanitizeFileName } from '@/server/infrastructure/media/pipeline'
 
 // ════════════════════════════ USERS ════════════════════════════════════════
 
@@ -104,6 +105,7 @@ export async function listAdminProducts() {
 export async function createProduct(
   auth: AuthContext, ctx: RequestContext,
   input: z.infer<typeof productSchema>,
+  opts: { imageFile?: File } = {},
 ) {
   const exists = await db.product.findUnique({ where: { sku: input.sku } })
   if (exists) throw new ConflictError('این SKU قبلاً ثبت شده است')
@@ -121,12 +123,49 @@ export async function createProduct(
     await tx.productPriceHistory.create({ data: { productId: created.id, newPrice: created.currentPrice, reason: 'INITIAL', changedById: auth.user.id } })
     return created
   })
-  await writeAudit(ctx, { userId: auth.user.id, action: 'CREATE_PRODUCT', entity: 'Product', entityId: p.id, newValues: { sku: p.sku } })
+  // PHASE 10: optional PUBLIC product image via the media engine (ED-118)
+  let imageFileId: string | null = null
+  if (opts.imageFile) {
+    imageFileId = await attachProductImage(auth, ctx, p.id, opts.imageFile)
+  }
+  await writeAudit(ctx, { userId: auth.user.id, action: 'CREATE_PRODUCT', entity: 'Product', entityId: p.id, newValues: { sku: p.sku, imageFileId } })
   await publish(Events.ProductCatalogChanged, { productId: p.id }, ctx.reqId)
-  return { product: p }
+  return { product: { ...p, imageFileId } }
 }
 
-export async function patchProduct(auth: AuthContext, ctx: RequestContext, body: Record<string, unknown>) {
+/** Upload/replace the product image through the media engine (PUBLIC class). */
+async function attachProductImage(
+  auth: AuthContext, ctx: RequestContext, productId: string, file: File,
+): Promise<string> {
+  const buf = Buffer.from(await file.arrayBuffer())
+  const existing = await db.product.findUnique({ where: { id: productId }, select: { imageFileId: true } })
+  try {
+    const result = await acceptUpload({
+      ownerId: auth.user.id,
+      role: auth.user.role,
+      category: 'PRODUCT_IMAGE',
+      type: 'PRODUCT',
+      declaredMime: file.type,
+      fileName: sanitizeFileName(file.name),
+      buf,
+      accessClassOverride: 'PUBLIC',
+      existingFileId: existing?.imageFileId ?? undefined,
+    })
+    if (!existing?.imageFileId) {
+      await db.product.update({ where: { id: productId }, data: { imageFileId: result.fileId } })
+    }
+    return result.fileId
+  } catch (e) {
+    if (e instanceof MediaValidationError) {
+      if (e.kind === 'SIZE') throw new PayloadTooLargeError(e.message, e.details as { limitBytes: number; actualBytes: number } | undefined)
+      if (e.kind === 'MIME' || e.kind === 'MAGIC') throw new UnsupportedMediaTypeError(e.message, e.details as { allowed: string[]; declared?: string } | undefined)
+      throw new ValidationError(e.message, e.details)
+    }
+    throw e
+  }
+}
+
+export async function patchProduct(auth: AuthContext, ctx: RequestContext, body: Record<string, unknown>, opts: { imageFile?: File } = {}) {
   const p = await db.product.findUnique({ where: { id: String(body.id || '') } })
   if (!p) throw new NotFoundError('محصول یافت نشد')
   const data: Record<string, unknown> = {}
@@ -147,6 +186,11 @@ export async function patchProduct(auth: AuthContext, ctx: RequestContext, body:
     }
     await tx.product.update({ where: { id: p.id }, data })
   })
+  // PHASE 10: image replacement (new immutable version when one exists)
+  if (opts.imageFile) {
+    await attachProductImage(auth, ctx, p.id, opts.imageFile)
+    await publish(Events.ProductCatalogChanged, { productId: p.id }, ctx.reqId)
+  }
   await writeAudit(ctx, { userId: auth.user.id, action: 'EDIT_PRODUCT', entity: 'Product', entityId: p.id, oldValues: { stock: p.stock, price: p.currentPrice }, newValues: data })
   await publish(Events.ProductCatalogChanged, { productId: p.id }, ctx.reqId)
   await notify(auth.user.id, 'PRICE_CHANGED', {}).catch(() => {}) // in-app ping; SMS template retained

@@ -150,20 +150,28 @@ describe('PHASE 08 — layered backend golden path (integration)', () => {
     expect((data.response as { mizajFa: string }).mizajFa).toBeTruthy()
   })
 
-  // ═══════════ 3 · image pipeline (quality gate + multipart) ════════════════
+  // ═══════════ 3 · image pipeline (async quality gate, PHASE 10) ═══════════
 
-  test('tongue upload passes quality gate (VALIDATED)', async () => {
+  test('tongue upload → 202 accepted → poll → VALIDATED (async pipeline)', async () => {
     const form = new FormData()
     form.append('file', tongueJpeg, 'tongue.jpg')
     form.append('type', 'TONGUE')
     const { res, data } = await patient.call('POST', '/api/v1/images/upload', { body: form })
-    expect(res.status).toBe(200)
-    expect(data.qualityOk).toBe(true)
-    expect((data.image as { status: string }).status).toBe('VALIDATED')
-    const img = data.image as { id: string; width: number }
-    expect(img.width).toBeGreaterThanOrEqual(480)
-    patientImageId = img.id
-  })
+    // PHASE 10: accept is 202 — heavy work runs in the worker (ED-114)
+    expect(res.status).toBe(202)
+    expect(data.statusUrl).toBe('/api/v1/images/' + (data.image as { id: string }).id)
+    patientImageId = (data.image as { id: string }).id
+
+    // poll the status endpoint until a terminal state (≤30s)
+    let img: { status: string; width?: number } = { status: 'PENDING' }
+    for (let i = 0; i < 40 && img.status === 'PENDING'; i++) {
+      await new Promise((r) => setTimeout(r, 750))
+      const { data: s } = await patient.get(`/api/v1/images/${patientImageId}`)
+      img = (s.image as { status: string; width?: number }) ?? { status: 'PENDING' }
+    }
+    expect(img.status).toBe('VALIDATED')
+    expect((img.width ?? 0) >= 480).toBe(true)
+  }, 45_000)
 
   // ═══════════ 4 · case creation (atomic + async AI job) ════════════════════
 

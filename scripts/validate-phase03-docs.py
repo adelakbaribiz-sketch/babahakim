@@ -120,7 +120,7 @@ for i in range(35, 47):
     if f"| ED-{i} |" not in br: err(f"BUSINESS-RULES.md missing ED-{i}")
     if f"ADR-{i-34:04d}" not in br: err(f"BUSINESS-RULES.md ED-{i} lacks ADR ref")
 ed_count = len(re.findall(r"^\| ED-\d+ \|", br, re.M))
-if ed_count != 105: err(f"ED total count {ed_count} != 105")  # + phase-08 ED-93..105 (BACKEND.md)
+if ed_count != 119: err(f"ED total count {ed_count} != 119")  # + phase-08 ED-93..105 (BACKEND.md) + phase-10 ED-106..119 (FILE-MEDIA.md)
 
 # ---------- 6. mermaid ----------
 blocks = re.findall(r"```mermaid\n(.*?)```", diag, re.S)

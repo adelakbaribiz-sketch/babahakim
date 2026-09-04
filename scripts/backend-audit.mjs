@@ -90,7 +90,7 @@ for (const file of walk(API_DIR)) {
   if (hasMutating && !hasParse && !BODYLESS) fail(file, 'E5', null, 'mutating handler does not zod-parse its input (parseBody)')
 
   // E7 — guards (auth endpoints ARE the auth flow; image files authorize in-service)
-  const AUTH_FLOW = file.includes('/auth/') || file.includes('zarinpal') || file.endsWith(join('api/v1/products/route.ts')) || file.includes('images/[id]/file')
+  const AUTH_FLOW = file.includes('/auth/') || file.includes('zarinpal') || file.endsWith(join('api/v1/products/route.ts')) || file.includes('images/[id]/file') || file.includes('files/[id]/content') // PHASE 10: public/signed renditions authorize in-service
   const hasGuard = /requireAuth|requireRole|requirePermission/.test(src)
   if (!AUTH_FLOW && !hasGuard) fail(file, 'E7', null, 'no authorization guard in route')
 
@@ -102,6 +102,7 @@ for (const file of walk(API_DIR)) {
     'admin/products', 'admin/reports', 'admin/sms-log', 'auth/me', 'cart', 'dashboard',
     'patients/profile', 'privacy/consents', 'privacy/deletion-request', 'privacy/export',
     'questionnaires/active', 'questionnaires/history', 'followups',
+    'admin/media/stats', // PHASE 10: aggregate read model, not a collection
   ]
   const isSingleton = SINGLETONS.some((s) => file.includes(s))
   const isListEndpoint = /^export\s+const\s+GET\s*=\s*apiRoute/m.test(src) && !/parseListQuery/.test(src) && !/\[id\]/.test(file)

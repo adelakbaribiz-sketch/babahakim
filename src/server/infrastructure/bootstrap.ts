@@ -10,7 +10,7 @@ import { logger } from '@/server/core/logger'
 
 // guard key is versioned: bumping it re-runs wiring after HMR when shared
 // singletons changed shape (e.g. cache backing store) — cheap and safe (idempotent)
-const BOOTSTRAP_KEY = '__bhBootstrapped_v2'
+const BOOTSTRAP_KEY = '__bhBootstrapped_v3'
 const g = globalThis as unknown as { [BOOTSTRAP_KEY]?: boolean }
 
 /** no-op marker — importing the module runs the wiring below exactly once per version. */
@@ -64,6 +64,32 @@ if (!g[BOOTSTRAP_KEY]) {
   subscribe(Events.ProductCatalogChanged, clearCatalog)
   subscribe(Events.PriceChanged, clearCatalog)
 
+  // ── PHASE 10: media engine wiring (ED-116) ─────────────────────────────
+  // ready product images invalidate the catalog cache (same ED-98 path)
+  subscribe(Events.MediaFileReady, (e) => {
+    const p = e.payload as { category?: string }
+    if (p?.category === 'PRODUCT_IMAGE') return clearCatalog()
+  })
+  // quarantined uploads: notify the owner (FILE_QUARANTINED) + operators
+  subscribe(Events.MediaFileInfected, async (e) => {
+    const p = e.payload as { ownerId: string; fileId: string; findings?: string[] }
+    await notify(p.ownerId, 'FILE_QUARANTINED', { link: '/records' })
+    await notifyOperators('TICKET_UPDATED', `MEDIA_QUARANTINE:${p.fileId}`)
+  })
+
+  // media worker job: scan → renditions → metadata → READY (ED-114)
+  registerJob('media-process', async (payload: { fileId: string; versionId: string }) => {
+    const { processFile } = await import('@/server/infrastructure/media/pipeline')
+    await processFile(payload.fileId, payload.versionId)
+  })
+
+  // media lifecycle: inbox TTL / TEMPORARY expiry / trash purge (ED-117)
+  registerJob('media-lifecycle', async () => {
+    const { runLifecycleTick } = await import('@/server/infrastructure/media/lifecycle')
+    await runLifecycleTick()
+  })
+  scheduleRecurring('media-lifecycle', 5 * 60_000)
+
   // ── jobs: async AI analysis (ED-102 — out of the request path) ───────────
   registerJob('ai-analysis', async (payload: { caseId: string; imageId: string }) => {
     const { runAIAnalysis } = await import('@/lib/ai/run')
@@ -91,6 +117,15 @@ if (!g[BOOTSTRAP_KEY]) {
   setDeadLetterHook(async (job, error) => {
     try {
       const { db } = await import('@/lib/db')
+      // media jobs that exhausted retries surface as FAILED (lifecycle TTL
+      // then removes any staged bytes — no zombie PENDING rows)
+      if (job.type === 'media-process') {
+        const payload = job.payload as { fileId: string }
+        await db.storedFile.update({
+          where: { id: payload.fileId },
+          data: { status: 'FAILED', rejectionReason: 'PROCESSING_FAILED' },
+        }).catch(() => { /* file may already be gone */ })
+      }
       await db.auditLog.create({
         data: {
           userId: null, action: 'JOB_DEAD_LETTER', entity: 'Job', entityId: job.id,
@@ -102,5 +137,5 @@ if (!g[BOOTSTRAP_KEY]) {
     } catch { /* audit best-effort */ }
   })
 
-  logger.info('backend bootstrap complete', { subscribers: 9, jobs: 3 })
+  logger.info('backend bootstrap complete', { subscribers: 11, jobs: 5 })
 }

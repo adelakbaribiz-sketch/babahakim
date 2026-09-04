@@ -85,7 +85,7 @@ adr_idx = ADR_README.read_text(encoding="utf-8") if ADR_README.exists() else ""
 for t in ["ADR-0014", "ADR-0015"]:
     if t not in adr_idx:
         errors.append(f"ADR README does not index {t}")
-if "ED-01..ED-105" not in rtm:
+if "ED-01..ED-119" not in rtm:
     errors.append("RTM does not claim ED-01..105 range")
 
 # 5) test scripts wired
@@ -118,7 +118,7 @@ ims = _src("src", "app", "api", "v1", "images", "[id]", "file", "route.ts") + _s
 for marker in ["view_images", "view_medical_files", "VIEW_MEDICAL_FILE", "DOWNLOAD_IMAGE", "MEDICAL_FILE_ACCESS_DENIED"]:
     if marker not in ims:
         errors.append(f"image route/service missing ED-66/audit marker: {marker}")
-ups = _src("src", "app", "api", "v1", "images", "upload", "route.ts") + _src("src", "server", "application", "services", "imageService.ts")
+ups = _src("src", "app", "api", "v1", "images", "upload", "route.ts") + _src("src", "server", "application", "services", "imageService.ts") + _src("src", "server", "infrastructure", "media", "pipeline.ts")  # PHASE 10: magic-byte sniff moved to the media engine
 for marker in ["sniffMime", "UPLOAD_RATE_LIMITED", "rateLimit"]:
     if marker not in ups:
         errors.append(f"upload route/service missing marker: {marker}")

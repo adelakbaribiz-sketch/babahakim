@@ -8,6 +8,7 @@ type EventCode =
   | 'PROFORMA_CREATED' | 'PROFORMA_CONFIRMATION_NEEDED' | 'PAYMENT_PENDING' | 'PAYMENT_CONFIRMED'
   | 'PAYMENT_REJECTED' | 'ORDER_PREPARING' | 'ORDER_SHIPPED' | 'ORDER_DELIVERED' | 'FOLLOWUP_DUE'
   | 'REFERRED_AGAIN' | 'CASE_CLOSED' | 'TICKET_UPDATED' | 'RECEIPT_UPLOADED' | 'PRICE_CHANGED' | 'NEW_ORDER'
+  | 'FILE_QUARANTINED' // PHASE 10: media engine quarantine notice (ED-116)
 
 const TEMPLATES: Record<EventCode, { titleFa: string; titleEn: string; bodyFa: string; bodyEn: string; smsFa: string }> = {
   REGISTERED: { titleFa: 'خوش آمدید', titleEn: 'Welcome', bodyFa: 'حساب شما با موفقیت ایجاد شد. کد معرف شما آماده است.', bodyEn: 'Your account was created successfully.', smsFa: 'TongueAI: ثبت‌نام شما با موفقیت انجام شد.' },
@@ -40,6 +41,7 @@ const TEMPLATES: Record<EventCode, { titleFa: string; titleEn: string; bodyFa: s
   RECEIPT_UPLOADED: { titleFa: 'رسید کارت‌به‌کارت', titleEn: 'Card Receipt', bodyFa: 'رسید پرداخت ارسال شد و در انتظار تأیید اپراتور است.', bodyEn: 'A card-to-card receipt was uploaded and awaits verification.', smsFa: 'TongueAI: رسید پرداخت دریافت شد.' },
   PRICE_CHANGED: { titleFa: 'تغییر قیمت', titleEn: 'Price Changed', bodyFa: 'قیمت‌ها به‌روزرسانی شد.', bodyEn: 'Prices were updated.', smsFa: 'TongueAI: قیمت‌ها به‌روزرسانی شد.' },
   NEW_ORDER: { titleFa: 'سفارش جدید', titleEn: 'New Order', bodyFa: 'سفارش جدیدی ثبت شد.', bodyEn: 'A new order was placed.', smsFa: 'TongueAI: سفایر جدید ثبت شد.' },
+  FILE_QUARANTINED: { titleFa: 'فایل قرنطینه شد', titleEn: 'File Quarantined', bodyFa: 'فایل ارسالی شما به دلیل مشکوک بودن به بدافزار رد و قرنطینه شد. لطفاً فایل سالم و اصلی را مجدداً ارسال کنید.', bodyEn: 'Your upload was rejected and quarantined as suspicious. Please upload the clean original file again.', smsFa: 'TongueAI: فایل شما قرنطینه شد.' },
 }
 
 export async function notify(
@@ -57,7 +59,7 @@ export async function notify(
       },
     })
     if (opts?.sms && opts?.phone) {
-      await db.smsLog.create({
+      await db.sMSLog.create({
         data: { userId, recipient: opts.phone, template: event, content: t.smsFa, provider: 'KAVENEGAR', status: 'SENT', deliveryStatus: 'DELIVERED' },
       })
     }

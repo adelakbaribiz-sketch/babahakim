@@ -37,6 +37,10 @@ export const Events = {
   ProfileUpdated: 'patient.profile.updated',
   QuestionnaireSubmitted: 'questionnaire.submitted',
   ImageUploaded: 'image.uploaded',
+  // PHASE 10 — media engine events (ED-116)
+  MediaFileReady: 'media.file.ready',
+  MediaFileInfected: 'media.file.infected',
+  MediaFilePurged: 'media.file.purged',
 } as const
 
 export type EventName = (typeof Events)[keyof typeof Events]

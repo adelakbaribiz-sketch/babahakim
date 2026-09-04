@@ -4,7 +4,6 @@
 // are stock-guarded.
 import { db } from '@/lib/db'
 import type { AuthContext } from '@/lib/auth'
-import { signImageUrl } from '@/lib/auth'
 import { textMatches } from '@/lib/api'
 import { NotFoundError, ValidationError } from '@/server/core/errors'
 import { cached, cacheKeys, cacheTtl } from '@/server/infrastructure/cache'
@@ -13,6 +12,14 @@ import { computeTotals } from '@/server/domain/policies' // PHASE 09 (S2): serve
 import type { ListQuery } from '@/server/api/query'
 import type { cartAddSchema, cartPatchSchema } from '@/server/application/dto'
 import type { z } from 'zod'
+
+/** PHASE 10: public rendition URL for the product image (media engine).
+ *  Fixes the pre-PHASE-10 bug where Product IDs were signed as MedicalImage
+ *  IDs — those URLs always 404'd (audit F6). Public files need no signature. */
+function productImageUrl(imageFileId: string | null): string | null {
+  if (!imageFileId) return null
+  return `/api/v1/files/${imageFileId}/content?variant=compressed`
+}
 
 // ── PRODUCT LIST (cached + paginated) ─────────────────────────────────────
 export async function listProducts(query: ListQuery, category: string, otc: string, brand: string) {
@@ -41,7 +48,7 @@ export async function listProducts(query: ListQuery, category: string, otc: stri
       id: p.id, sku: p.sku, nameFa: p.nameFa, nameEn: p.nameEn, brand: p.brand, category: p.category,
       descriptionFa: p.descriptionFa, descriptionEn: p.descriptionEn,
       price: p.currentPrice, stock: p.stock, requiresPrescription: p.requiresPrescription,
-      usageFa: p.usageFa, image: p.imagePath ? signImageUrl(p.id) : null,
+      usageFa: p.usageFa, image: productImageUrl(p.imageFileId),
     })),
     categories, brands,
     ...listMeta(query.page, query.limit, filtered.length),
@@ -57,7 +64,7 @@ export async function getProduct(id: string) {
       id: p.id, sku: p.sku, nameFa: p.nameFa, nameEn: p.nameEn, brand: p.brand, category: p.category,
       descriptionFa: p.descriptionFa, descriptionEn: p.descriptionEn, usageFa: p.usageFa,
       price: p.currentPrice, stock: p.stock, requiresPrescription: p.requiresPrescription,
-      image: p.imagePath ? signImageUrl(p.id) : null,
+      image: productImageUrl(p.imageFileId),
     },
   }
 }
@@ -67,7 +74,7 @@ export async function getProductWithHistory(id: string) {
   const p = await db.product.findUnique({ where: { id } })
   if (!p || p.deletedAt) throw new NotFoundError('محصول یافت نشد')
   const history = await db.productPriceHistory.findMany({ where: { productId: id }, orderBy: { createdAt: 'desc' }, take: 10 })
-  return { product: { ...p, image: p.imagePath ? signImageUrl(p.id) : null }, priceHistory: history }
+  return { product: { ...p, image: productImageUrl(p.imageFileId) }, priceHistory: history }
 }
 
 // ── CART ──────────────────────────────────────────────────────────────────

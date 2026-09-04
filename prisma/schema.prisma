@@ -232,6 +232,7 @@ model MedicalImage {
   caseId         String?
   type           String // TONGUE | FACE | RECEIPT | DELIVERY | PRODUCT
   status         String   @default("PENDING") // PENDING | VALIDATED | REJECTED | PROCESSED
+  storedFileId   String? // PHASE 10: link into the general media engine (null = legacy flat row)
   originalPath   String
   compressedPath String?
   aiPath         String?
@@ -248,6 +249,7 @@ model MedicalImage {
   createdAt      DateTime @default(now())
   owner          User          @relation("ImageOwner", fields: [ownerId], references: [id])
   case           MedicalCase?  @relation(fields: [caseId], references: [id])
+  file           StoredFile?   @relation(fields: [storedFileId], references: [id])
   aiAnalyses     AIAnalysis[]
   receiptPayment Payment?      @relation("ReceiptImage")
   proofShipment  Shipment?     @relation("ProofImage")
@@ -441,7 +443,8 @@ model Product {
   category            String?
   descriptionFa       String?
   descriptionEn       String?
-  imagePath           String?
+  imagePath           String? // legacy flat path (pre-PHASE-10); prefer imageFileId
+  imageFileId         String? // PHASE 10: media-engine file (PUBLIC class, PRODUCT_IMAGE category)
   requiresPrescription Boolean  @default(false) // OTC = false
   usageFa             String?
   restrictions        String?
@@ -453,6 +456,7 @@ model Product {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
+  imageFile      StoredFile?          @relation("ProductImageFile", fields: [imageFileId], references: [id])
   priceHistory   ProductPriceHistory[]
   prescriptionItems PrescriptionItem[]
   cartItems      CartItem[]
@@ -706,4 +710,81 @@ model FinancialTransaction {
   createdAt   DateTime @default(now())
   user        User?  @relation("FinTxnUser", fields: [userId], references: [id])
   createdBy   User?  @relation("FinTxnCreator", fields: [createdById], references: [id])
+}
+
+// ─────────────────────── FILE & MEDIA ENGINE (PHASE 10, ED-106..118) ───────────────────────
+// General-purpose file/media engine. Owns storage, versioning, derived
+// variants, malware scan lifecycle and retention. Consumers (MedicalImage,
+// Product, future docs) reference it via *_fileId bridges.
+// SQLite: enums as String, validated in src/server/infrastructure/media/config.ts
+
+model StoredFile {
+  id             String    @id @default(cuid())
+  ownerId        String
+  category       String // MEDICAL_IMAGE | PRODUCT_IMAGE | RECEIPT | DELIVERY_PROOF | AVATAR | DOCUMENT
+  type           String // TONGUE | FACE | RECEIPT | DELIVERY | PRODUCT | AVATAR | DOCUMENT
+  accessClass    String    @default("PRIVATE") // PUBLIC | PRIVATE | TEMPORARY
+  lifecycleState String    @default("ACTIVE") // ACTIVE | ARCHIVED | DELETED | PURGED
+  status         String    @default("PENDING") // PENDING | PROCESSING | READY | REJECTED | INFECTED | FAILED
+  caseId         String? // optional domain linkage (medical cases)
+  currentVersion Int       @default(1)
+  expiresAt      DateTime? // TEMPORARY: purge deadline
+  deletedAt      DateTime? // soft delete → trash retention → purge
+  purgedAt       DateTime?
+  rejectionReason String?
+  fileName       String? // denormalized from current version (fast list views)
+  mime           String
+  sizeBytes      Int
+  sha256         String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  versions      StoredFileVersion[]
+  medicalImages MedicalImage[]
+  productImages Product[]         @relation("ProductImageFile")
+
+  @@index([ownerId, createdAt])
+  @@index([lifecycleState, expiresAt])
+  @@index([status])
+}
+
+model StoredFileVersion {
+  id         String   @id @default(cuid())
+  fileId     String
+  version    Int
+  fileName   String?
+  mime       String
+  sizeBytes  Int
+  sha256     String
+  storageKey String // relative key inside the storage driver (zone-prefixed)
+  width      Int?
+  height     Int?
+  metadata   String? // JSON: quality report, scan report, processing stats
+  scanStatus String   @default("PENDING") // PENDING | CLEAN | INFECTED | SUSPECT
+  scanEngine String?
+  createdAt  DateTime @default(now())
+
+  file     StoredFile          @relation(fields: [fileId], references: [id])
+  variants StoredFileVariant[]
+
+  @@unique([fileId, version])
+  @@index([fileId])
+}
+
+model StoredFileVariant {
+  id         String   @id @default(cuid())
+  versionId  String
+  variant    String // original | compressed | ai | thumb
+  storageKey String
+  mime       String
+  sizeBytes  Int
+  width      Int?
+  height     Int?
+  ready      Boolean  @default(false) // filled by the async worker
+  createdAt  DateTime @default(now())
+
+  version StoredFileVersion @relation(fields: [versionId], references: [id])
+
+  @@unique([versionId, variant])
+  @@index([versionId])
 }

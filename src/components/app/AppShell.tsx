@@ -175,7 +175,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 function ThemeToggle() {
   // CSS-driven (mounted-state-free) to avoid hydration mismatch & effect setState
-  const { setTheme, resolvedTheme, t } = useApp()
+  // next-themes drives the html.dark class (ThemeProvider attribute="class");
+  // setTheme/resolvedTheme come from useTheme, NOT the app context (E2E-2 fix)
+  const { setTheme, resolvedTheme } = useTheme()
+  const { t } = useApp()
   return (
     <Button
       variant="ghost"

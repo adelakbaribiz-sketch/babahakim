@@ -27,6 +27,10 @@
 
 > ۱۴۰۵/۰۶/۱۴ (2026-09-04) — PHASE 08 (طبق فرمان محصول: «Backend Engineering»): **Backend لایه‌ای + استانداردسازی** — ممیزی ۱۶ یافته (A2 بحرانی: Checkout غیراتمیک؛ A15: عدم انطباق RBAC `create_invoice`) · معماری چهارلایه `API/Application/Domain/Infrastructure` زیر `src/server/` (ED-93) · ۱۲ استاندارد Cross-cutting: zod (ED-96)، سرویس‌سازی منطق (ED-93/105)، گاردهای AuthZ (ED-97)، تراکنش اتمیک `withTransaction` (ED-103/104)، Envelope خطای واحد (ED-94)، Logger ساختاریافته reqId (ED-95)، Cache TTL ابطال Event-driven (ED-98)، DomainEventBus (ED-99)، نسخه‌بندی + هدر (ED-101)، JobQueue با retry/DLQ و AI async (ED-102)، قرارداد صفحه‌بندی/فیلتر/مرتب‌سازی (ED-100) · ۴۱ مسیر → Controller نازک (گیت CI `bun run audit:backend` E1..E8 = ۰ تخلف، ED-105) · مستند `docs/BACKEND.md` · تست: ۳۵ Unit + ۱۹ Integration جدید + رگرسیون ۵۱+۳۵+۴۵ (جمع ۱۸۵ PASS).
 
+> ۱۴۰۵/۰۶/۱۴ (2026-09-04) — PHASE 09 (نیمه‌کاره، جلسه قطع‌شده): ممیزی Frontend ۱۵ حوزه + هارنس E2E ۱۷ سناریو ساخته شد؛ remediation پیش از تکمیل قطع شد (گزارش `scripts/frontend-audit-report.json`). فاز ۱۰: بازیابی مسیر آپلود گم‌شده + رفع باگ ThemeToggle → E2E ۱۷/۱۷؛ بقیهٔ remediation فاز ۰۹ باز است.
+
+> ۱۴۰۵/۰۶/۱۴ (2026-09-04) — PHASE 10 (طبق فرمان محصول: «File & Media Engineering»): **موتور فایل/رسانه** — ممیزی ۱۲ یافته (F1..F12؛ F2: پردازش همزمان بلاک‌کننده درخواست؛ F6: تصویر محصول همیشه ۴۰۴) · موتور `src/server/infrastructure/media/` (config/driver/scanner/signed-url/processing/pipeline/lifecycle) · طبقه‌بندی PUBLIC/PRIVATE/TEMPORARY (ED-106) + چرخه حیات انقضا/آرشیو/سطل زباله/پاک‌سازی (ED-117) · آپلود ۲۰۲ Async در JobQueue — عدم بلاک درخواست اصلی (ED-114) · اسکن بدافزار L1..L4 + قرنطینه (ED-111) · Signed URL مقید به fileId+version+variant+exp (ED-112) · Versioning تغییرناپذیر (ED-113) · MEDIA_POLICY تک‌منبع حدود/allowlist با 413/415 (ED-107/108) · ناحیه‌های ذخیره‌سازی + کلید محتوا-نشانی + گارد traversal (ED-109/110) · پل MedicalImage/Product (ED-115/118) · مهاجرت ۱۵ رکورد legacy · Backup/Restore + manifest/sha256 (ED-117) · گیت CI `bun run audit:media` (ED-119) · مستند `docs/FILE-MEDIA.md` · تست: ۳۰ Unit + ۱۹ Integration جدید + Golden path async + ۱۷/۱۷ E2E مرورگری + ۴۵/۴۵ Pentest (جمع ۱۸۹ bun test PASS).
+
 ## 1) ماتریس اصلی — Functional Requirements
 
 ### دامنه AUTH / PROF / MIZAJ
@@ -344,7 +348,7 @@
 | 94 | Local VSCode Validation | فاز 05 چک‌لیست | ⏳ فاز 05 |
 | 95 | Production Checklist | فاز 05 + PRD C1 | ⏳ فاز 05 |
 | 96 | ممنوعیت «باید پیاده شود» | RTM وضعیت صادقانه (I/P/R) | ✅ |
-| 97 | تصمیم‌گیری ابهام | ED-01..ED-105 (فاز 01: 01..30 · فاز 02: 31..34 · فاز 03: 35..46 · فاز 04: 47..58 · فاز 05: 59..70 · فاز 06: 71..80 · فاز 07: 81..92 · فاز 08: 93..105) | ✅ |
+| 97 | تصمیم‌گیری ابهام | ED-01..ED-119 (فاز 01: 01..30 · فاز 02: 31..34 · فاز 03: 35..46 · فاز 04: 47..58 · فاز 05: 59..70 · فاز 06: 71..80 · فاز 07: 81..92 · فاز 08: 93..105 · فاز 10: 106..119) | ✅ |
 | 98 | ۱۸ Milestone | PRD §12 | ✅ |
 | 99 | AI Model Strategy | ED-01/25 · FR-AI-01 | ✅ |
 | 100 | عدم جعل پزشکی | BR-MED-07 · ED-15 | ✅ |

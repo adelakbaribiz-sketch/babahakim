@@ -62,3 +62,10 @@ database/.env
 *.pyc
 .pytest_cache/
 database/.pgsrc/
+
+# PHASE 10 — media engine artifacts
+/backups/
+/tool-results/
+
+# PHASE 10: storage is runtime data (zones: inbox/files/quarantine/trash)
+/storage/

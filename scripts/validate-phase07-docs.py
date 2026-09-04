@@ -66,7 +66,7 @@ for i in range(81, 93):
 
 rtm = (ROOT / 'docs/REQUIREMENTS-TRACEABILITY-MATRIX.md').read_text(encoding='utf-8')
 if 'PHASE 07' not in rtm: err('RTM lacks phase-07 note')
-if 'ED-01..ED-105' not in rtm: err('RTM §97 does not claim ED-01..105')
+if 'ED-01..ED-119' not in rtm: err('RTM §97 does not claim ED-01..105')
 
 prd = (ROOT / 'docs/PRD.md').read_text(encoding='utf-8')
 if 'DESIGN-SYSTEM.md' not in prd: err('PRD doc-index lacks DESIGN-SYSTEM.md')
