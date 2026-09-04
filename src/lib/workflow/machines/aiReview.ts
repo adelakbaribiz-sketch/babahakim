@@ -24,6 +24,7 @@ function reviewDataEffects(c: { payload: Record<string, unknown>; actor: { id: s
 export const AI_REVIEW_MACHINE: MachineDef = {
   entity: 'AI_REVIEW',
   prismaKey: 'aIAnalysis',
+  statusKey: 'reviewStatus', // PHASE 11 bug fix: state lives in reviewStatus, NOT status
   statuses: AI_REVIEW_STATUSES,
   initial: 'PENDING_REVIEW',
   transitions: [

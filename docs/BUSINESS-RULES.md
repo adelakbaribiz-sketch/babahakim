@@ -406,6 +406,22 @@
 | ED-118 | دسترسی فایل؟ | ماتریس طبقه‌بندی-آگاه: PUBLIC فقط publicVariants برای ناشناس؛ PRIVATE مالک/ADMIN/مجوز؛ TEMPORARY+انقضا؛ MEDICAL هرگز عمومی؛ رفع F6 (تصویر محصول ۴۰۴) | تداوم ED-66 | — | FILE-MEDIA §3 |
 | ED-119 | گیت موتور رسانه؟ | scripts/media-audit.mjs (E1..E7+W) exit 1؛ npm audit:media | جلوگیری از بازگشت بدهی فنی | — | FILE-MEDIA §13 |
 
+| ED-120 | معماری موتور AI؟ | ۱۰ ماژول در `src/server/infrastructure/ai/` (الگوی موتور رسانهٔ فاز ۱۰)؛ index.ts تنها سطح عمومی | فرمان فاز 11 | — | AI-ML §2 |
+| ED-121 | تعویض مدل؟ | resolveActiveModel از DB (isActive+DEPLOYED) → نقشه Factory؛ مدل جدید = رکورد DB + factory، بدون تغییر کد فراخوان | الزام Adapter/Interface فرمان فاز 11 | — | AI-ML §2 §13 |
+| ED-122 | پرامپت‌ها؟ | AIPromptTemplate نسخه‌دار تغییرناپذیر (@@unique key,version)؛ رجیستری کد = منبع حقیقت، DB = ردّ ممیزی؛ رندر {{var}} با escape (ضد-تزریق) | الزام Prompt Versioning | — | AI-ML §5 |
+| ED-123 | دیتاست؟ | DRAFT→FROZEN با نسخه؛ تفکیک بیمار-محور با patientHash نمک‌خورده (SHA-256)؛ assertNoPatientLeakage — تصاویر یک بیمار هرگز همزمان در train/test | spec §63 | — | AI-ML §3 §5 |
+| ED-124 | حلقهٔ بازخورد؟ | رویداد AiReviewDecided → subscriber → recordReviewLabel؛ تصمیم دکتر → finalLabel؛ بدون کوپلینگ کد بالینی به دیتاست | spec §11/§12 | — | AI-ML §3 |
+| ED-125 | اعتماد به AI؟ | دروازهٔ سه‌سطحی: نمایش-پیشنهادی / مبنا-تصمیم (فقط ACCEPTED/MODIFIED+بازبین) / نهایی (هرگز)؛ aiAssisted مشتق از تأیید واقعی | الزام صریح منشور فاز 11 | — | AI-ML §4 |
+| ED-126 | Drift؟ | PSI روی ویژگی‌ها+اطمینان؛ WARN 0.1/ALARM 0.25؛ خط پایهٔ خودکار ≥۱۰ تحلیل؛ job ai-monitor هر ۵ دقیقه + رویداد/اعلان | فرمان Drift | — | AI-ML §6 |
+| ED-127 | ارزیابی؟ | مجموعهٔ متریک کامل (accuracy/precision/recall/F1 macro+per-class/confusion/sensitivity/specificity/calibration/imbalance)؛ AIModel.metrics فقط محاسبه‌شده از AIEvaluationReport — هرگز دستی | spec §60 | — | AI-ML §1 §6 |
+| ED-128 | هزینه AI؟ | واحد نرمال per-inference (CPU-ms یا token-ready)؛ سقف AI_MONTHLY_BUDGET_UNITS + هشدار ۸۰٪ (AiBudgetAlert) | فرمان AI Cost | — | AI-ML §6 |
+| ED-129 | امنیت خروجی AI؟ | zod کامل + allowlist شاخص + clamp confidence + فینیت ویژگی + disclaimer قراردادی — رد پیش از persist؛ گارد ورودی + replay + گیت آموزش (FROZEN فقط) | فرمان AI Security | — | AI-ML §7 |
+| ED-130 | تله‌متری استنتاج؟ | هر استنتاج یک AIInferenceLog با provenance کامل (model/dataset/prompt/preproc/timestamp/confidence/threshold) — منبع پایش و هزینه | spec §61 | — | AI-ML §2 |
+| ED-131 | وضعیت ماشین AI_REVIEW؟ | MachineDef.statusKey='reviewStatus' — موتور از یک کلید می‌خواند/می‌نویسد؛ رفع باگ B-11-1 (انتقال‌ها از فاز ۰۲ بی‌صدا شکست می‌خورد) | یافته ممیزی فاز 11 | — | AI-ML §1 |
+| ED-132 | ground truth ارزیابی؟ | فقط جفت‌های دارای اصلاح per-indicator یا برچسب نهایی؛ لیبل توافق = fallback صادقانه (متریک پایین گزارش می‌شود، نه جعل) | صداقت ارزیابی | — | AI-ML §3 |
+| ED-133 | Embedding؟ | پورت EmbeddingProvider + استب Hash قطعی (بیرون از مسیر بالینی) — آمادهٔ تعویض با سرویس واقعی | الزام Adapter | — | AI-ML §2 |
+| ED-134 | شکست بازبینی AI؟ | SUBMIT_ASSESSMENT: انتقال ناموفق AI_REVIEW = خطای FATAL (نه بی‌صدا) — تصمیم بازبینی بخشی از قرارداد ارزیابی است | رفع باگ B-11-1 | — | AI-ML §4 |
+
 ---
 
 ## تغییرات آتی این سند

@@ -31,6 +31,8 @@
 
 > ۱۴۰۵/۰۶/۱۴ (2026-09-04) — PHASE 10 (طبق فرمان محصول: «File & Media Engineering»): **موتور فایل/رسانه** — ممیزی ۱۲ یافته (F1..F12؛ F2: پردازش همزمان بلاک‌کننده درخواست؛ F6: تصویر محصول همیشه ۴۰۴) · موتور `src/server/infrastructure/media/` (config/driver/scanner/signed-url/processing/pipeline/lifecycle) · طبقه‌بندی PUBLIC/PRIVATE/TEMPORARY (ED-106) + چرخه حیات انقضا/آرشیو/سطل زباله/پاک‌سازی (ED-117) · آپلود ۲۰۲ Async در JobQueue — عدم بلاک درخواست اصلی (ED-114) · اسکن بدافزار L1..L4 + قرنطینه (ED-111) · Signed URL مقید به fileId+version+variant+exp (ED-112) · Versioning تغییرناپذیر (ED-113) · MEDIA_POLICY تک‌منبع حدود/allowlist با 413/415 (ED-107/108) · ناحیه‌های ذخیره‌سازی + کلید محتوا-نشانی + گارد traversal (ED-109/110) · پل MedicalImage/Product (ED-115/118) · مهاجرت ۱۵ رکورد legacy · Backup/Restore + manifest/sha256 (ED-117) · گیت CI `bun run audit:media` (ED-119) · مستند `docs/FILE-MEDIA.md` · تست: ۳۰ Unit + ۱۹ Integration جدید + Golden path async + ۱۷/۱۷ E2E مرورگری + ۴۵/۴۵ Pentest (جمع ۱۸۹ bun test PASS).
 
+> ۱۴۰۵/۰۶/۱۴ (2026-09-04) — PHASE 11 (طبق فرمان محصول: «AI/ML Engineering»): **مهندسی AI/ML** — ممیزی ۲۰-محوری AI Stack (Data · Dataset · Labels · Features · Models · Prompts · Embeddings · Inference · Evaluation · Versioning×۳ · Feedback · Monitoring · Data Leakage · Bias · Drift · AI Security · AI Cost · Human Validation) · موتور `src/server/infrastructure/ai/` با ۱۰ ماژول (ED-120) · رجیستری مدل **DB-محور** — تعویض مدل بدون تغییر کد (ED-121) · Prompt/Dataset/Model/Preprocessing نسخه‌دار (ED-122/123) · حلقهٔ بازخورد بستهٔ رویداد-محور انسانی→دیتاست با تفکیک بیمار-محور ضد-نشت §63 (ED-123/124) · دروازهٔ اعتبارسنجی انسانی سه‌سطحی — AI هرگز نتیجهٔ قطعی بدون بازبینی (ED-125) · ارزیابی متریک-کامل **محاسبه‌شده** (ED-127) · PSI Drift + Bias + Cost/Budget (ED-126/128) · گارد خروجی zod+allowlist (ED-129) · تله‌متری provenance هر استنتاج (ED-130) · ۶ مسیر API + داشبورد ادمین ۴-تبی · **رفع باگ پروداکشن B-11-1 (ED-131/134)**: انتقال‌های AI_REVIEW از فاز ۰۲ بی‌صدا شکست می‌خوردند (row.status≠reviewStatus) — بازبینی‌های انسانی هرگز ثبت نمی‌شد و حلقهٔ یادگیری کاملاً باز بود · مستند `docs/AI-ML.md` + ED-120..134 · تست: ۵۱ Unit + ۱۱ Integration جدید + رگرسیون ۲۵۱ bun test + ۴۵ Pentest + backend/media audit PASS + راستی‌آزمایی مرورگری ۴ تب.
+
 ## 1) ماتریس اصلی — Functional Requirements
 
 ### دامنه AUTH / PROF / MIZAJ
@@ -348,7 +350,7 @@
 | 94 | Local VSCode Validation | فاز 05 چک‌لیست | ⏳ فاز 05 |
 | 95 | Production Checklist | فاز 05 + PRD C1 | ⏳ فاز 05 |
 | 96 | ممنوعیت «باید پیاده شود» | RTM وضعیت صادقانه (I/P/R) | ✅ |
-| 97 | تصمیم‌گیری ابهام | ED-01..ED-119 (فاز 01: 01..30 · فاز 02: 31..34 · فاز 03: 35..46 · فاز 04: 47..58 · فاز 05: 59..70 · فاز 06: 71..80 · فاز 07: 81..92 · فاز 08: 93..105 · فاز 10: 106..119) | ✅ |
+| 97 | تصمیم‌گیری ابهام | ED-01..ED-134 (فاز 01: 01..30 · فاز 02: 31..34 · فاز 03: 35..46 · فاز 04: 47..58 · فاز 05: 59..70 · فاز 06: 71..80 · فاز 07: 81..92 · فاز 08: 93..105 · فاز 10: 106..119 · فاز 11: 120..134) | ✅ |
 | 98 | ۱۸ Milestone | PRD §12 | ✅ |
 | 99 | AI Model Strategy | ED-01/25 · FR-AI-01 | ✅ |
 | 100 | عدم جعل پزشکی | BR-MED-07 · ED-15 | ✅ |

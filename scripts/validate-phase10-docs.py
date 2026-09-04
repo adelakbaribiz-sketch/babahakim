@@ -71,7 +71,7 @@ if 'Phase 10' not in prd or 'FILE-MEDIA.md' not in prd:
 if 'Phase 09' not in prd:
     errors.append('PRD.md missing phase 09 status row (interrupted-session record)')
 rtm = read('docs/REQUIREMENTS-TRACEABILITY-MATRIX.md')
-if 'ED-01..ED-119' not in rtm and 'ED-01..ED-105' not in rtm:
+if 'ED-01..ED-134' not in rtm and 'ED-01..ED-119' not in rtm:
     errors.append('RTM missing ED range')
 if 'PHASE 10' not in rtm:
     errors.append('RTM missing PHASE 10 note')

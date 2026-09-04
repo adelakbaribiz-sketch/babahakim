@@ -374,72 +374,260 @@ export function AdminQuestionnairePage() {
 
 // PHASE 09 (F04): lang2 removed — components use the reactive `lang` from useApp()
 
-// ── AI models & dataset ─────────────────────────────────────────────────
-export function AdminAIModelsPage() {
-  const { t, api } = useApp()
-  const [data, setData] = useState<{
-    models: { id: string; name: string; version: number; provider: string; isActive: boolean; approvalStatus: string; metrics?: Record<string, number> | null; trainingDate?: string; trainingDataset?: string }[]
-    dataset: { id: string; caseCode: string; modelName: string; confidence: number; topPrediction: string; humanReviewed: boolean; createdAt: string }[]
-    datasetStats: { total: number; reviewed: number; avgConfidence: number }
-  } | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
+// ── AI/ML Ops dashboard (PHASE 11): registry · dataset · monitoring · prompts ──
+type AiOverview = {
+  models: { id: string; name: string; version: number; provider: string; isActive: boolean; approvalStatus: string; metrics?: Record<string, unknown> | null; trainingDataset?: string | null; trainingDatasetVersion?: string | null; preprocessingVersion?: string | null; promptKey?: string | null; promptVersion?: number | null; confidenceThreshold?: number | null; hasDriftBaseline?: boolean; trainingDate?: string | null }[]
+  dataset: {
+    datasets: { id: string; name: string; version: number; status: string; itemCount: number; frozenAt?: string | null }[]
+    activeDraft: { id: string; name: string; version: number } | null
+    items: { id: string; caseCode?: string | null; aiConfidence?: number | null; expert1Label?: string | null; expert2Label?: string | null; finalLabel?: string | null; disagreement: boolean; reviewStatus: string; createdAt: string }[]
+    stats: { total: number; labeled: number; finalized: number; disagreement: number; excluded: number; withFinalLabel: number }
+  }
+  monitoring: { total: number; ok: number; failed: number; replayed: number; avgConfidence?: number | null; avgProcessingMs?: number | null; lowConfidenceRate?: number | null; failureRate: number; totalCostUnits: number; windowHours: number }
+  bias: { total: number; maxClassRatio?: number | null; flagged: string[]; classes: { class: string; count: number; ratio: number }[] }
+  cost: { month: string; total: number; cap: number; ratio: number; byModel: Record<string, number>; alert: boolean }
+  reports: { id: string; summary?: string | null; createdAt: string; model?: { name: string; version: number } | null; dataset?: { name: string; version: number } | null }[]
+}
 
-  useEffect(() => { api('/api/v1/admin/ai-models').then((d) => { setData(d); setLoadError(null) }).catch((e) => setLoadError((e as ApiError).supportRef)) }, [api])
-  if (loadError) return <ErrorState message={loadError} onRetry={() => { setLoadError(null); window.location.reload() }} />
+export function AdminAIModelsPage() {
+  const { t, lang, api } = useApp()
+  const [data, setData] = useState<AiOverview | null>(null)
+  const [prompts, setPrompts] = useState<{ prompts: { id: string; key: string; version: number; nameFa: string; nameEn: string; status: string; createdAt: string }[]; codeRegistryCount: number } | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [reload, setReload] = useState(0)
+  const fa = lang === 'fa'
+
+  useEffect(() => {
+    api<AiOverview>('/api/v1/admin/ai/overview').then((d) => { setData(d); setLoadError(null) }).catch((e) => setLoadError((e as ApiError).supportRef))
+    api<typeof prompts>('/api/v1/admin/ai/prompts').then(setPrompts).catch(() => { /* prompts tab is optional */ })
+  }, [api, reload])
+
+  async function runEvaluation() {
+    setBusy(true)
+    try {
+      await api('/api/v1/admin/ai/evaluate', { method: 'POST', json: { includeDraft: true } })
+      toast.success(fa ? 'ارزیابی در صف اجرا قرار گرفت (غیرهمزمان)' : 'Evaluation queued (async)')
+      setTimeout(() => setReload((x) => x + 1), 2500)
+    } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) }
+  }
+
+  async function freezeDataset() {
+    setBusy(true)
+    try {
+      await api('/api/v1/admin/ai/datasets', { method: 'POST', json: { action: 'freeze' } })
+      toast.success(fa ? 'دیتاست فریز شد و پیش‌نویس جدید باز شد' : 'Dataset frozen; new draft opened')
+      setReload((x) => x + 1)
+    } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) }
+  }
+
+  if (loadError) return <ErrorState message={loadError} onRetry={() => { setLoadError(null); setReload((x) => x + 1) }} />
   if (!data) return <LoadingRows rows={4} />
+
+  const m = data.monitoring
+  const ds = data.dataset.stats
+  const pct = (v?: number | null) => (v == null ? '—' : `${Math.round(v * 100)}%`)
 
   return (
     <div className="space-y-5">
       <h1 className="page-title"><Bot size={22} />{t('aiModels')}</h1>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        {data.models.map((m) => (
-          <Card key={m.id} className={m.isActive ? 'border-primary/40' : 'opacity-70'}>
-            <CardContent className="p-4 space-y-2.5">
-              <div className="flex items-center gap-2 flex-wrap">
-                <Bot size={18} className={m.isActive ? 'text-primary' : 'text-muted-foreground'} />
-                <span className="font-bold">{m.name} <span className="text-muted-foreground font-normal">v{m.version}</span></span>
-                {m.isActive && <Badge className="bg-status-success text-status-success-fg text-[10px]">فعال</Badge>}
-                <Badge variant="outline" className="text-[10px] ms-auto">{m.approvalStatus}</Badge>
-              </div>
-              {m.metrics && (
-                <div className="flex flex-wrap gap-2 text-xs">
-                  {Object.entries(m.metrics).slice(0, 5).map(([k, v]) => (
-                    <Badge key={k} variant="secondary" className="text-[10px] tabular-nums">{k}: {typeof v === 'number' ? new Intl.NumberFormat('fa-IR').format(v) : v}</Badge>
-                  ))}
-                </div>
-              )}
-              <div className="text-xs text-muted-foreground">
-                {m.trainingDataset && <div>Dataset: <code dir="ltr">{m.trainingDataset}</code></div>}
-                {m.trainingDate && <div>آموزش: <JalaliDate date={m.trainingDate} /></div>}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Tabs defaultValue="registry">
+        <TabsList className="flex-wrap h-auto">
+          <TabsTrigger value="registry" className="gap-1.5"><Bot size={14} />{fa ? 'رجیستری مدل' : 'Model registry'}</TabsTrigger>
+          <TabsTrigger value="dataset" className="gap-1.5"><BarChart3 size={14} />{fa ? 'دیتاست' : 'Dataset'}</TabsTrigger>
+          <TabsTrigger value="monitor" className="gap-1.5"><ShieldCheck size={14} />{fa ? 'پایش و Drift' : 'Monitoring & drift'}</TabsTrigger>
+          <TabsTrigger value="prompts" className="gap-1.5"><FileText size={14} />{fa ? 'پرامپت‌ها' : 'Prompts'}</TabsTrigger>
+        </TabsList>
 
-      <SectionCard title={lang === 'fa' ? 'دیتاست یادگیری (AI vs انسان)' : 'Learning dataset (AI vs human)'}>
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          <StatCard title={lang === 'fa' ? 'کل تحلیل‌ها' : 'Total analyses'} value={data.datasetStats.total} />
-          <StatCard title={lang === 'fa' ? 'بازبینی‌شده' : 'Human reviewed'} value={data.datasetStats.reviewed} tone="bg-brand-light/15 text-brand-dark dark:text-brand-light" />
-          <StatCard title={lang === 'fa' ? 'میانگین اطمینان' : 'Avg confidence'} value={`${Math.round(data.datasetStats.avgConfidence * 100)}%`} />
-        </div>
-        {data.dataset.length === 0 ? <EmptyState /> : (
-          <div className="max-h-96 overflow-y-auto space-y-1.5 text-xs">
-            {data.dataset.map((d) => (
-              <div key={d.id} className="tile-row">
-                <span className="tabular-nums text-muted-foreground">{d.caseCode}</span>
-                <span className="font-medium">{d.topPrediction}</span>
-                <Badge variant={d.humanReviewed ? 'secondary' : 'outline'} className="text-[9px]">{d.humanReviewed ? 'بازبینی ✓' : 'در انتظار'}</Badge>
-                <span className="ms-auto text-muted-foreground tabular-nums">{Math.round(d.confidence * 100)}%</span>
-                <span className="text-muted-foreground"><JalaliDate date={d.createdAt} /></span>
-              </div>
+        {/* ── Tab: model registry + evaluation reports ── */}
+        <TabsContent value="registry" className="space-y-4 pt-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <p className="text-xs text-muted-foreground flex-1 min-w-60">
+              {fa ? 'انتخاب مدل فعال از رجیستری دیتابیس انجام می‌شود (ED-121) — تعویض مدل بدون تغییر کد.' : 'The active model resolves from the DB registry (ED-121) — swapping models needs no code change.'}
+            </p>
+            <Button size="sm" variant="outline" onClick={runEvaluation} disabled={busy} className="gap-1.5">
+              <Tags size={14} />{fa ? 'اجرای ارزیابی' : 'Run evaluation'}
+            </Button>
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            {data.models.map((mo) => (
+              <Card key={mo.id} className={mo.isActive ? 'border-primary/40' : 'opacity-70'}>
+                <CardContent className="p-4 space-y-2.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Bot size={18} className={mo.isActive ? 'text-primary' : 'text-muted-foreground'} />
+                    <span className="font-bold">{mo.name} <span className="text-muted-foreground font-normal">v{mo.version}</span></span>
+                    {mo.isActive && <Badge className="bg-status-success text-status-success-fg text-[10px]">{fa ? 'فعال' : 'Active'}</Badge>}
+                    <Badge variant="outline" className="text-[10px] ms-auto">{mo.approvalStatus}</Badge>
+                  </div>
+                  {mo.metrics && (
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      {/* numeric scalar metrics only — nested suites live in the evaluation report */}
+                      {Object.entries(mo.metrics).filter(([, v]) => typeof v === 'number').slice(0, 8).map(([k, v]) => (
+                        <Badge key={k} variant="secondary" className="text-[10px] tabular-nums">{k}: {new Intl.NumberFormat('fa-IR').format(v as number)}</Badge>
+                      ))}
+                    </div>
+                  )}
+                  <div className="text-xs text-muted-foreground space-y-0.5" dir="ltr">
+                    {mo.trainingDataset && <div>dataset: <code>{mo.trainingDataset}</code>{mo.trainingDatasetVersion ? <code className="ms-1">{mo.trainingDatasetVersion}</code> : null}</div>}
+                    <div className="flex gap-3 flex-wrap">
+                      {mo.promptKey && <span>prompt: <code>{mo.promptKey}@v{mo.promptVersion ?? '?'}</code></span>}
+                      {mo.preprocessingVersion && <span>preproc: <code>v{mo.preprocessingVersion}</code></span>}
+                      <span>baseline: {mo.hasDriftBaseline ? '✓' : '—'}</span>
+                    </div>
+                  </div>
+                  {mo.trainingDate && <div className="text-xs text-muted-foreground">{fa ? 'آموزش:' : 'Trained:'} <JalaliDate date={mo.trainingDate} /></div>}
+                </CardContent>
+              </Card>
             ))}
           </div>
-        )}
-      </SectionCard>
+
+          <SectionCard title={fa ? 'گزارش‌های ارزیابی (متریک کامل — نه فقط Accuracy)' : 'Evaluation reports (full metric suite — never accuracy-only)'}>
+            {data.reports.length === 0 ? <EmptyState /> : (
+              <div className="max-h-72 overflow-y-auto space-y-1.5 text-xs">
+                {data.reports.map((r) => (
+                  <div key={r.id} className="tile-row">
+                    <span className="font-medium">{r.model ? `${r.model.name}@v${r.model.version}` : '—'}</span>
+                    <span className="text-muted-foreground" dir="ltr">{r.summary}</span>
+                    <span className="ms-auto text-muted-foreground"><JalaliDate date={r.createdAt} /></span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </SectionCard>
+        </TabsContent>
+
+        {/* ── Tab: dataset (feedback loop) ── */}
+        <TabsContent value="dataset" className="space-y-4 pt-4">
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+            <StatCard title={fa ? 'کل آیتم‌ها' : 'Items'} value={ds.total} />
+            <StatCard title={fa ? 'برچسب‌خورده' : 'Labeled'} value={ds.labeled} />
+            <StatCard title={fa ? 'نهایی‌شده' : 'Finalized'} value={ds.finalized} tone="bg-status-success/15 text-status-success" />
+            <StatCard title={fa ? 'اختلاف خبره‌ها' : 'Disagreement'} value={ds.disagreement} tone="bg-status-warning/15 text-status-warning" />
+            <StatCard title={fa ? 'حذف‌شده' : 'Excluded'} value={ds.excluded} />
+            <StatCard title={fa ? 'نسخه جاری' : 'Draft'} value={data.dataset.activeDraft ? `v${data.dataset.activeDraft.version}` : '—'} />
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <p className="text-xs text-muted-foreground flex-1 min-w-60">
+              {fa ? 'چرخه بازخورد: هر بازبینی انسانی → برچسب دیتاست (تفکیک بیمار-محور — §63).' : 'Feedback loop: every human review becomes a dataset label (patient-level splits — §63).'}
+            </p>
+            <Button size="sm" variant="outline" onClick={freezeDataset} disabled={busy || !data.dataset.activeDraft} className="gap-1.5">
+              <CheckCircle2 size={14} />{fa ? 'فریز نسخه جاری' : 'Freeze draft'}
+            </Button>
+          </div>
+          <SectionCard title={fa ? 'نسخه‌های دیتاست' : 'Dataset versions'}>
+            <div className="space-y-1.5 text-xs">
+              {data.dataset.datasets.map((d) => (
+                <div key={d.id} className="tile-row">
+                  <span className="font-medium" dir="ltr">{d.name}@v{d.version}</span>
+                  <Badge variant={d.status === 'FROZEN' ? 'secondary' : 'outline'} className="text-[10px]">{d.status}</Badge>
+                  <span className="tabular-nums text-muted-foreground">{fa ? `${d.itemCount} آیتم` : `${d.itemCount} items`}</span>
+                  {d.frozenAt && <span className="ms-auto text-muted-foreground"><JalaliDate date={d.frozenAt} /></span>}
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+          <SectionCard title={fa ? 'آیتم‌های یادگیری (پیش‌بینی AI ↔ برچسب انسان)' : 'Learning items (AI prediction ↔ human label)'}>
+            {data.dataset.items.length === 0 ? <EmptyState /> : (
+              <div className="max-h-96 overflow-y-auto space-y-1.5 text-xs">
+                {data.dataset.items.map((it) => (
+                  <div key={it.id} className="tile-row">
+                    <span className="tabular-nums text-muted-foreground">{it.caseCode || '—'}</span>
+                    <Badge variant="outline" className="text-[10px]">{it.reviewStatus}</Badge>
+                    {it.expert1Label && <span className="max-w-40 truncate" dir="ltr" title={it.expert1Label}>E1: {labelShort(it.expert1Label)}</span>}
+                    {it.expert2Label && <span className="max-w-40 truncate" dir="ltr" title={it.expert2Label}>E2: {labelShort(it.expert2Label)}</span>}
+                    {it.finalLabel && <span className="max-w-32 truncate" dir="ltr">F: {labelShort(it.finalLabel)}</span>}
+                    {it.disagreement && <Badge className="bg-status-warning text-status-warning-fg text-[9px]">{fa ? 'اختلاف' : 'disagree'}</Badge>}
+                    <span className="ms-auto text-muted-foreground tabular-nums">{it.aiConfidence != null ? `${Math.round(it.aiConfidence * 100)}%` : '—'}</span>
+                    <span className="text-muted-foreground"><JalaliDate date={it.createdAt} /></span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </SectionCard>
+        </TabsContent>
+
+        {/* ── Tab: monitoring / drift / bias / cost ── */}
+        <TabsContent value="monitor" className="space-y-4 pt-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard title={fa ? 'استنتاج‌ها (۷ روز)' : `Inferences (${m.windowHours}h)`} value={m.total} />
+            <StatCard title={fa ? 'میانگین اطمینان' : 'Avg confidence'} value={pct(m.avgConfidence)} />
+            <StatCard title={fa ? 'میانگین زمان' : 'Avg latency'} value={m.avgProcessingMs != null ? `${m.avgProcessingMs}ms` : '—'} />
+            <StatCard title={fa ? 'نرخ خطا' : 'Failure rate'} value={pct(m.failureRate)} tone={m.failureRate > 0.1 ? 'bg-status-danger/15 text-status-danger' : undefined} />
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <SectionCard title={fa ? 'سوگیری کلاس پیش‌بینی (Bias)' : 'Prediction class bias'}>
+              {data.bias.total === 0 ? <EmptyState /> : (
+                <div className="space-y-1.5 text-xs">
+                  {data.bias.classes.slice(0, 8).map((c) => (
+                    <div key={c.class} className="tile-row" dir="ltr">
+                      <span className="font-medium truncate">{c.class}</span>
+                      <span className="ms-auto tabular-nums text-muted-foreground">{c.count} · {Math.round(c.ratio * 100)}%</span>
+                    </div>
+                  ))}
+                  {data.bias.flagged.length > 0 && (
+                    <p className="text-status-warning text-xs pt-1">{fa ? 'هشدار: کلاس غالب >۸۰٪' : 'Warning: dominant class >80%'} — {data.bias.flagged.join('، ')}</p>
+                  )}
+                </div>
+              )}
+            </SectionCard>
+            <SectionCard title={fa ? 'هزینه AI (واحد هزینه)' : 'AI cost (cost units)'}>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-2 bg-muted rounded overflow-hidden">
+                    <div className={data.cost.alert ? 'h-full bg-status-danger' : 'h-full bg-primary'} style={{ width: `${Math.min(100, Math.round(data.cost.ratio * 100))}%` }} />
+                  </div>
+                  <span className="tabular-nums" dir="ltr">{data.cost.total} / {data.cost.cap}</span>
+                </div>
+                {Object.entries(data.cost.byModel).map(([name, units]) => (
+                  <div key={name} className="tile-row" dir="ltr">
+                    <span className="font-medium">{name}</span>
+                    <span className="ms-auto tabular-nums text-muted-foreground">{units}</span>
+                  </div>
+                ))}
+                <p className="text-muted-foreground">{fa ? 'بودجه ماهانه: در ۸۰٪ هشدار صادر می‌شود (ED-128).' : 'Monthly budget: alert fires at 80% (ED-128).'}</p>
+              </div>
+            </SectionCard>
+          </div>
+          <SectionCard title={fa ? 'Drift (شاخص PSI — پایداری توزیع)' : 'Drift (PSI — population stability)'}>
+            <p className="text-xs text-muted-foreground mb-2">
+              {fa ? 'آستانه‌ها: Ψ < 0.1 پایدار · 0.1-0.25 هشدار · > 0.25 هشدار شدید + اعلان ادمین. خط پایه پس از ۱۰ تحلیل ثبت می‌شود.' : 'Thresholds: Ψ < 0.1 stable · 0.1-0.25 warn · > 0.25 alarm + admin notification. Baseline captured after 10 analyses.'}
+            </p>
+            <p className="text-xs">{fa ? 'پایش خودکار هر ۵ دقیقه در JobQueue اجرا می‌شود؛ جزئیات در لاگ ساختاریافته.' : 'Automatic check runs every 5 minutes in the JobQueue; details live in structured logs.'}</p>
+          </SectionCard>
+        </TabsContent>
+
+        {/* ── Tab: prompt registry ── */}
+        <TabsContent value="prompts" className="space-y-4 pt-4">
+          <p className="text-xs text-muted-foreground">
+            {fa ? 'نسخه‌های پرامپت تغییرناپذیرند (ED-122) — تغییر متن یعنی نسخه جدید؛ نسخه‌های قدیمی Deprecated می‌شوند.' : 'Prompt versions are immutable (ED-122) — a text change is a NEW version; old versions become Deprecated.'}
+          </p>
+          <SectionCard title={fa ? 'رجیستری پرامپت' : 'Prompt registry'}>
+            {!prompts || prompts.prompts.length === 0 ? <EmptyState /> : (
+              <div className="space-y-1.5 text-xs">
+                {prompts.prompts.map((p) => (
+                  <div key={p.id} className="tile-row">
+                    <span className="font-medium" dir="ltr">{p.key}@v{p.version}</span>
+                    <span>{fa ? p.nameFa : p.nameEn}</span>
+                    <Badge variant={p.status === 'ACTIVE' ? 'secondary' : 'outline'} className="text-[10px]">{p.status}</Badge>
+                    <span className="ms-auto text-muted-foreground"><JalaliDate date={p.createdAt} /></span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </SectionCard>
+        </TabsContent>
+      </Tabs>
     </div>
   )
+}
+
+function labelShort(label: string): string {
+  try {
+    const v = JSON.parse(label)
+    if (Array.isArray(v)) return v.map((x) => `${x.indicator}:${x.value}`).join(' ')
+  } catch { /* plain code label */ }
+  return label.length > 28 ? label.slice(0, 28) + '…' : label
 }
 
 // ── SMS log ─────────────────────────────────────────────────────────────

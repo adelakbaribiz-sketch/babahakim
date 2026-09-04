@@ -115,6 +115,13 @@ export interface MachineDef {
   entity: EntityType
   /** Prisma delegate key (e.g. 'medicalCase', 'aIAnalysis'). */
   prismaKey: string
+  /**
+   * Field holding the machine state — defaults to `status`. PHASE 11: the
+   * AI_REVIEW machine stores its state in `reviewStatus`; without this key
+   * the engine silently no-oped (row.status was undefined → INVALID_TRANSITION
+   * soft-failure that callers once ignored).
+   */
+  statusKey?: string
   /** Field holding the owner id for the ownership guard, if any. */
   ownerField?: string
   /** Canonical status catalog (documentation + tests). */

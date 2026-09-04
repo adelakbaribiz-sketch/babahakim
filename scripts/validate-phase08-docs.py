@@ -43,7 +43,7 @@ prd = read('docs/PRD.md')
 if 'Phase 08' not in prd or 'BACKEND.md' not in prd:
     errors.append('PRD.md missing phase 08 row / doc index entry')
 rtm = read('docs/REQUIREMENTS-TRACEABILITY-MATRIX.md')
-if 'ED-01..ED-119' not in rtm or 'PHASE 08' not in rtm:
+if 'ED-01..ED-134' not in rtm or 'PHASE 08' not in rtm:
     errors.append('RTM missing ED-105 range or phase-08 note')
 # 6) package.json gate script
 pkg = json.loads(read('package.json'))

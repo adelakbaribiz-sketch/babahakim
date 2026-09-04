@@ -5,12 +5,13 @@
 //   events → notification fan-out (lib/notify) + cache invalidation
 //   jobs   → AI analysis (async, out of the request path) + follow-up scan
 import { subscribe, Events } from '@/server/infrastructure/events'
-import { registerJob, setDeadLetterHook, scheduleRecurring } from '@/server/infrastructure/jobs'
+import { registerJob, setDeadLetterHook, scheduleRecurring, enqueue } from '@/server/infrastructure/jobs'
 import { logger } from '@/server/core/logger'
 
 // guard key is versioned: bumping it re-runs wiring after HMR when shared
 // singletons changed shape (e.g. cache backing store) — cheap and safe (idempotent)
-const BOOTSTRAP_KEY = '__bhBootstrapped_v3'
+// v4: PHASE 11 adds AI/ML wiring (feedback loop, drift monitor, prompt seed)
+const BOOTSTRAP_KEY = '__bhBootstrapped_v4'
 const g = globalThis as unknown as { [BOOTSTRAP_KEY]?: boolean }
 
 /** no-op marker — importing the module runs the wiring below exactly once per version. */
@@ -92,15 +93,66 @@ if (!g[BOOTSTRAP_KEY]) {
 
   // ── jobs: async AI analysis (ED-102 — out of the request path) ───────────
   registerJob('ai-analysis', async (payload: { caseId: string; imageId: string }) => {
-    const { runAIAnalysis } = await import('@/lib/ai/run')
-    await runAIAnalysis(payload.caseId, payload.imageId)
+    const { runAIAnalysis } = await import('@/server/infrastructure/ai/pipeline')
+    const result = await runAIAnalysis(payload.caseId, payload.imageId)
     const { db } = await import('@/lib/db')
-    await db.caseEvent.create({ data: { caseId: payload.caseId, action: 'AI_RUN', comment: 'تحلیل اولیه توسط TongueModelV1 انجام شد' } })
-    await (await import('@/server/infrastructure/events')).publish(Events.AiAnalysisCompleted, payload)
+    await db.caseEvent.create({ data: { caseId: payload.caseId, action: 'AI_RUN', comment: `تحلیل اولیه توسط ${result.modelName}@v${result.modelVersion} انجام شد` } })
   })
   registerJob('notify-operators', async (payload: { event: string; extraFa?: string }) => {
     await notifyOperators(payload.event, payload.extraFa)
   })
+
+  // ── PHASE 11: AI/ML jobs — evaluation + monitor (drift/cost/bias) ────────
+  registerJob('ai-evaluation', async (payload: { modelId?: string; datasetId?: string; includeDraft?: boolean; createdById?: string }) => {
+    const { evaluateModel } = await import('@/server/infrastructure/ai/evaluation')
+    await evaluateModel(payload)
+  })
+  registerJob('ai-monitor', async () => {
+    const { runDriftCheck, captureBaseline } = await import('@/server/infrastructure/ai/monitoring')
+    const { costStats } = await import('@/server/infrastructure/ai/cost')
+    // drift (captures baseline on first run for a model with ≥10 analyses)
+    const { db } = await import('@/lib/db')
+    const model = await db.aIModel.findFirst({ where: { isActive: true } })
+    if (model) {
+      const check = await runDriftCheck()
+      if (!check.checked && check.reason === 'NO_BASELINE') await captureBaseline(model.id)
+    }
+    await costStats() // budget guard (publishes AiBudgetAlert over threshold)
+  })
+  scheduleRecurring('ai-monitor', 5 * 60_000)
+
+  // ── PHASE 11: feedback loop — reviews land as dataset labels ─────────────
+  subscribe(Events.AiReviewDecided, async (e) => {
+    const p = e.payload as { analysisId: string; decision: 'ACCEPTED' | 'MODIFIED' | 'REJECTED'; reviewerRole: 'EXPERT_1' | 'EXPERT_2' | 'DOCTOR'; reviewerId: string; comment?: string; corrections?: { indicator: string; value: string }[] }
+    const { recordReviewLabel } = await import('@/server/infrastructure/ai/datasets')
+    await recordReviewLabel({
+      analysisId: p.analysisId, reviewerRole: p.reviewerRole, reviewerId: p.reviewerId,
+      decision: p.decision, comment: p.comment, corrections: p.corrections,
+    })
+  })
+
+  // ── PHASE 11: MLOps events → admin notifications ──────────────────────
+  subscribe(Events.AiDriftDetected, async (e) => {
+    const p = e.payload as { modelName: string; features: { feature: string; psi: number }[] }
+    const extraFa = `DRIFT ${p.modelName}: ${p.features.map((f) => `${f.feature} Ψ=${f.psi}`).join('، ')}`
+    await notifyOperators('TICKET_UPDATED', extraFa)
+  })
+  subscribe(Events.AiEvaluationCompleted, () => { /* logged by evaluation; admin UI polls reports */ })
+  subscribe(Events.AiBudgetAlert, async (e) => {
+    const p = e.payload as { total: number; cap: number; ratio: number; severity: string }
+    if (p.severity === 'EXCEEDED') {
+      await notifyOperators('TICKET_UPDATED', `AI_BUDGET_EXCEEDED: ${p.total}/${p.cap}`)
+    }
+  })
+
+  // PHASE 11: seed prompt registry rows (idempotent, immutable versions).
+  // Lazy one-shot job — keeps the no-top-level-await discipline: the code
+  // registry is the source of truth; DB rows are the admin-visible copy.
+  registerJob('ai-prompt-seed', async () => {
+    const { ensurePromptsSeeded } = await import('@/server/infrastructure/ai/prompts')
+    await ensurePromptsSeeded()
+  })
+  enqueue('ai-prompt-seed', {}, { maxAttempts: 3, backoffMs: 5000 })
 
   // ── recurring job: follow-up buckets DUE/OVERDUE scan (ED-102) ───────────
   registerJob('followup-scan', async () => {
@@ -137,5 +189,5 @@ if (!g[BOOTSTRAP_KEY]) {
     } catch { /* audit best-effort */ }
   })
 
-  logger.info('backend bootstrap complete', { subscribers: 11, jobs: 5 })
+  logger.info('backend bootstrap complete', { subscribers: 16, jobs: 7 })
 }

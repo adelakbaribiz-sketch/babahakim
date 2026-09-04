@@ -98,6 +98,12 @@ export const assessmentSchema = z.object({
   aiComment: safeText(2000).optional().default(''),
   confidence: z.number().min(0).max(100).optional().nullable(),
   basedOnAI: z.boolean().optional().default(true),
+  // PHASE 11: per-indicator corrected values — the true ground-truth feed for
+  // the learning dataset (optional; agreement code alone still records a label)
+  aiCorrections: z.array(z.object({
+    indicator: z.string().min(1).max(64),
+    value: z.string().min(1).max(120),
+  })).max(20).optional().default([]),
 })
 
 export const prescriptionItemSchema = z.object({

@@ -44,6 +44,11 @@ export async function executeTransition(input: ExecuteInput): Promise<ExecResult
   const machine = typeof input.machine === 'string' ? getMachine(input.machine) : input.machine
   const now = new Date()
   const payload = input.payload || {}
+  // PHASE 11 (bug fix): machines may store their state in a non-`status` field
+  // (AI_REVIEW → reviewStatus). Resolve the key ONCE and use it for reads,
+  // guards, writes, audit and the result — the AI_REVIEW machine had silently
+  // no-oped since PHASE 02 because row.status was undefined for AIAnalysis.
+  const statusKey = machine.statusKey ?? 'status'
   try {
     /* 1 — load */
     const table = (db as unknown as Record<string, { findUnique: (a: { where: { id: string } }) => Promise<EntityRow | null> }>)[machine.prismaKey]
@@ -51,9 +56,10 @@ export async function executeTransition(input: ExecuteInput): Promise<ExecResult
     if (!row || (row as { deletedAt?: unknown }).deletedAt) {
       return { ok: false, code: 'NOT_FOUND', error: 'رکورد یافت نشد | Not found', httpStatus: 404 }
     }
+    const currentStatus = String((row as Record<string, unknown>)[statusKey] ?? machine.initial)
 
     /* 2 — guards (role / permission / ownership / graph) */
-    const t = assertGuards(machine, row, input.action, input.actor)
+    const t = assertGuards(machine, { ...row, status: currentStatus } as EntityRow, input.action, input.actor)
 
     /* 3 — pre-write validation hook */
     const baseCtx: BaseHookCtx = { entity: row, actor: input.actor, payload, transition: t, machine, now }
@@ -65,7 +71,7 @@ export async function executeTransition(input: ExecuteInput): Promise<ExecResult
     }
 
     /* 4 — atomic transition */
-    const data = { status: t.to, ...(t.dataEffects?.(baseCtx) || {}) }
+    const data = { [statusKey]: t.to, ...(t.dataEffects?.(baseCtx) || {}) }
     const auditAction = t.auditAction || `WORKFLOW_${machine.entity}_${t.action}`
 
     const updated = await db.$transaction(async (tx) => {
@@ -79,7 +85,7 @@ export async function executeTransition(input: ExecuteInput): Promise<ExecResult
             caseId: input.entityId,
             actorId: input.actor.id === 'SYSTEM' ? null : input.actor.id,
             action: 'STATUS_CHANGE',
-            fromStatus: row.status,
+            fromStatus: currentStatus,
             toStatus: t.to,
             comment: String(payload.comment || '') || t.descFa,
             reason: payload.reason != null ? String(payload.reason) : null,
@@ -94,8 +100,8 @@ export async function executeTransition(input: ExecuteInput): Promise<ExecResult
           action: auditAction,
           entity: machine.entity,
           entityId: input.entityId,
-          oldValues: JSON.stringify({ status: row.status }),
-          newValues: JSON.stringify({ status: t.to, action: t.action }),
+          oldValues: JSON.stringify({ [statusKey]: currentStatus }),
+          newValues: JSON.stringify({ [statusKey]: t.to, action: t.action }),
           ip: extractIp(input.req),
           device: extractAgent(input.req),
         },
@@ -122,8 +128,8 @@ export async function executeTransition(input: ExecuteInput): Promise<ExecResult
 
     return {
       ok: true,
-      entity: { id: updated.id, status: updated.status },
-      transition: { action: t.action, from: row.status, to: t.to },
+      entity: { id: updated.id, status: String((updated as Record<string, unknown>)[statusKey] ?? t.to) },
+      transition: { action: t.action, from: currentStatus, to: t.to },
     }
   } catch (e) {
     if (e instanceof WorkflowError) {

@@ -22,7 +22,8 @@
     "backup:media": "bun scripts/backup-media.mjs",
     "restore:media": "bun scripts/restore-media.mjs",
     "migrate:media": "bun scripts/migrate-legacy-media.mjs",
-    "audit:media": "node scripts/media-audit.mjs"
+    "audit:media": "node scripts/media-audit.mjs",
+    "audit:ai": "node scripts/ai-audit.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -41,6 +41,11 @@ export const Events = {
   MediaFileReady: 'media.file.ready',
   MediaFileInfected: 'media.file.infected',
   MediaFilePurged: 'media.file.purged',
+  // PHASE 11 — AI/ML engineering events (feedback loop + MLOps)
+  AiReviewDecided: 'ai.review.decided', // human label landed on an AI analysis
+  AiEvaluationCompleted: 'ai.evaluation.completed',
+  AiDriftDetected: 'ai.drift.detected',
+  AiBudgetAlert: 'ai.cost.budget',
 } as const
 
 export type EventName = (typeof Events)[keyof typeof Events]

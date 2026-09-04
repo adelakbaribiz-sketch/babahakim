@@ -315,13 +315,21 @@ model AIModel {
   version            Int
   provider           String // TongueModelV1 ...
   isActive           Boolean   @default(false)
-  metrics            String? // JSON {accuracy, precision, recall, f1}
+  metrics            String? // JSON {accuracy, precision, recall, f1, ...} — from AIEvaluationReport (ED-127)
   trainingDataset    String?
+  trainingDatasetVersion String? // dataset version trained/validated on (PHASE 11, e.g. "v3")
+  preprocessingVersion String? // feature-extraction pipeline version (spec §61)
+  promptKey          String? // active prompt template key (PHASE 11)
+  promptVersion      Int?     // active prompt version (PHASE 11)
+  confidenceThreshold Float?  // below this → flagged LOW_CONFIDENCE (spec §60)
+  driftBaseline      String? // JSON feature/confidence baseline for PSI drift check (ED-126)
   trainingDate       DateTime?
   approvalStatus     String    @default("DRAFT") // DRAFT | IN_TRAINING | EVALUATION | APPROVED | DEPLOYED
   approvedById       String?
   createdAt          DateTime  @default(now())
   analyses           AIAnalysis[]
+  inferenceLogs      AIInferenceLog[]
+  evaluationReports  AIEvaluationReport[]
 }
 
 model AIAnalysis {
@@ -346,6 +354,123 @@ model AIAnalysis {
   case         MedicalCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
   image        MedicalImage @relation(fields: [imageId], references: [id])
   model        AIModel?     @relation(fields: [modelId], references: [id])
+  inferenceLogs AIInferenceLog[]
+  datasetItems AIDatasetItem[]
+}
+
+// ── PHASE 11 · AI/ML ENGINEERING ─────────────────────────────────────────
+// MLOps entities: prompt registry, dataset versioning, inference telemetry,
+// evaluation reports. All carry version provenance (spec §61, §11).
+
+// Prompt versioning (ED-122): immutable versions, safe rendering, audit trail.
+model AIPromptTemplate {
+  id          String   @id @default(cuid())
+  key         String // e.g. tongue-analysis-notes
+  version     Int
+  nameFa      String
+  nameEn      String
+  template    String // with {{var}} placeholders — rendered safely (never raw concat)
+  variables   String? // JSON [{name, required, description}]
+  status      String   @default("ACTIVE") // ACTIVE | DEPRECATED
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@unique([key, version])
+  @@index([key, status])
+}
+
+// Dataset versioning (spec §12/§61): draft collects labeled feedback items,
+// freeze makes it immutable for training/evaluation. Patient-level splits only.
+model AIDataset {
+  id          String   @id @default(cuid())
+  name        String
+  version     Int
+  description String?
+  status      String   @default("DRAFT") // DRAFT | FROZEN | ARCHIVED
+  splitPolicy String? // JSON {train:0.7, val:0.15, test:0.15, level:"PATIENT", seed}
+  itemCount   Int      @default(0)
+  createdById String?
+  frozenAt    DateTime?
+  createdAt   DateTime @default(now())
+  items       AIDatasetItem[]
+  evaluationReports AIEvaluationReport[]
+
+  @@unique([name, version])
+  @@index([status])
+}
+
+// One learning item per AI analysis: AI prediction vs human labels chain
+// (Expert1 → Expert2 → Final/Doctor), disagreement flag, de-identified
+// patient reference (hash — no PHI in dataset exports). (spec §11/§12)
+model AIDatasetItem {
+  id            String   @id @default(cuid())
+  datasetId     String
+  analysisId    String?  @unique
+  imageId       String?
+  caseCode      String?
+  patientHash   String? // salted one-way hash — patient-level split key (spec §63)
+  aiPrediction  String? // JSON [{indicator, value, confidence}]
+  aiConfidence  Float?
+  expert1Label  String?
+  expert1ById   String?
+  expert2Label  String?
+  expert2ById   String?
+  finalLabel    String?
+  disagreement  Boolean  @default(false)
+  reviewStatus  String   @default("PENDING_LABEL") // PENDING_LABEL | LABELED | FINALIZED | EXCLUDED
+  excludedReason String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+  dataset       AIDataset @relation(fields: [datasetId], references: [id])
+  analysis      AIAnalysis? @relation(fields: [analysisId], references: [id])
+
+  @@index([datasetId, reviewStatus])
+  @@index([datasetId, disagreement])
+}
+
+// Inference telemetry (ED-130): every AI run logged with full provenance
+// (model/dataset/prompt/preprocessing versions) — monitoring + cost source.
+model AIInferenceLog {
+  id                  String   @id @default(cuid())
+  analysisId          String?  @unique
+  caseId              String
+  imageId             String
+  modelId             String?
+  modelName           String
+  modelVersion        Int
+  datasetVersion      String?
+  promptKey           String?
+  promptVersion       Int?
+  preprocessingVersion String?
+  inputSha256         String?
+  confidence          Float?
+  quality             Float?
+  processingMs        Int?
+  costUnits           Float? // estimated compute cost (ED-128)
+  status              String   @default("OK") // OK | FAILED
+  errorCode           String?
+  replay              Boolean  @default(false) // same input hash analyzed before
+  createdAt           DateTime @default(now())
+  analysis            AIAnalysis? @relation(fields: [analysisId], references: [id])
+  model               AIModel?   @relation(fields: [modelId], references: [id])
+
+  @@index([createdAt])
+  @@index([modelName, createdAt])
+}
+
+// Evaluation report (ED-127): full metric suite — never accuracy-only (spec §60).
+model AIEvaluationReport {
+  id          String   @id @default(cuid())
+  modelId     String?
+  datasetId   String?
+  metrics     String // JSON full suite
+  summary     String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  model       AIModel?  @relation(fields: [modelId], references: [id])
+  dataset     AIDataset? @relation(fields: [datasetId], references: [id])
+
+  @@index([modelId, createdAt])
 }
 
 // ─────────────────────────────── CLINICAL ───────────────────────────────

@@ -17,6 +17,8 @@ import {
   proformaSchema, shippingSchema,
 } from '@/server/application/dto'
 import { SHOP_SHIPPING_COST } from '@/server/domain/policies'
+import { resolveAiAssistedFlag } from '@/server/infrastructure/ai/validation-gate'
+import { finalizeFinalLabel } from '@/server/infrastructure/ai/datasets'
 import { logger } from '@/server/core/logger'
 
 type Body = Record<string, unknown>
@@ -52,16 +54,38 @@ export async function applyCaseAction(
       })
       for (const a of analyses) {
         const reviewAction = input.aiAgreement === 'ACCEPTED' ? 'ACCEPT' : input.aiAgreement === 'REJECTED' ? 'REJECT' : 'MODIFY'
-        await executeTransition({
+        const review = await executeTransition({
           machine: 'AI_REVIEW', entityId: a.id, action: reviewAction, actor,
           payload: { comment: input.aiComment }, req,
         })
+        // PHASE 11 bug fix: a failed review transition is FATAL — the review
+        // decision is part of the assessment contract (it was silently
+        // no-oped from PHASE 02–10 because of the statusKey mismatch).
+        if (!review.ok) {
+          throw new AppError(
+            (review.code === 'INVALID_TRANSITION' ? 'CONFLICT' : review.code === 'NOT_FOUND' ? 'NOT_FOUND' : 'BUSINESS_RULE') as ErrorCode,
+            review.error || 'ثبت بازبینی تحلیل AI ناموفق بود | AI review transition failed',
+            review.httpStatus || 409,
+          )
+        }
+        // PHASE 11 — feedback loop: every human decision becomes a dataset
+        // label via Events.AiReviewDecided (bootstrap subscriber → datasets)
+        await publish(Events.AiReviewDecided, {
+          analysisId: a.id, decision: input.aiAgreement,
+          reviewerRole: 'EXPERT_1', reviewerId: auth.user.id,
+          comment: input.aiComment || null,
+          corrections: input.aiCorrections || [],
+        }, ctx.reqId)
       }
+      // PHASE 11 — validation gate (ED-125): a diagnosis may be marked
+      // AI-ASSISTED only when the expert actively endorsed (ACCEPTED or
+      // MODIFIED) the AI output — never on REJECTED or no-review.
+      const endorsedAI = analyses.length > 0 && resolveAiAssistedFlag(input.aiAgreement)
       await db.diagnosis.create({
         data: {
           caseId, expertId: auth.user.id,
           title: 'ارزیابی اولیه — ' + (input.diseases.join('، ') || 'بررسی بالینی'),
-          notes: input.summary, aiAssisted: input.basedOnAI !== false,
+          notes: input.summary, aiAssisted: endorsedAI && input.basedOnAI !== false,
           aiAgreement: input.aiAgreement, confidence: input.confidence ?? null,
         },
       })
@@ -135,6 +159,21 @@ export async function applyCaseAction(
           machine: 'PRESCRIPTION', entityId: p.id, action, actor,
           payload: { comment: input.comment }, req,
         })
+      }
+      // PHASE 11 — feedback loop closure: the doctor's decision is the FINAL
+      // business validation → lands as the dataset's finalLabel (ground truth)
+      if (action === 'DOCTOR_APPROVE' || action === 'DOCTOR_REJECT') {
+        const latest = await db.aIAnalysis.findFirst({
+          where: { caseId }, orderBy: { createdAt: 'desc' },
+        })
+        if (latest) {
+          await finalizeFinalLabel(
+            latest.id,
+            action === 'DOCTOR_APPROVE' ? 'DOCTOR_APPROVED' : 'DOCTOR_REJECTED',
+          ).catch((e) => logger.warn('dataset final-label failed', {
+            analysisId: latest.id, error: e instanceof Error ? e.message : String(e),
+          }))
+        }
       }
       if (action === 'DOCTOR_REJECT') rawBody.closingNote = input.comment || 'رد توسط پزشک'
       if (input.followUpDays) {

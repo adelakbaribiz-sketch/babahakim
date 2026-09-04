@@ -85,7 +85,7 @@ adr_idx = ADR_README.read_text(encoding="utf-8") if ADR_README.exists() else ""
 for t in ["ADR-0014", "ADR-0015"]:
     if t not in adr_idx:
         errors.append(f"ADR README does not index {t}")
-if "ED-01..ED-119" not in rtm:
+if "ED-01..ED-134" not in rtm:
     errors.append("RTM does not claim ED-01..105 range")
 
 # 5) test scripts wired
