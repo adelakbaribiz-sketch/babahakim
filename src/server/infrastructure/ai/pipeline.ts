@@ -79,8 +79,21 @@ export async function runAIAnalysis(caseId: string, imageId: string): Promise<Ru
     },
   })
 
-  await db.medicalImage.update({ where: { id: imageId }, data: { status: 'PROCESSED' } })
   await db.medicalCase.update({ where: { id: caseId }, data: { aiAnalysisId: analysis.id } })
+
+  // PHASE 12: image consumption flows through the MEDICAL_IMAGE machine
+  // (guarded + audited). A re-run over an already-PROCESSED image resolves
+  // to a benign no-op — the analysis row above remains the record of truth.
+  {
+    const { executeTransition } = await import('@/lib/workflow/engine')
+    const res = await executeTransition({
+      machine: 'MEDICAL_IMAGE', entityId: imageId, action: 'MARK_PROCESSED',
+      actor: { id: 'SYSTEM', role: 'SYSTEM' }, payload: {},
+    })
+    if (!res.ok && res.code !== 'INVALID_TRANSITION' && res.code !== 'NOT_FOUND') {
+      log.warn('image MARK_PROCESSED failed', { imageId, code: res.code })
+    }
+  }
 
   await recordInference({
     analysisId: analysis.id, caseId, imageId, modelId: resolved.modelId,

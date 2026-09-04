@@ -11,6 +11,7 @@
 import { createHash } from 'crypto'
 import { join } from 'path'
 import { db } from '@/lib/db'
+import { executeTransition } from '@/lib/workflow/engine'
 import { childLogger } from '@/server/core/logger'
 import { enqueue } from '@/server/infrastructure/jobs'
 import { publish, Events } from '@/server/infrastructure/events'
@@ -359,21 +360,33 @@ export async function processFile(fileId: string, versionId: string): Promise<Pr
   // ── MedicalImage bridge (legacy consumers keep working, ED-115) ──
   if (file.category === 'MEDICAL_IMAGE') {
     const medicalStatus = toMedicalStatus(status)
-    await db.medicalImage.updateMany({
-      where: { storedFileId: fileId },
-      data: {
-        status: medicalStatus,
-        originalPath: join(STORAGE_ROOT, finalKeys.original),
-        compressedPath: compressedR ? join(STORAGE_ROOT, finalKeys.compressed) : null,
-        aiPath: aiR ? join(STORAGE_ROOT, finalKeys.ai) : null,
-        thumbPath: thumbR ? join(STORAGE_ROOT, finalKeys.thumb) : null,
-        width: width || null, height: height || null,
-        sizeOriginal: originalR.data.length,
-        sizeCompressed: compressedR?.data.length ?? null,
-        quality: versionMetadata.quality ? JSON.stringify(versionMetadata.quality) : undefined,
-        rejectionReason: status === 'REJECTED' ? 'کیفیت تصویر کافی نیست' : null,
-      },
-    })
+    // PHASE 12: the clinical status write flows through the MEDICAL_IMAGE
+    // machine (guarded, audited, WorkflowState-synced). The worker is not in
+    // a transaction — executeTransition opens its own.
+    const images = await db.medicalImage.findMany({ where: { storedFileId: fileId }, select: { id: true } })
+    const action = medicalStatus === 'VALIDATED' ? 'VALIDATE'
+      : medicalStatus === 'REJECTED' ? 'REJECT'
+        : 'MARK_PROCESSED'
+    // at this point in processFile the quality gate has already spoken:
+    // status is READY (→ VALIDATE) or REJECTED (quality failure)
+    const reason = status === 'REJECTED' ? 'کیفیت تصویر کافی نیست' : undefined
+    for (const img of images) {
+      await executeTransition({
+        machine: 'MEDICAL_IMAGE', entityId: img.id, action,
+        actor: { id: 'SYSTEM', role: 'SYSTEM' },
+        payload: {
+          ...(reason ? { reason } : {}),
+          originalPath: join(STORAGE_ROOT, finalKeys.original),
+          compressedPath: compressedR ? join(STORAGE_ROOT, finalKeys.compressed) : null,
+          aiPath: aiR ? join(STORAGE_ROOT, finalKeys.ai) : null,
+          thumbPath: thumbR ? join(STORAGE_ROOT, finalKeys.thumb) : null,
+          width: width || null, height: height || null,
+          sizeOriginal: originalR.data.length,
+          sizeCompressed: compressedR?.data.length ?? null,
+          quality: versionMetadata.quality ?? null,
+        },
+      })
+    }
     if (medicalStatus === 'VALIDATED') {
       // legacy event: bootstrap notifies the patient (IMAGE_RECEIVED)
       await publish(Events.ImageUploaded, { userId: file.ownerId, imageId: fileId }, undefined)

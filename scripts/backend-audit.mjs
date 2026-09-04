@@ -85,6 +85,7 @@ for (const file of walk(API_DIR)) {
 
   // E5 — mutating methods zod-parse (endpoints whose body is by-design empty are exempt)
   const BODYLESS = file.includes('auth/refresh') || file.includes('auth/logout') || file.includes('zarinpal')
+    || file.includes('workflow/scan') // PHASE 12: governance tick trigger — no body by design
   const hasMutating = /^export\s+(const|let)\s+(POST|PUT|PATCH|DELETE)\s*=/m.test(src)
   const hasParse = /parseBody\s*\(|\.safeParse\s*\(|\.parse\s*\(/.test(src)
   if (hasMutating && !hasParse && !BODYLESS) fail(file, 'E5', null, 'mutating handler does not zod-parse its input (parseBody)')

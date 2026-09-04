@@ -4,6 +4,8 @@
 // path from BR §3.2. CASCADES (invoice, financial transaction) run inside
 // the same transaction as the status write.
 import { TransitionDef, MachineDef, WorkflowError } from '../types'
+import { cascadeSubTransition } from '../subtransition'
+import { INVOICE_MACHINE } from './invoice'
 
 export const ORDER_STATUSES = [
   'CART', 'PENDING_CONFIRMATION', 'CONFIRMED', 'PAYMENT_PENDING', 'PAID',
@@ -13,20 +15,26 @@ export const ORDER_STATUSES = [
 const t = (def: TransitionDef): TransitionDef => def
 
 /**
- * Shared cascade for "order became PAID": invoice → PAID + financial
- * INCOME row. Runs inside the caller's transaction.
+ * Shared cascade for "order became PAID": invoices → PAID (machine-guarded
+ * sub-transitions) + financial INCOME row. Runs inside the caller's
+ * transaction. The ORDER status write itself is NOT done here — the engine
+ * (user action) or applySubTransition (payment cascade) owns it, and both
+ * chain into this function via ORDER.MARK_PAID.txEffects.
  * (Previously duplicated inline in payments verify + zarinpal callback.)
  */
 export async function cascadePaid(tx: unknown, orderId: string, payment: {
   code: string; amount: number; userId: string; actorId: string | null; source: string
 }) {
   const txx = tx as {
-    invoice: { updateMany: (a: unknown) => Promise<unknown> }
+    invoice: { findMany: (a: unknown) => Promise<{ id: string }[]> }
     financialTransaction: { create: (a: unknown) => Promise<unknown> }
   }
-  await txx.invoice.updateMany({
-    where: { orderId }, data: { status: 'PAID', paidAt: new Date() },
-  })
+  // invoices → PAID: machine-guarded, idempotent (already-PAID → no-op)
+  const invoices = await txx.invoice.findMany({ where: { orderId }, select: { id: true } })
+  for (const inv of invoices) {
+    await cascadeSubTransition({ tx, machine: INVOICE_MACHINE, entityId: inv.id, action: 'MARK_PAID' })
+  }
+  // append-only financial journal row (not a state-machine entity)
   await txx.financialTransaction.create({
     data: {
       type: 'INCOME', category: 'SALES', amount: payment.amount,
@@ -49,14 +57,24 @@ export const ORDER_MACHINE: MachineDef = {
       requireOwnership: true,
     }),
     t({
+      // PHASE 12 (ED-126): startPayment used to write PAYMENT_PENDING
+      // directly — a status the machine graph could not even reach. Now the
+      // payment-start path enters it through the machine (guarded + audited).
+      action: 'ENTER_PAYMENT', from: ['PENDING_CONFIRMATION', 'CONFIRMED', 'PAYMENT_PENDING', 'PREPARING', 'READY_TO_SHIP'], to: 'PAYMENT_PENDING',
+      roles: ['PATIENT', 'SYSTEM'], system: true, descFa: 'فرآیند پرداخت سفارش آغاز شد',
+      requireOwnership: true,
+    }),
+    t({
       action: 'CONFIRM', from: ['PENDING_CONFIRMATION'], to: 'CONFIRMED',
       roles: ['OPERATOR', 'EXPERT_2'], permission: 'manage_orders', descFa: 'سفارش تأیید شد',
       dataEffects: (c) => ({ verifiedById: c.actor.id }),
       txEffects: async (c) => {
-        const tx = (c as { tx: unknown }).tx as { invoice: { updateMany: (a: unknown) => Promise<unknown> } }
-        await tx.invoice.updateMany({
-          where: { orderId: c.entity.id }, data: { status: 'CONFIRMED', confirmedAt: new Date() },
-        })
+        // invoice SENT → CONFIRMED (machine-guarded, idempotent)
+        const txx = (c as { tx: unknown }).tx as { invoice: { findMany: (a: unknown) => Promise<{ id: string }[]> } }
+        const invoices = await txx.invoice.findMany({ where: { orderId: c.entity.id }, select: { id: true } })
+        for (const inv of invoices) {
+          await cascadeSubTransition({ tx: (c as { tx: unknown }).tx, machine: INVOICE_MACHINE, entityId: inv.id, action: 'CONFIRM' })
+        }
       },
       postCommit: async (c) => {
         const { notify } = await import('@/lib/notify')
@@ -75,8 +93,10 @@ export const ORDER_MACHINE: MachineDef = {
       txEffects: async (c) => {
         const ctx = c as unknown as { tx: unknown; payload: Record<string, unknown> }
         await cascadePaid(ctx.tx, c.entity.id, {
-          code: String(ctx.payload.paymentCode || ''), amount: Number(ctx.payload.paymentAmount || 0),
-          userId: String(c.entity.userId), actorId: ctx.payload.paymentActorId ? String(ctx.payload.paymentActorId) : null,
+          code: String(ctx.payload.paymentCode || (c.entity as { code?: string }).code || ''),
+          amount: Number(ctx.payload.paymentAmount || (c.entity as { total?: number }).total || 0),
+          userId: String(c.entity.userId),
+          actorId: ctx.payload.paymentActorId ? String(ctx.payload.paymentActorId) : null,
           source: String(ctx.payload.paymentSource || 'تأیید پرداخت'),
         })
       },

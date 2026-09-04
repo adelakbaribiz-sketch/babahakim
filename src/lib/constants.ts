@@ -31,6 +31,7 @@ export const PERMISSIONS = [
   'view_reports', 'manage_tickets', 'manage_orders', 'manage_shipments',
   'view_audit_logs', 'view_ai_analyses', 'manage_ai_models', 'view_all_cases',
   'manage_followups', 'view_dashboard_stats', 'view_sms_log',
+  'manage_workflow_recovery', // PHASE 12: workflow governance console + force-recovery (ADMIN)
 ] as const
 export type Permission = (typeof PERMISSIONS)[number]
 

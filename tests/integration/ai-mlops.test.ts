@@ -13,7 +13,7 @@ const BASE = 'http://localhost:3000'
 
 // ── tiny cookie-jar client with CSRF (shared convention with golden path) ─
 class Client {
-  jar = new Map<string, String>()
+  jar = new Map<string, string>()
   csrf = ''
   ip = `10.88.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}`
 

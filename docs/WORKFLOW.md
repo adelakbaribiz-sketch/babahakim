@@ -2,11 +2,11 @@
 
 | فیلد | مقدار |
 |---|---|
-| نسخه | 1.0.0 |
-| تاریخ | 1405/06/13 (2026-09-04) |
-| فاز | PHASE 02 — Workflow & State Machine |
+| نسخه | 2.0.0 |
+| تاریخ | 1405/06/14 (2026-09-05) |
+| فاز | PHASE 02 — Workflow & State Machine · **PHASE 12 — Business Workflow Engineering (Governance)** |
 | کد | `src/lib/workflow/` |
-| تست | `bun test src/lib/workflow` → ۵۱ تست · Smoke: `scripts/smoke-phase02-workflow.sh` → ۱۳/۱۳ |
+| تست | `bun test src/lib/workflow` → ۸۳ تست · کل مجموعه: `bun test` → ۲۸۳ تست · Lint: 0 خطا |
 
 ---
 
@@ -19,18 +19,25 @@
 ```text
 src/lib/workflow/
 ├── types.ts            ← قراردادها (TransitionDef / MachineDef / HookCtx / ExecResult)
-├── engine.ts           ← موتور اجرا (resolve / guards / $transaction / event / audit)
+├── engine.ts           ← موتور اجرا (resolve / guards / $transaction / event / audit / WorkflowState / executeAdminRecovery)
 ├── registry.ts         ← ثبت ماشین‌ها (تنها نقطه اتصال؛ افزودن ماشین = یک فایل)
-├── machines/           ← ۸ ماشین اعلانی
+├── pure.ts             ← Resolverهای خالص Client-Safe (ED-107)
+├── policies.ts         ← [P12] سیاست‌های Timeout/Retry/Failure (خالص، اعلانی)
+├── subtransition.ts    ← [P12] گذار Machine-Guarded داخل tx فراخواننده + sync WorkflowState
+├── governance.ts       ← [P12] Runtime حاکمیت: بک‌فیل / Drift / SLA (REMIND/ESCALATE/AUTO)
+├── machines/           ← ۱۱ ماشین اعلانی
 │   ├── case.ts         ← پرونده بیمار (۲۱ وضعیت / ۱۸ Transition)
 │   ├── prescription.ts ← نسخه (۷ وضعیت / ۷ Transition)
-│   ├── order.ts        ← سفارش (۱۱ وضعیت / ۹ Transition)
+│   ├── order.ts        ← سفارش (۱۱ وضعیت / ۱۰ Transition شامل ENTER_PAYMENT)
 │   ├── payment.ts      ← پرداخت (۶ وضعیت / ۸ Transition)
 │   ├── shipment.ts     ← ارسال (۵ وضعیت / ۴ Transition)
 │   ├── ticket.ts       ← تیکت (۶ وضعیت / ۸ Transition)
 │   ├── followup.ts     ← پیگیری (۵ وضعیت / ۴ Transition)
-│   └── aiReview.ts     ← بازبینی AI (۴ وضعیت / ۴ Transition)
-└── __tests__/          ← ۵۱ Unit Test
+│   ├── aiReview.ts     ← بازبینی AI (۴ وضعیت / ۴ Transition)
+│   ├── deletionRequest.ts ← [P12] درخواست حذف داده (۴ وضعیت / ۳ Transition)
+│   ├── medicalImage.ts ← [P12] دروازه AI تصویر (۴ وضعیت / ۴ Transition)
+│   └── invoice.ts      ← [P12] سند مالی (۵ وضعیت / ۴ Transition)
+└── __tests__/          ← ۸۳ Unit Test (workflow + policies + subtransition)
 
 سازگاری گذشته: src/lib/constants.ts → TRANSITIONS/canTransition (Shim روی همان ماشین CASE)
 ```
@@ -261,7 +268,7 @@ dataEffects هر بازبینی: `humanReviewed=true` + کامنت + بازبی�
 
 ---
 
-## ۱۱) تصمیمات مهندسی ثبت‌شده این فاز
+## ۱۱) تصمیمات مهندسی ثبت‌شده فاز ۰۲
 
 | ED | تصمیم |
 |---|---|
@@ -271,3 +278,161 @@ dataEffects هر بازبینی: `humanReviewed=true` + کامنت + بازبی�
 | ED-34 | `NEW` وضعیت مجازی ایجاد است (۱۸ Transition واقعی — اصلاح شمارش ۱۹ در مستندات فاز ۰۱)؛ `MARK_DELIVERED` از PAYMENT_CONFIRMED/PREPARING_SHIPMENT هم مجاز (مسیر تحویل مستقیم اپراتور) |
 
 **ریسک‌های باقی‌مانده:** Gateهای SLA (ED-08) به Scheduler فاز ۰۵ وابسته‌اند؛ `MARK_DUE/MARK_OVERDUE` فعلاً دستی/رزرو سیستم‌اند؛ رابط UI روی فیلدهای جدید AI_REVIEW (reviewStatus) هنوز رسمی نشده (فاز UI). همه تست‌ها سبز: `bun test` (51) + Smoke (13) + Lint (0).
+
+---
+
+# PHASE 12 — Business Workflow Engineering (لایه حاکمیت گردش کار)
+
+> **فرمان فاز:** استخراج تمام Business Workflowها؛ برای هر فرآیند تعریف States / Transitions / Actors / Permissions / Conditions / Events / Notifications / **Timeouts / Retries / Failures / Recovery**؛ تبدیل فرآیندهای مهم به State Machine؛ **هیچ Workflow مهمی فقط در UI کنترل نمی‌شود — Backend منبع واحد حقیقت است.**
+
+## ۱۲) کاتالوگ ۱۱بُعدی فرآیندهای کسب‌وکار
+
+هر فرآیند مهم اکنون Machine دارد و **هر ۱۱ بُعد** برای آن تعریف شده است:
+
+| بُعد | منبع تعریف (Backend SoT) |
+|---|---|
+| States | `machines/*.ts → statuses` |
+| Transitions | `machines/*.ts → transitions` (from/to/graph) |
+| Actors | `roles` روی هر Transition (+ SYSTEM برای gateway/scheduler) |
+| Permissions | `permission` روی هر Transition + `ROLE_PERMISSIONS` |
+| Conditions | هوک `validate` (قبل از هر نوشتن، 422 در نقض) + مالکیت (BR-RBAC-03) |
+| Events | CaseEvent (تایم‌لاین CASE) + AuditLog اتمیک `WORKFLOW_*` |
+| Notifications | هوک `postCommit` + قالب‌های `notify.ts` (ED-17: شکست هرگز جریان را نمی‌شکند) |
+| **Timeouts** | `policies.ts → TIMEOUT_POLICIES` (SLA هر وضعیت + نردبان REMIND→ESCALATE) |
+| **Retries** | `policies.ts → RETRY_POLICIES` (backoff LINEAR/EXPONENTIAL) + صف کار با DLQ |
+| **Failures** | `policies.ts → FAILURE_POLICIES` (taxonomi وضعیت‌های شکست هر ماشین) |
+| **Recovery** | `recoveryActions` + `executeAdminRecovery` (فرار اضطراری ADMIN، BR-WF-07) |
+
+### ۱۲.۱ جدول کاتالوگ ماشین‌ها (۱۱ ماشین)
+
+| ماشین | موجودیت | وضعیت‌ها | گذارها | خطاهای تعریف‌شده (Failures) | مسیر بازیابی (Recovery) | مهم‌ترین SLA |
+|---|---|---|---|---|---|---|
+| CASE | MedicalCase | ۲۱ | ۱۸ | CANCELLED | فرار اضطراری ADMIN | صف کارشناس ۲۴h یادآوری / ۷۲h تشدید |
+| PRESCRIPTION | Prescription | ۷ | ۷ | REJECTED, SUPERSEDED | REVISE (نسخه جدید) | صف EXPERT_2/DOCTOR ۲۴h |
+| ORDER | Order | ۱۱ | ۱۰ | CANCELLED, REFUNDED | REFUND | تأیید سفارش ۱۲h/۴۸h |
+| PAYMENT | Payment | ۶ | ۸ | FAILED, REJECTED | RETRY (بیمار) / REQUEST_INFO | **PENDING → ۳۰min انقضای درگاه (AUTO)** |
+| SHIPMENT | Shipment | ۵ | ۴ | FAILED | فرار اضطراری | تحویل ۵d / در راه ۷d تشدید |
+| TICKET | Ticket | ۶ | ۸ | — (RESOLVED/CLOSED موفق) | REOPEN | پاسخ ۲۴h/۷۲h |
+| FOLLOWUP | FollowUp | ۵ | ۴ | CANCELLED | — | DUE ۲۴h / OVERDUE ۷۲h تشدید |
+| AI_REVIEW | AIAnalysis | ۴ | ۴ | REJECTED | RESET (مدیر) | بازبینی انسانی ۱۲h/۴۸h تشدید |
+| DELETION_REQUEST (P12) | DeletionRequest | ۴ | ۳ | REJECTED | فرار اضطراری | **مهلت حریم خصوصی ۴۸h/۷d تشدید** |
+| MEDICAL_IMAGE (P12) | MedicalImage | ۴ | ۴ | REJECTED | REVALIDATE (مدیر) / بارگذاری مجدد بیمار | کارگر گیرکرده ۱h |
+| INVOICE (P12) | Invoice | ۵ | ۴ | CANCELLED | صدور مجدد | تأیید پیش‌فاکتور ۷۲h |
+
+### ۱۲.۲ فرآیندهای غیرماشین (عمداً)
+
+| فرآیند | چرا ماشین نیست | منبع حقیقت Backend |
+|---|---|---|
+| Auth/OTP (چالش ۲ دقیقه‌ای) | چرخه عمر گذرا و کوتاه | `lib/security/otp.ts` (TTL + attempts + single-use) |
+| Consent Records | دفتر versioned، نه وضعیت | `lib/security/privacy.ts` |
+| SMS Delivery | زیرساخت ارسال با status QUEUED/SENT/FAILED | `SMSLog` + Jobs |
+| Media StoredFile (P10) | چرخه زیرساخت فایل با Pipeline/TTL اختصاصی | `server/infrastructure/media/*` — پل بالینی آن از P12 به ماشین MEDICAL_IMAGE وصل شد |
+| Dataset Lifecycle (P11) | DRAFT/FROZEN/ARCHIVED — immutable versions | `server/infrastructure/ai/datasets.ts` |
+
+## ۱۳) لایه سیاست‌ها (`policies.ts` — خالص و Client-Safe)
+
+### ۱۳.۱ نردبان SLA (Timeout)
+
+هر وضعیت حساس می‌تواند **زنجیره سیاست** داشته باشد (مثال: صف کارشناس اول):
+
+```text
+CASE/WAITING_FOR_EXPERT_1:
+  24h → REMIND    (notify EXPERT_1 + OPERATOR, cooldown 24h, سقف ۳ یادآوری)
+  72h → ESCALATE  (یک‌بار — ADMIN + نقش‌های سیاست؛ لچِ escalatedAt)
+PAYMENT/PENDING:
+  30m → AUTO_TRANSITION (GATEWAY_FAIL توسط SYSTEM — idempotent با گراف ماشین)
+```
+
+| قاعده | مکانیزم |
+|---|---|
+| تکرار یادآوری | `cooldownMs` (پیش‌فرض ۲۴h) + `maxReminders` (پیش‌فرض ۳) — شمارنده در WorkflowState |
+| تشدید یک‌بار | `escalatedAt` به‌عنوان Latch — هرگز اسپم نمی‌شود |
+| انقضای خودکار | گذار فقط از وضعیت مبدا مجاز؛ رقابت با کاربر/گیت‌وی → INVALID_TRANSITION = no-op بی‌خطر |
+| Retry خودکار | `cooldownMs` پیش‌فرض ۵ دقیقه + backoff نمایی مطابق RETRY_POLICIES |
+
+### ۱۳.۲ Retry و Failures
+
+- **RETRY_POLICIES**: PAYMENT/AUTO (نمایی ۲s×2ⁿ، ۳ تلاش)، FOLLOWUP/BATCH (خطی ۵s، ۲ تلاش)، MEDICAL_IMAGE/BATCH (نمایی، ۳ تلاش) + سیاست پیش‌فرض برای بقیه.
+- **FAILURE_POLICIES**: هر ماشین failureStatuses + recoveryActions + مجوز فرار اضطراری (`forceRecovery`).
+- صف کار (`jobs.ts`) تلاش/backoff/DLQ را برای همه کارهای سیستمی نگه می‌دارد (ED-102)؛ DLQ در کنسول حاکمیت قابل مشاهده است.
+
+## ۱۴) Runtime حاکمیت (`governance.ts`)
+
+Job تکرارشونده **هر ۲ دقیقه** (bootstrap):
+
+```text
+runWorkflowGovernanceTick()
+  1) BACKFILL   ردیف‌های پیش-P12 → WorkflowState (enteredAt = createdAt)
+  2) DRIFT      WorkflowState.status ≠ رکورد واقعی → re-sync + Audit WORKFLOW_STATE_DRIFT
+                (هر مسیر آینده‌ای که موتور را دور بزند، همین‌جا لو می‌رود — پاسدار SoT)
+  3) SLA        ارزیابی نردبان → REMIND / ESCALATE / AUTO_TRANSITION
+                همه گذارها از executeTransition با Actor SYSTEM — هرگز نوشتن مستقیم
+```
+
+| ردیف WorkflowState (Prisma) | نقش |
+|---|---|
+| entityType + entityId (یکتا) | شناسه نمونه |
+| status + enteredAt | کِی وارد وضعیت فعلی شد (شمارنده SLA) |
+| lastRemindedAt / reminderCount |Latch یادآوری |
+| escalatedAt | Latch تشدید |
+| lastDriftSyncAt | ردیابی آشتی‌سازی |
+
+> WorkflowState یک **Projection** است نه منبع حقیقت دوم — ستون status رکورد موجودیت، canonical باقی می‌ماند (کامنت مدل در schema.prisma).
+
+## ۱۵) Sub-Transition (کاسکادهای Machine-Guarded — ED-33 اصلاح‌شده)
+
+مسیرهای کاسکاد که قبلاً status را مستقیم می‌نوشتند، اکنون از `applySubTransition` داخل همان تراکنش فراخواننده عبور می‌کنند: گارد کامل + Audit + CaseEvent + WorkflowState:
+
+| مسیر | قبل (bypass) | بعد (P12) |
+|---|---|---|
+| پرداخت تأیید شد | `order.update({status: PAID})` مستقیم + invoice.updateMany | ORDER.MARK_PAID (SYSTEM) → زنجیره txEffects → INVOICE.MARK_PAID (زیر‌گذار) + رکورد مالی |
+| شروع پرداخت | `order.update({status: PAYMENT_PENDING})` + invoice.updateMany — **حفره گراف: هیچ گذاری به PAYMENT_PENDING نمی‌رسید!** | ORDER.ENTER_PAYMENT (ED-126) + INVOICE.CONFIRM |
+| تأیید سفارش | invoice.updateMany CONFIRMED | INVOICE.CONFIRM (زیر‌گذار) |
+| پل کارگر مدیا (تصویر) | medicalImage.updateMany | MEDICAL_IMAGE.VALIDATE / REJECT (موتور) |
+| مصرف تصویر در AI | medicalImage.update PROCESSED | MEDICAL_IMAGE.MARK_PROCESSED (no-op خوش‌خیم برای re-run) |
+| اسکن پیگیری (bootstrap) | followUp.updateMany بدون Audit | FOLLOWUP.MARK_DUE/MARK_OVERDUE سطر‌به‌سطر (Audited) |
+| حذف داده (حریم خصوصی) | deletionRequest.update + تصاویر updateMany | DELETION_REQUEST.COMPLETE با ناشناس‌سازی اتمیک (ED-125) + MEDICAL_IMAGE.REJECT برای هر تصویر |
+
+## ۱۶) بازیابی (Recovery) — سه لایه
+
+| لایه | مسیر | ثبت |
+|---|---|---|
+| **Recovery طبیعی** | گذارهای بازیابی ماشین (PAYMENT.RETRY، TICKET.REOPEN، AI_REVIEW.RESET، MEDICAL_IMAGE.REVALIDATE، PRESCRIPTION.REVISE) | Audit استاندارد موتور |
+| **Governance خودکار** | انقضای SLA → REMIND/ESCALATE/AUTO_TRANSITION | Audit `WORKFLOW_SLA_*` + WorkflowState |
+| **فرار اضطراری مدیر** (BR-WF-07) | `POST /api/v1/admin/workflow/recover` → `executeAdminRecovery` — فقط ADMIN، دلیل ≥۳ حرف اجباری، وضعیت هدف باید در کاتالوگ ماشین باشد | Audit `WORKFLOW_ADMIN_RECOVER` + CaseEvent + اعلان WORKFLOW_RECOVERED به مالک + Console.warn ساخت‌یافته |
+
+## ۱۷) API کنسول حاکمیت (ADMIN-only)
+
+| Endpoint | متد | Function | Rate limit |
+|---|---|---|---|
+| `/api/v1/admin/workflow/overview` | GET | کاتالوگ ۱۱ ماشین + وضعیت‌های گیرکرده (SLA breach) + آخرین گزارش tick + صف/DLQ + بازیابی‌های اخیر | — |
+| `/api/v1/admin/workflow/scan` | POST | اجرای دستی یک tick حاکمیت (بک‌فیل + drift + SLA) | ۳/دقیقه |
+| `/api/v1/admin/workflow/recover` | POST | فرار اضطراری: `{entityType, entityId, targetStatus, reason}` | ۱۰/دقیقه |
+
+**تأیید عملکردی زنده:** scan → ۱۱ ماشین / ۹۳ نمونه / ۰ خطا؛ recover واقعی AI_REVIEW → ACCEPTED با Audit اتمیک + WorkflowState؛ نقش PATIENT روی هر سه → 403.
+
+## ۱۸) قواعد کسب‌وکار جدید (BR-WF)
+
+- **BR-WF-01** — هیچ فرآیند مهمی در UI کنترل نمی‌شود؛ UI فقط `action` درخواست می‌کند و گاردها (نقش/Permission/مالکیت/گراف) در Backend.
+- **BR-WF-02** — هر گذار: Audit اتمیک + WorkflowState sync در همان تراکنش.
+- **BR-WF-03** — بُعد Timeout برای هر وضعیت انتظار از طریق TIMEOUT_POLICIES — مقادیر SLA فقط در policies.ts تنظیم می‌شوند.
+- **BR-WF-04** — تشدید یک‌بار (Latch)؛ یادآوری با cooldown و سقف؛ انقضای خودکار idempotent.
+- **BR-WF-05** — Drift (نوشتن status خارج از موتور) = تخلف معماری؛ در هر tick آشکار، آشتی و Audit می‌شود.
+- **BR-WF-06** — کاسکادهای مالی همیشه زیر‌گذار Machine-Guarded داخل همان تراکنش (ED-33/P12).
+- **BR-WF-07** — فرار اضطراری فقط ADMIN + دلیل اجباری + وضعیت قانونی + Audit کامل (WORKFLOW_ADMIN_RECOVER).
+
+## ۱۹) تصمیمات مهندسی فاز ۱۲
+
+| ED | تصمیم |
+|---|---|
+| ED-121 | لایه سیاست اعلانی خالص (policies.ts) — مقادیر SLA/Retry/Failure داده‌اند نه کد پراکنده؛ خالص و Client-Safe |
+| ED-122 | WorkflowState به‌عنوان Projection اتمیک هر گذار (یکتا per موجودیت؛ شمارنده‌های SLA در آن؛ رکورد موجودیت canonical می‌ماند) |
+| ED-123 | Runtime حاکمیت هرگز status را مستقیم نمی‌نویسد — همیشه از executeTransition با SYSTEM |
+| ED-124 | DELETION_REQUEST ماشین‌دار شد + یکسان‌سازی وضعیت پایانی به COMPLETED (ناسازگاری قدیمی PROCESSED در adminService) |
+| ED-125 | ناشناس‌سازی داخل همان تراکنش گذار COMPLETE (anonymizeUserTx) — همه‌یا‌هیچ با تغییر وضعیت درخواست |
+| ED-126 | رفع حفره گراف ORDER: گذار ENTER_PAYMENT (PAYMENT_PENDING قبلاً از هیچ مسیر ماشین‌محوری قابل دسترس نبود) |
+| ED-127 | بازسازی `POST /api/v1/images/upload` — مسیر موجود در فازهای ۰۸–۱۱ اما هرگز commit نشده و از workspace حذف شده بود (الگوی تکراری ثبت‌نشدن فایل؛ همان الگوی register/route.ts فاز ۰۰) |
+| ED-128 | TS_CAPS: نقشه ستون‌های زمانی هر جدول (updatedAt/deletedId همگانی نیست؛ DeletionRequest → requestedAt) برای بک‌فیل/Drift |
+| ED-129 | notifyRole + کدهای WORKFLOW_REMINDER/ESCALATED/RECOVERED/DELETION_REJECTED به موتور اعلان |
+
+**تأییدها:** `bun test` ۲۸۳/۲۸۳ · Lint 0 خطا · Backend-Audit PASSED (0 E-error) · Frontend-Audit PASSED · Pentest 45/45 · Probe امنیتی: 401/403 صحیح، ADMIN endpoints عملکردی.

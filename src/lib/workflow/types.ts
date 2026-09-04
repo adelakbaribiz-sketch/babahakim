@@ -15,6 +15,10 @@ export type EntityType =
   | 'TICKET'
   | 'FOLLOWUP'
   | 'AI_REVIEW'
+  /** PHASE 12: previously service-controlled lifecycles, now machine-guarded. */
+  | 'DELETION_REQUEST'
+  | 'MEDICAL_IMAGE'
+  | 'INVOICE'
 
 /** Actors may be a platform role or the SYSTEM (gateway / scheduler). */
 export type WorkflowRole = Role | 'SYSTEM'

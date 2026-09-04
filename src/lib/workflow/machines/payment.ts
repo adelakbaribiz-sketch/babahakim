@@ -3,6 +3,9 @@
 // non-PAID statuses; replayed callbacks resolve to no transition and the
 // route answers from the already-PAID row.
 import { TransitionDef, MachineDef, WorkflowError } from '../types'
+import { cascadeSubTransition } from '../subtransition'
+import { ORDER_MACHINE } from './order'
+import { CASE_MACHINE } from './case'
 
 export const PAYMENT_STATUSES = [
   'PENDING',        // gateway payment initiated
@@ -17,8 +20,9 @@ const t = (def: TransitionDef): TransitionDef => def
 
 /**
  * Atomic paid-cascade (single source of truth = the payment row):
- * ORDER → PAID, Invoice → PAID, FinancialTransaction INCOME,
- * CASE → PAYMENT_CONFIRMED (+ CaseEvent) for prescription orders.
+ * ORDER → PAID (machine sub-transition whose txEffects chains cascadePaid:
+ * invoices → PAID + FinancialTransaction INCOME), CASE → PAYMENT_CONFIRMED
+ * (+ CaseEvent) for prescription orders.
  * Idempotent: no-op parts when the target is already in the final state,
  * so replayed verifies never double-apply (BR-FIN-01).
  */
@@ -28,44 +32,32 @@ export async function paymentPaidCascade(
   actorId: string | null,
   source: string,
 ) {
-  const txx = tx as {
-    order: { findUnique: (a: unknown) => Promise<{ id: string; type: string; status: string } | null>; update: (a: { where: { id: string }; data: unknown }) => Promise<unknown> }
-    invoice: { updateMany: (a: unknown) => Promise<unknown>; findFirst: (a: unknown) => Promise<{ caseId: string | null } | null> }
-    medicalCase: { findUnique: (a: unknown) => Promise<{ id: string; status: string } | null>; update: (a: { where: { id: string }; data: unknown }) => Promise<unknown> }
-    caseEvent: { create: (a: unknown) => Promise<unknown> }
-    financialTransaction: { create: (a: unknown) => Promise<unknown> }
-  }
   if (!payment.orderId) return
-  const order = await txx.order.findUnique({ where: { id: payment.orderId } })
-  if (!order || order.status === 'PAID' || order.status === 'REFUNDED') return
-  await txx.order.update({
-    where: { id: order.id },
-    data: { status: 'PAID', verifiedById: actorId },
-  })
-  await txx.invoice.updateMany({
-    where: { orderId: order.id }, data: { status: 'PAID', paidAt: new Date() },
-  })
-  await txx.financialTransaction.create({
-    data: {
-      type: 'INCOME', category: 'SALES', amount: payment.amount,
-      description: `${source} ${payment.code}`, orderId: order.id,
-      userId: payment.userId, createdById: actorId,
+  // ORDER → PAID: machine-guarded. Already-PAID/REFUNDED/gone resolves to
+  // a benign no-op (idempotent replay — BR-FIN-01).
+  const orderMoved = await cascadeSubTransition({
+    tx, machine: ORDER_MACHINE, entityId: payment.orderId, action: 'MARK_PAID',
+    actor: { id: actorId || 'SYSTEM', role: 'SYSTEM' },
+    payload: {
+      paymentCode: payment.code, paymentAmount: payment.amount,
+      paymentActorId: actorId, paymentSource: source,
     },
   })
-  if (order.type === 'PRESCRIPTION') {
-    const invoice = await txx.invoice.findFirst({ where: { orderId: order.id } })
+  if (!orderMoved) return
+
+  // CASE → PAYMENT_CONFIRMED for prescription orders (+ CaseEvent)
+  const txx = tx as {
+    order: { findUnique: (a: unknown) => Promise<{ type: string } | null> }
+    invoice: { findFirst: (a: unknown) => Promise<{ caseId: string | null } | null> }
+  }
+  const order = await txx.order.findUnique({ where: { id: payment.orderId }, select: { type: true } })
+  if (order?.type === 'PRESCRIPTION') {
+    const invoice = await txx.invoice.findFirst({ where: { orderId: payment.orderId }, select: { caseId: true } })
     if (invoice?.caseId) {
-      const c = await txx.medicalCase.findUnique({ where: { id: invoice.caseId } })
-      if (c && c.status === 'WAITING_FOR_PAYMENT') {
-        await txx.medicalCase.update({ where: { id: c.id }, data: { status: 'PAYMENT_CONFIRMED' } })
-        await txx.caseEvent.create({
-          data: {
-            caseId: c.id, actorId, action: 'STATUS_CHANGE',
-            fromStatus: 'WAITING_FOR_PAYMENT', toStatus: 'PAYMENT_CONFIRMED',
-            comment: `${source} ${payment.code} تأیید شد`,
-          },
-        })
-      }
+      await cascadeSubTransition({
+        tx, machine: CASE_MACHINE, entityId: invoice.caseId, action: 'MARK_PAID',
+        payload: { comment: `${source} ${payment.code} تأیید شد` },
+      })
     }
   }
 }

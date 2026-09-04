@@ -913,3 +913,26 @@ model StoredFileVariant {
   @@unique([versionId, variant])
   @@index([versionId])
 }
+
+// ── PHASE 12: Workflow Governance State ──────────────────────────────────
+// Tracks WHEN each workflow instance entered its current status so the
+// governance runtime can evaluate SLA/timeout policies (REMIND / ESCALATE /
+// AUTO_TRANSITION), detect drift (status changed outside the engine) and
+// backfill pre-PHASE-12 rows. The engine upserts this row atomically inside
+// every transition transaction — it is a projection, never a second source
+// of truth: the entity row's status column remains canonical.
+model WorkflowState {
+  id              String    @id @default(cuid())
+  entityType      String // CASE | PRESCRIPTION | ORDER | PAYMENT | SHIPMENT | TICKET | FOLLOWUP | AI_REVIEW | DELETION_REQUEST | MEDICAL_IMAGE | INVOICE
+  entityId        String
+  status          String
+  enteredAt       DateTime  @default(now())
+  lastRemindedAt  DateTime?
+  reminderCount   Int       @default(0)
+  escalatedAt     DateTime?
+  lastDriftSyncAt DateTime?
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([entityType, entityId])
+  @@index([entityType, status, enteredAt])
+}

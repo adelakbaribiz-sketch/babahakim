@@ -253,3 +253,14 @@ export const deletionRequestPatchSchema = z.object({
   action: z.enum(['ANONYMIZE', 'REJECT']),
   note: safeText(500).optional().default(''),
 })
+
+// ── workflow governance (PHASE 12) ──────────────────────────────────────────
+export const workflowRecoverSchema = z.object({
+  entityType: z.enum([
+    'CASE', 'PRESCRIPTION', 'ORDER', 'PAYMENT', 'SHIPMENT', 'TICKET', 'FOLLOWUP',
+    'AI_REVIEW', 'DELETION_REQUEST', 'MEDICAL_IMAGE', 'INVOICE',
+  ]),
+  entityId: cuid,
+  targetStatus: z.string().min(1, 'وضعیت هدف الزامی است').max(50),
+  reason: requiredText(500, 'دلیل بازیابی').min(3, 'دلیل بازیابی باید حداقل ۳ کاراکتر باشد'),
+})

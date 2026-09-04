@@ -11,6 +11,9 @@ import { SHIPMENT_MACHINE } from './machines/shipment'
 import { TICKET_MACHINE } from './machines/ticket'
 import { FOLLOWUP_MACHINE } from './machines/followup'
 import { AI_REVIEW_MACHINE } from './machines/aiReview'
+import { DELETION_REQUEST_MACHINE } from './machines/deletionRequest'
+import { MEDICAL_IMAGE_MACHINE } from './machines/medicalImage'
+import { INVOICE_MACHINE } from './machines/invoice'
 
 const REGISTRY: Record<EntityType, MachineDef> = {
   CASE: CASE_MACHINE,
@@ -21,6 +24,9 @@ const REGISTRY: Record<EntityType, MachineDef> = {
   TICKET: TICKET_MACHINE,
   FOLLOWUP: FOLLOWUP_MACHINE,
   AI_REVIEW: AI_REVIEW_MACHINE,
+  DELETION_REQUEST: DELETION_REQUEST_MACHINE,
+  MEDICAL_IMAGE: MEDICAL_IMAGE_MACHINE,
+  INVOICE: INVOICE_MACHINE,
 }
 
 /** Fetch a machine definition by entity type. */

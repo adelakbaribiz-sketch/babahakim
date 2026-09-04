@@ -28,6 +28,7 @@
 | [ADR-0013](./ADR-0013-alembic-ddl-source-of-truth.md) | Alembic مرجع یکتای DDL — Prisma فقط Introspection | Accepted | ED-47 | Supersede جزئی ADR-0004 (ابزار Migration) |
 | [ADR-0014](./ADR-0014-security-middleware-layer.md) | لایه اجرای امنیت: Middleware سراسری (Origin+CSRF) + Guardهای مسیر | Accepted | ED-59..62 | پوشش CSRF/Origin بدون بازنویسی ۳۰+ مسیر |
 | [ADR-0015](./ADR-0015-privacy-data-rights.md) | حقوق داده شخصی: Consent نسخه‌دار + Export + حذف از طریق Anonymization | Accepted | ED-67..70 | سازگاری حق فراموشی با تعهد مالی ED-49 |
+| [ADR-0016](./ADR-0016-workflow-governance-layer.md) | لایه حاکمیت گردش کار: سیاست‌های اعلانی SLA/Retry/Failure + WorkflowState + Runtime Drift/Recovery | Accepted | ED-121..129 | ۱۱ ماشین، انقضای خودکار درگاه، فرار اضطراری ADMIN |
 
 ## ساختار هر ADR
 

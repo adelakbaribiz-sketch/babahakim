@@ -9,6 +9,7 @@ import { describe, test, expect } from 'bun:test'
 import {
   CASE_MACHINE, PRESCRIPTION_MACHINE, ORDER_MACHINE, PAYMENT_MACHINE,
   SHIPMENT_MACHINE, TICKET_MACHINE, FOLLOWUP_MACHINE, AI_REVIEW_MACHINE,
+  DELETION_REQUEST_MACHINE, MEDICAL_IMAGE_MACHINE, INVOICE_MACHINE,
   resolveTransition, assertGuards, hasPermission, ownsEntity,
   reachableFrom, terminalStatuses, executeTransition, getMachine, allMachines,
   WorkflowError,
@@ -19,6 +20,7 @@ import { PERMISSIONS } from '@/lib/constants'
 const MACHINES: MachineDef[] = [
   CASE_MACHINE, PRESCRIPTION_MACHINE, ORDER_MACHINE, PAYMENT_MACHINE,
   SHIPMENT_MACHINE, TICKET_MACHINE, FOLLOWUP_MACHINE, AI_REVIEW_MACHINE,
+  DELETION_REQUEST_MACHINE, MEDICAL_IMAGE_MACHINE, INVOICE_MACHINE,
 ]
 
 const row = (status: string, extra: Record<string, unknown> = {}): EntityRow =>
@@ -29,9 +31,12 @@ const actor = (id: string, role: string): WorkflowActor => ({ id, role: role as 
 /* ── graph integrity (all machines) ─────────────────────────────────── */
 
 describe('machine graph integrity', () => {
-  test('all 8 machines are registered', () => {
-    expect(allMachines().length).toBe(8)
-    for (const key of ['CASE', 'PRESCRIPTION', 'ORDER', 'PAYMENT', 'SHIPMENT', 'TICKET', 'FOLLOWUP', 'AI_REVIEW']) {
+  test('all 11 machines are registered (PHASE 12: +DELETION_REQUEST/MEDICAL_IMAGE/INVOICE)', () => {
+    expect(allMachines().length).toBe(11)
+    for (const key of [
+      'CASE', 'PRESCRIPTION', 'ORDER', 'PAYMENT', 'SHIPMENT', 'TICKET', 'FOLLOWUP', 'AI_REVIEW',
+      'DELETION_REQUEST', 'MEDICAL_IMAGE', 'INVOICE',
+    ]) {
       expect(() => getMachine(key)).not.toThrow()
     }
     expect(() => getMachine('NOPE')).toThrow(WorkflowError)
@@ -401,5 +406,60 @@ describe('machine transition spot checks', () => {
     expect(resolveTransition(SHIPMENT_MACHINE, 'SHIPPED', 'IN_TRANSIT', 'OPERATOR')?.to).toBe('IN_TRANSIT')
     expect(resolveTransition(SHIPMENT_MACHINE, 'IN_TRANSIT', 'DELIVER', 'OPERATOR')?.to).toBe('DELIVERED')
     expect(resolveTransition(SHIPMENT_MACHINE, 'DELIVERED', 'SHIP', 'OPERATOR')).toBeNull() // terminal
+  })
+
+  test('PHASE 12: SYSTEM can fire machine-enabled cascades (MARK_PAID paths)', () => {
+    // payment paid-cascade moves the order, case and invoice as SYSTEM
+    expect(resolveTransition(ORDER_MACHINE, 'CONFIRMED', 'MARK_PAID', 'SYSTEM')?.to).toBe('PAID')
+    expect(resolveTransition(CASE_MACHINE, 'WAITING_FOR_PAYMENT', 'MARK_PAID', 'SYSTEM')?.to).toBe('PAYMENT_CONFIRMED')
+    expect(resolveTransition(INVOICE_MACHINE, 'SENT', 'MARK_PAID', 'SYSTEM')?.to).toBe('PAID')
+    expect(resolveTransition(INVOICE_MACHINE, 'CONFIRMED', 'MARK_PAID', 'SYSTEM')?.to).toBe('PAID')
+    // payment-start path (ED-126): ENTER_PAYMENT closes the graph hole
+    expect(resolveTransition(ORDER_MACHINE, 'CONFIRMED', 'ENTER_PAYMENT', 'PATIENT')?.to).toBe('PAYMENT_PENDING')
+    expect(resolveTransition(ORDER_MACHINE, 'PENDING_CONFIRMATION', 'ENTER_PAYMENT', 'SYSTEM')?.to).toBe('PAYMENT_PENDING')
+    // operator cannot enter payment on someone's behalf
+    expect(resolveTransition(ORDER_MACHINE, 'CONFIRMED', 'ENTER_PAYMENT', 'OPERATOR')).toBeNull()
+    // delivered orders may not re-enter payment
+    expect(resolveTransition(ORDER_MACHINE, 'DELIVERED', 'ENTER_PAYMENT', 'PATIENT')).toBeNull()
+  })
+
+  test('PHASE 12: DELETION_REQUEST lifecycle (privacy workflow)', () => {
+    expect(DELETION_REQUEST_MACHINE.initial).toBe('PENDING')
+    expect(resolveTransition(DELETION_REQUEST_MACHINE, 'PENDING', 'START', 'ADMIN')?.to).toBe('PROCESSING')
+    expect(resolveTransition(DELETION_REQUEST_MACHINE, 'PENDING', 'COMPLETE', 'ADMIN')?.to).toBe('COMPLETED')
+    expect(resolveTransition(DELETION_REQUEST_MACHINE, 'PROCESSING', 'COMPLETE', 'ADMIN')?.to).toBe('COMPLETED')
+    expect(resolveTransition(DELETION_REQUEST_MACHINE, 'PENDING', 'REJECT', 'ADMIN')?.to).toBe('REJECTED')
+    // only admins govern privacy requests
+    expect(resolveTransition(DELETION_REQUEST_MACHINE, 'PENDING', 'COMPLETE', 'OPERATOR')).toBeNull()
+    expect(resolveTransition(DELETION_REQUEST_MACHINE, 'PENDING', 'REJECT', 'PATIENT')).toBeNull()
+    // COMPLETED/REJECTED are terminal
+    expect(terminalStatuses(DELETION_REQUEST_MACHINE).sort()).toEqual(['COMPLETED', 'REJECTED'])
+  })
+
+  test('PHASE 12: MEDICAL_IMAGE lifecycle (AI input gate)', () => {
+    expect(MEDICAL_IMAGE_MACHINE.initial).toBe('PENDING')
+    expect(resolveTransition(MEDICAL_IMAGE_MACHINE, 'PENDING', 'VALIDATE', 'SYSTEM')?.to).toBe('VALIDATED')
+    expect(resolveTransition(MEDICAL_IMAGE_MACHINE, 'PENDING', 'REJECT', 'SYSTEM')?.to).toBe('REJECTED')
+    expect(resolveTransition(MEDICAL_IMAGE_MACHINE, 'VALIDATED', 'MARK_PROCESSED', 'SYSTEM')?.to).toBe('PROCESSED')
+    // erasure path: images in ANY live state can be rejected by the anonymizer
+    expect(resolveTransition(MEDICAL_IMAGE_MACHINE, 'PROCESSED', 'REJECT', 'SYSTEM')?.to).toBe('REJECTED')
+    expect(resolveTransition(MEDICAL_IMAGE_MACHINE, 'VALIDATED', 'REJECT', 'SYSTEM')?.to).toBe('REJECTED')
+    // recovery: admin re-queues a rejected image
+    expect(resolveTransition(MEDICAL_IMAGE_MACHINE, 'REJECTED', 'REVALIDATE', 'ADMIN')?.to).toBe('PENDING')
+    expect(resolveTransition(MEDICAL_IMAGE_MACHINE, 'REJECTED', 'REVALIDATE', 'OPERATOR')).toBeNull()
+    // patient cannot validate their own image (worker-only)
+    expect(resolveTransition(MEDICAL_IMAGE_MACHINE, 'PENDING', 'VALIDATE', 'PATIENT')).toBeNull()
+  })
+
+  test('PHASE 12: INVOICE lifecycle (financial documents)', () => {
+    expect(INVOICE_MACHINE.initial).toBe('DRAFT')
+    expect(resolveTransition(INVOICE_MACHINE, 'DRAFT', 'ISSUE', 'EXPERT_2')?.to).toBe('SENT')
+    expect(resolveTransition(INVOICE_MACHINE, 'SENT', 'CONFIRM', 'OPERATOR')?.to).toBe('CONFIRMED')
+    expect(resolveTransition(INVOICE_MACHINE, 'SENT', 'MARK_PAID', 'SYSTEM')?.to).toBe('PAID')
+    expect(resolveTransition(INVOICE_MACHINE, 'CONFIRMED', 'CANCEL', 'OPERATOR')?.to).toBe('CANCELLED')
+    // patients never act on invoices directly (order/case machines own their steps)
+    expect(resolveTransition(INVOICE_MACHINE, 'SENT', 'CONFIRM', 'PATIENT')).toBeNull()
+    // PAID invoices are terminal (refunds run on ORDER/PAYMENT machines)
+    expect(terminalStatuses(INVOICE_MACHINE).sort()).toEqual(['CANCELLED', 'PAID'])
   })
 })

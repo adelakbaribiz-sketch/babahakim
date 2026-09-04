@@ -9,6 +9,8 @@ type EventCode =
   | 'PAYMENT_REJECTED' | 'ORDER_PREPARING' | 'ORDER_SHIPPED' | 'ORDER_DELIVERED' | 'FOLLOWUP_DUE'
   | 'REFERRED_AGAIN' | 'CASE_CLOSED' | 'TICKET_UPDATED' | 'RECEIPT_UPLOADED' | 'PRICE_CHANGED' | 'NEW_ORDER'
   | 'FILE_QUARANTINED' // PHASE 10: media engine quarantine notice (ED-116)
+  // PHASE 12: workflow governance notices (SLA ladders + recovery)
+  | 'WORKFLOW_REMINDER' | 'WORKFLOW_ESCALATED' | 'WORKFLOW_RECOVERED' | 'DELETION_REJECTED'
 
 const TEMPLATES: Record<EventCode, { titleFa: string; titleEn: string; bodyFa: string; bodyEn: string; smsFa: string }> = {
   REGISTERED: { titleFa: 'خوش آمدید', titleEn: 'Welcome', bodyFa: 'حساب شما با موفقیت ایجاد شد. کد معرف شما آماده است.', bodyEn: 'Your account was created successfully.', smsFa: 'TongueAI: ثبت‌نام شما با موفقیت انجام شد.' },
@@ -42,6 +44,10 @@ const TEMPLATES: Record<EventCode, { titleFa: string; titleEn: string; bodyFa: s
   PRICE_CHANGED: { titleFa: 'تغییر قیمت', titleEn: 'Price Changed', bodyFa: 'قیمت‌ها به‌روزرسانی شد.', bodyEn: 'Prices were updated.', smsFa: 'TongueAI: قیمت‌ها به‌روزرسانی شد.' },
   NEW_ORDER: { titleFa: 'سفارش جدید', titleEn: 'New Order', bodyFa: 'سفارش جدیدی ثبت شد.', bodyEn: 'A new order was placed.', smsFa: 'TongueAI: سفایر جدید ثبت شد.' },
   FILE_QUARANTINED: { titleFa: 'فایل قرنطینه شد', titleEn: 'File Quarantined', bodyFa: 'فایل ارسالی شما به دلیل مشکوک بودن به بدافزار رد و قرنطینه شد. لطفاً فایل سالم و اصلی را مجدداً ارسال کنید.', bodyEn: 'Your upload was rejected and quarantined as suspicious. Please upload the clean original file again.', smsFa: 'TongueAI: فایل شما قرنطینه شد.' },
+  WORKFLOW_REMINDER: { titleFa: 'یادآوری گردش کار', titleEn: 'Workflow Reminder', bodyFa: 'یک مورد در گردش کار بیش از حد مجاز در وضعیت فعلی مانده است و منتظر اقدام شماست.', bodyEn: 'A workflow item has been waiting for action longer than its SLA allows.', smsFa: 'TongueAI: موردی در گردش کار منتظر اقدام شماست.' },
+  WORKFLOW_ESCALATED: { titleFa: 'تشدید گردش کار', titleEn: 'Workflow Escalated', bodyFa: 'یک مورد گردش کار از مهلت مقرر گذشته و به مدیریت تشدید شد.', bodyEn: 'A workflow item breached its SLA and was escalated.', smsFa: 'TongueAI: موردی از مهلت گردش کار گذشته است.' },
+  WORKFLOW_RECOVERED: { titleFa: 'بازگردانی گردش کار', titleEn: 'Workflow Recovered', bodyFa: 'وضعیت مورد شما توسط مدیر سیستم به‌صورت اضطراری اصلاح شد.', bodyEn: 'Your item was corrected by an emergency admin recovery.', smsFa: 'TongueAI: وضعیت مورد شما اصلاح شد.' },
+  DELETION_REJECTED: { titleFa: 'درخواست حذف رد شد', titleEn: 'Deletion Request Rejected', bodyFa: 'درخواست حذف داده‌های شما بررسی و متأسفانه رد شد.', bodyEn: 'Your data-deletion request was reviewed and rejected.', smsFa: 'TongueAI: درخواست حذف داده شما رد شد.' },
 }
 
 export async function notify(
@@ -69,7 +75,7 @@ export async function notify(
 }
 
 // notify every user holding a role (e.g. all EXPERT_1 users)
-export async function notifyRole(role: string, event: EventCode, opts?: { link?: string }) {
+export async function notifyRole(role: string, event: EventCode, opts?: { link?: string; extraFa?: string }) {
   const users = await db.user.findMany({ where: { role, isActive: true, deletedAt: null }, select: { id: true } })
   for (const u of users) await notify(u.id, event, opts)
 }

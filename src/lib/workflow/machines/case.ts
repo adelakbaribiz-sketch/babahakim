@@ -181,7 +181,8 @@ export const CASE_MACHINE: MachineDef = {
     }),
     t({
       action: 'MARK_PAID', from: ['WAITING_FOR_PAYMENT'], to: 'PAYMENT_CONFIRMED',
-      roles: ['OPERATOR', 'EXPERT_2'], permission: 'verify_payment', descFa: 'پرداخت تأیید شد',
+      roles: ['OPERATOR', 'EXPERT_2', 'SYSTEM'], permission: 'verify_payment', system: true,
+      descFa: 'پرداخت تأیید شد',
       postCommit: notifyPatientAndRoles,
     }),
     t({

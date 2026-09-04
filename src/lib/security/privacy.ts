@@ -112,11 +112,21 @@ export async function createDeletionRequest(userId: string, reason: string | nul
  * - PII replaced (phone/name/national id) with irreversible placeholders
  * - sessions revoked, account deactivated
  * - clinical/financial AGGREGATES retained (ED-49 accounting duty, ED-69)
+ *
+ * PHASE 12 (ED-125): the transactional core runs INSIDE the DELETION_REQUEST
+ * machine's COMPLETE transition (all-or-nothing with the status write).
+ * The deletion-request row itself is NO LONGER written here — the machine
+ * owns that state.
  */
-export async function anonymizeUser(userId: string, adminId: string): Promise<{ anonymized: string[] }> {
+export async function anonymizeUserTx(tx: unknown, userId: string, adminId: string): Promise<{ anonymized: string[] }> {
   const stamp = Date.now().toString(36)
   const placeholderPhone = `deleted-${stamp}`
-  await db.user.update({
+  const txx = tx as {
+    user: { update: (a: unknown) => Promise<unknown> }
+    refreshToken: { updateMany: (a: unknown) => Promise<unknown> }
+    medicalImage: { findMany: (a: unknown) => Promise<{ id: string }[]> }
+  }
+  await txx.user.update({
     where: { id: userId },
     data: {
       phone: placeholderPhone, // unique-freed: real phone released
@@ -129,12 +139,45 @@ export async function anonymizeUser(userId: string, adminId: string): Promise<{ 
       profileComplete: false,
     },
   })
-  await db.refreshToken.updateMany({ where: { userId, revoked: false }, data: { revoked: true, revokedReason: 'DELETION', revokedAt: new Date() } })
-  // images: keep records (clinical history duty) but mark storage keys for GC by retention policy
-  await db.medicalImage.updateMany({ where: { ownerId: userId }, data: { status: 'REJECTED', rejectionReason: 'RIGHT_TO_ERASURE' } })
-  await db.deletionRequest.update({
-    where: { userId },
-    data: { status: 'COMPLETED', processedAt: new Date(), processedById: adminId, anonymizedAt: new Date(), note: `anonymized:${stamp}` },
-  })
+  await txx.refreshToken.updateMany({ where: { userId, revoked: false }, data: { revoked: true, revokedReason: 'DELETION', revokedAt: new Date() } })
+  // images: keep records (clinical history duty) but machine-guard the status
+  // change to REJECTED (MEDICAL_IMAGE machine, reason RIGHT_TO_ERASURE)
+  const { cascadeSubTransition } = await import('@/lib/workflow/subtransition')
+  const { MEDICAL_IMAGE_MACHINE } = await import('@/lib/workflow/machines/medicalImage')
+  const images = await txx.medicalImage.findMany({ where: { ownerId: userId }, select: { id: true } })
+  for (const img of images) {
+    await cascadeSubTransition({
+      tx, machine: MEDICAL_IMAGE_MACHINE, entityId: img.id, action: 'REJECT',
+      payload: { reason: 'RIGHT_TO_ERASURE' },
+    })
+  }
   return { anonymized: ['phone', 'email', 'name', 'nationalId', 'birthDate', 'sessions', 'images'] }
+}
+
+/**
+ * Backward-compatible entry point (security tests, legacy callers): runs the
+ * FULL machine transition when a deletion request exists (COMPLETED + audit +
+ * WorkflowState + anonymization in one atomic transaction), otherwise falls
+ * back to the bare anonymization core.
+ */
+export async function anonymizeUser(userId: string, adminId: string): Promise<{ anonymized: string[] }> {
+  const rec = await db.deletionRequest.findUnique({ where: { userId } })
+  if (rec) {
+    const { executeTransition } = await import('@/lib/workflow/engine')
+    // Legacy entry point (tests / scripts): the passed adminId may not exist
+    // as a User row, so the transition runs as the SYSTEM identity holding
+    // the ADMIN role (engine maps actor.id === 'SYSTEM' → null audit userId,
+    // FK-safe). Real admin flows (patchDeletionRequest) attribute the actual
+    // authenticated user; the initiator lands in the note.
+    const res = await executeTransition({
+      machine: 'DELETION_REQUEST', entityId: rec.id, action: 'COMPLETE',
+      actor: { id: 'SYSTEM', role: 'ADMIN' },
+      payload: { confirm: true, note: `anonymized:${Date.now().toString(36)}${adminId ? ` by:${adminId}` : ''}` },
+    })
+    if (!res.ok) {
+      throw new Error(`anonymize failed: ${res.code} — ${res.error}`)
+    }
+    return { anonymized: ['phone', 'email', 'name', 'nationalId', 'birthDate', 'sessions', 'images'] }
+  }
+  return db.$transaction((tx) => anonymizeUserTx(tx, userId, adminId))
 }

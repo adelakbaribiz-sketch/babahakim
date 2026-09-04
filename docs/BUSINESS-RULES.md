@@ -424,6 +424,37 @@
 
 ---
 
+## §6 — قوانین گردش کار فاز ۱۲ (BR-WF)
+
+| کد | قانون | الزام | منبع |
+|---|---|---|---|
+| BR-WF-01 | هیچ Business Workflow مهمی در UI کنترل نمی‌شود؛ UI فقط `action` درخواست می‌دهد و نقش/Permission/مالکیت/گراف فقط در Backend ارزیابی می‌شود | Backend Source of Truth | فرمان PHASE 12 |
+| BR-WF-02 | هر گذار وضعیت: نوشتن status + CaseEvent/Cascadeها + AuditLog + WorkflowState در **یک تراکنش** (اتمیک) | تمامی ۱۱ ماشین | PHASE 02 + 12 |
+| BR-WF-03 | هر وضعیت انتظارِ مهم Timeout اعلانی دارد (TIMEOUT_POLICIES)؛ مقادیر SLA فقط در policies.ts تنظیم می‌شوند، نه در کد پراکنده | Governance | ED-121 |
+| BR-WF-04 | تشدید یک‌بار (Latch escalatedAt)؛ یادآوری با cooldown (پیش‌فرض ۲۴h) و سقف (پیش‌فرض ۳)؛ گذار خودکار idempotent است (رقابت با کاربر = no-op) | Governance | ED-121 |
+| BR-WF-05 | Drift (نوشتن status بیرون از موتور) تخلف معماری است؛ runtime حاکمیت هر ۲ دقیقه آن را آشکار، آشتی و Audit (WORKFLOW_STATE_DRIFT) می‌کند | پاسدار SoT | ED-123 |
+| BR-WF-06 | کاسکادهای مالی/بالینی همیشه زیر‌گذار Machine-Guarded داخل همان تراکنش فراخواننده (applySubTransition) — نه updateMany مستقیم | پرداخت/فاکتور/تصویر | ED-33/P12 |
+| BR-WF-07 | فرار اضطراری فقط ADMIN (manage_workflow_recovery) + دلیل ≥۳ حرف + وضعیت هدف ∈ کاتالوگ ماشین + Audit WORKFLOW_ADMIN_RECOVER + اعلان مالک | Recovery | ED-121 |
+| BR-WF-08 | WorkflowState یک Projection است؛ ستون status رکورد موجودیت canonical باقی می‌ماند | داده | ED-122 |
+| BR-WF-09 | مهلت پاسخ حریم خصوصی: درخواست حذف PENDING بیش از ۴۸h یادآوری و بیش از ۷ روز تشدید می‌شود (ماشین DELETION_REQUEST) | انطباق | policies.ts |
+| BR-WF-10 | نشست درگاه پرداخت ۳۰ دقیقه عمر دارد؛ PAYMENT/PENDING پس از آن با GATEWAY_FAIL (SYSTEM) ناموفق می‌شود — idempotent با callback دیرهنگام | مالی | policies.ts |
+
+### تصمیمات مهندسی فاز ۱۲ (ادامه §5)
+
+| ED | تصمیم | زمینه | سند |
+|---|---|---|---|
+| ED-121 | لایه سیاست اعلانی خالص (Timeout/Retry/Failure) — Client-Safe | Governance | WORKFLOW §13 |
+| ED-122 | WorkflowState به‌عنوان Projection اتمیک هر گذار | داده | WORKFLOW §14 |
+| ED-123 | Runtime حاکمیت هرگز مستقیم نمی‌نویسد — فقط executeTransition با SYSTEM | Governance | WORKFLOW §14 |
+| ED-124 | DELETION_REQUEST ماشین‌دار + یکسان‌سازی COMPLETED | حریم خصوصی | ADR-0016 |
+| ED-125 | ناشناس‌سازی اتمیک داخل COMPLETE (anonymizeUserTx) | حریم خصوصی | WORKFLOW §15 |
+| ED-126 | رفع حفره گراف ORDER: ENTER_PAYMENT | مالی | WORKFLOW §15 |
+| ED-127 | بازسازی images/upload (مسیر commit‌نشده گمشده) | زیرساخت | WORKFLOW §19 |
+| ED-128 | TS_CAPS — نقشه ستون‌های زمانی برای بک‌فیل/Drift | Governance | WORKFLOW §14 |
+| ED-129 | کدهای اعلان WORKFLOW_* + notifyRole(extraFa) | اعلان‌ها | WORKFLOW §17 |
+
+---
+
 ## تغییرات آتی این سند
 
 - هر BR/ED جدید فقط با Append و شماره جدید؛ حذف ممنوع (هم‌راستا با P4).

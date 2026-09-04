@@ -4,10 +4,9 @@
 // events (ED-98).
 import { db } from '@/lib/db'
 import type { AuthContext } from '@/lib/auth'
-import { anonymizeUser } from '@/lib/security/privacy'
 import { normalizeFa, textMatches, parseJSON } from '@/lib/api'
 import { AppError, ConflictError, NotFoundError, ValidationError, PayloadTooLargeError, UnsupportedMediaTypeError } from '@/server/core/errors'
-import { writeAudit } from '@/server/infrastructure/audit'
+import { writeAudit, toAuditReq } from '@/server/infrastructure/audit'
 import { withTransaction } from '@/server/infrastructure/uow'
 import { publish, Events } from '@/server/infrastructure/events'
 import { notify } from '@/lib/notify'
@@ -462,14 +461,28 @@ export async function patchDeletionRequest(
   const rec = await db.deletionRequest.findUnique({ where: { id: input.requestId } })
   if (!rec || !['PENDING', 'PROCESSING'].includes(rec.status)) throw new ConflictError('درخواست قابل پردازش نیست')
 
-  if (input.action === 'REJECT') {
-    await db.deletionRequest.update({ where: { id: rec.id }, data: { status: 'REJECTED', processedAt: new Date(), processedById: auth.user.id, note: input.note } })
-    await writeAudit(ctx, { userId: auth.user.id, action: 'DELETION_REJECTED', entity: 'DeletionRequest', entityId: rec.id, newValues: { note: input.note } })
-    return { status: 'REJECTED' }
-  }
+  // PHASE 12: state changes flow through the DELETION_REQUEST machine —
+  // guarded, audited, WorkflowState-synced, privacy-deadline tracked.
+  // Anonymization itself runs atomically inside COMPLETE (txEffects).
+  const { executeTransition } = await import('@/lib/workflow/engine')
+  const action = input.action === 'REJECT' ? 'REJECT' : 'COMPLETE'
+  const res = await executeTransition({
+    machine: 'DELETION_REQUEST', entityId: rec.id, action,
+    actor: { id: auth.user.id, role: auth.user.role as never },
+    payload: { note: input.note, confirm: input.action !== 'REJECT' },
+    req: toAuditReq(ctx),
+  })
+  if (!res.ok) throw new AppError(mapEngineCode(res.code), res.error, res.httpStatus, res.details)
+  return { status: res.ok ? res.entity.status : '' }
+}
 
-  await anonymizeUser(rec.userId, auth.user.id)
-  await db.deletionRequest.update({ where: { id: rec.id }, data: { status: 'PROCESSED', processedAt: new Date(), processedById: auth.user.id, note: input.note } })
-  await writeAudit(ctx, { userId: auth.user.id, action: 'DELETION_ANONYMIZED', entity: 'DeletionRequest', entityId: rec.id, newValues: { note: input.note } })
-  return { status: 'PROCESSED' }
+/** Map workflow engine error codes onto API error codes (same table as paymentService). */
+function mapEngineCode(code?: string): 'NOT_FOUND' | 'FORBIDDEN' | 'CONFLICT' | 'BUSINESS_RULE' | 'INTERNAL' {
+  switch (code) {
+    case 'NOT_FOUND': return 'NOT_FOUND'
+    case 'FORBIDDEN_ROLE': case 'FORBIDDEN_PERMISSION': case 'NOT_OWNER': return 'FORBIDDEN'
+    case 'INVALID_TRANSITION': case 'ALREADY_OWNED': case 'PRECONDITION': return 'CONFLICT'
+    case 'VALIDATION': return 'BUSINESS_RULE'
+    default: return 'INTERNAL'
+  }
 }

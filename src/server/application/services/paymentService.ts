@@ -4,6 +4,9 @@
 import { db } from '@/lib/db'
 import type { AuthContext } from '@/lib/auth'
 import { executeTransition } from '@/lib/workflow'
+import { applySubTransition, cascadeSubTransition } from '@/lib/workflow/subtransition'
+import { ORDER_MACHINE } from '@/lib/workflow/machines/order'
+import { INVOICE_MACHINE } from '@/lib/workflow/machines/invoice'
 import { createHash } from 'crypto'
 import { genCode } from '@/server/core/ids'
 import { AppError, BusinessRuleError, ForbiddenError, NotFoundError, ValidationError, ErrorCode } from '@/server/core/errors'
@@ -28,8 +31,18 @@ export async function startPayment(
   assertNoActivePayment(order.payments.some((p) => !['FAILED', 'REJECTED', 'REFUNDED'].includes(p.status)))
 
   const payment = await withTransaction(async (tx) => {
-    await tx.order.update({ where: { id: input.orderId }, data: { status: 'PAYMENT_PENDING' } })
-    await tx.invoice.updateMany({ where: { orderId: input.orderId }, data: { status: 'CONFIRMED', confirmedAt: new Date() } })
+    // PHASE 12 (ED-126): order + invoice state changes are machine-guarded
+    // sub-transitions (audited, WorkflowState-synced) instead of raw updates
+    const orderRes = await applySubTransition({
+      tx, machine: ORDER_MACHINE, entityId: input.orderId, action: 'ENTER_PAYMENT',
+    })
+    if (!orderRes.ok) {
+      throw new BusinessRuleError('سفارش در وضعیت قابل پرداخت نیست')
+    }
+    const invoices = await tx.invoice.findMany({ where: { orderId: input.orderId }, select: { id: true } })
+    for (const inv of invoices) {
+      await cascadeSubTransition({ tx, machine: INVOICE_MACHINE, entityId: inv.id, action: 'CONFIRM' })
+    }
     return tx.payment.create({
       data: {
         code: genCode('PAY'), orderId: input.orderId, invoiceId: order.invoices?.[0]?.id || null,

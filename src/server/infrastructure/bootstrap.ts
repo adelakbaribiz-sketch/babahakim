@@ -11,7 +11,10 @@ import { logger } from '@/server/core/logger'
 // guard key is versioned: bumping it re-runs wiring after HMR when shared
 // singletons changed shape (e.g. cache backing store) — cheap and safe (idempotent)
 // v4: PHASE 11 adds AI/ML wiring (feedback loop, drift monitor, prompt seed)
-const BOOTSTRAP_KEY = '__bhBootstrapped_v4'
+// v5: PHASE 12 adds workflow governance runtime (SLA tick + drift reconcile)
+// v6: PHASE 12 hotfix — re-register job handlers so the recurring governance
+//      tick drops stale pre-TS_CAPS module references held through HMR
+const BOOTSTRAP_KEY = '__bhBootstrapped_v6'
 const g = globalThis as unknown as { [BOOTSTRAP_KEY]?: boolean }
 
 /** no-op marker — importing the module runs the wiring below exactly once per version. */
@@ -155,15 +158,52 @@ if (!g[BOOTSTRAP_KEY]) {
   enqueue('ai-prompt-seed', {}, { maxAttempts: 3, backoffMs: 5000 })
 
   // ── recurring job: follow-up buckets DUE/OVERDUE scan (ED-102) ───────────
+  // PHASE 12: transitions run through the FOLLOWUP machine per row (bounded
+  // batch) — guarded, audited, WorkflowState-synced. The raw updateMany wrote
+  // status with no audit trail and no graph check (engine-bypass, now closed).
   registerJob('followup-scan', async () => {
     const { db } = await import('@/lib/db')
+    const { executeTransition } = await import('@/lib/workflow/engine')
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const tomorrow = new Date(today.getTime() + 86_400_000)
-    await db.followUp.updateMany({ where: { status: 'PENDING', dueDate: { lt: today } }, data: { status: 'OVERDUE' } })
-    await db.followUp.updateMany({ where: { status: 'PENDING', dueDate: { gte: today, lt: tomorrow } }, data: { status: 'DUE' } })
+    const overdue = await db.followUp.findMany({
+      where: { status: 'PENDING', dueDate: { lt: today } },
+      select: { id: true }, take: 300,
+    })
+    for (const r of overdue) {
+      const res = await executeTransition({
+        machine: 'FOLLOWUP', entityId: r.id, action: 'MARK_OVERDUE',
+        actor: { id: 'SYSTEM', role: 'SYSTEM' }, payload: {},
+      })
+      if (!res.ok && res.code !== 'INVALID_TRANSITION') {
+        logger.warn('followup MARK_OVERDUE failed', { id: r.id, code: res.code })
+      }
+    }
+    const due = await db.followUp.findMany({
+      where: { status: 'PENDING', dueDate: { gte: today, lt: tomorrow } },
+      select: { id: true }, take: 300,
+    })
+    for (const r of due) {
+      const res = await executeTransition({
+        machine: 'FOLLOWUP', entityId: r.id, action: 'MARK_DUE',
+        actor: { id: 'SYSTEM', role: 'SYSTEM' }, payload: {},
+      })
+      if (!res.ok && res.code !== 'INVALID_TRANSITION') {
+        logger.warn('followup MARK_DUE failed', { id: r.id, code: res.code })
+      }
+    }
   })
   scheduleRecurring('followup-scan', 5 * 60_000)
+
+  // ── PHASE 12: workflow governance runtime (timeout/SLA + drift) ──────────
+  // Backfill, drift reconciliation and the SLA ladder (REMIND / ESCALATE /
+  // AUTO_TRANSITION) — see src/lib/workflow/governance.ts.
+  registerJob('workflow-governance', async () => {
+    const { runWorkflowGovernanceTick } = await import('@/lib/workflow/governance')
+    await runWorkflowGovernanceTick()
+  })
+  scheduleRecurring('workflow-governance', 2 * 60_000)
 
   // dead-letter hook → audit log (system-visible operational trail)
   setDeadLetterHook(async (job, error) => {
@@ -189,5 +229,5 @@ if (!g[BOOTSTRAP_KEY]) {
     } catch { /* audit best-effort */ }
   })
 
-  logger.info('backend bootstrap complete', { subscribers: 16, jobs: 7 })
+  logger.info('backend bootstrap complete', { subscribers: 16, jobs: 9 })
 }
