@@ -75,8 +75,8 @@ for i in range(47, 59):
         errors.append(f"DATABASE.md missing ED-{i}")
     if f"ED-{i}" not in br_md:
         errors.append(f"BUSINESS-RULES.md missing ED-{i}")
-if "ED-01..ED-70" not in rtm_md:
-    errors.append("RTM does not claim ED-01..70 range")
+if "ED-01..ED-80" not in rtm_md:
+    errors.append("RTM does not claim ED-01..80 range")
 
 # 4) ADR-0013
 if ADR13.exists():

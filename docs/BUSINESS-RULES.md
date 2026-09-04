@@ -355,6 +355,16 @@
 | ED-68 | خروجی داده؟ | Export JSON خودکار همه داده کاربر، ۱بار/24h، Audit حساس | Data Portability | ADR-0015 |
 | ED-69 | حذف داده؟ | DeletionRequest → ANONYMIZATION (PII→جاگذار + ابطال نشست + تصاویر REJECTED/RIGHT_TO_ERASURE)؛ تجمیع مالی/بالینی حفظ | سازگاری با ED-49 (حسابداری) | ADR-0015 |
 | ED-70 | De-identification؟ | pseudonymize (شبه‌نام قطعی per-dataset) + redactText (موبایل/ایمیل/کد) برای دیتاست/گزارش | §11/§63 مشخصات؛ ضد Leakage | ADR-0015 |
+| ED-71 | مرجع واحد ساخت UI؟ | Screen Inventory با SC-ID — ۷۳ صفحه با ۹ فیلد اجباری (هدف/کاربر/اطلاعات/Actions/دسترسی/Empty/Loading/Error/Success)؛ هر کامپوننت/Issue/Test فاز UI با SC-ID مرجع | فرمان PHASE 06 · §40 | UX.md §10 · SCREEN-MAP.md |
+| ED-72 | Layout پرونده کارشناسی؟ | سه‌ستونه طبق §80: خلاصه بیمار ۲۴٪ / تصویر+AI ۴۰٪ / تشخیص+نسخه+اقدام ۳۶٪ + Timeline پایین؛ RTL آینه‌ای؛ موبایل تب‌عمودی | §80 Master Prompt | UX.md §8.2 |
+| ED-73 | صفحات Diagnosis/Prescription/Proforma/Payment بیمار؟ | v1 سکشن‌های Case Workspace؛ v2 صفحه هدف با Deep-link (SC-PT-08..11) — تفکیک بدون شکستن UX فعلی | §23 | SCREEN-MAP §4 |
+| ED-74 | حداقل حالت هر صفحه؟ | ۴ حالت اجباری (Empty/Loading/Error/Success) + هشت الگوی استاندارد SP-1..SP-8؛ QA فاز UI با چک‌لیست ۴ حالت می‌پذیرد | §40 | UX.md §7 |
+| ED-75 | سرعت صف کارشناس؟ | جدول مجازی + Claim بی‌درنگ (Optimistic + رفع Race با پیام) + Badge «منتظر اقدام من»؛ polling 30s در v2، push در v3 | §18 · §80 | UX.md §2/§8.1 |
+| ED-76 | اینترفیس داوری AI؟ | Accept/Modify/Reject + کامنت اجباری → نگاشت مستقیم به ماشین AI_REVIEW (reviewStatus)؛ تصویر اصلی+پردازش‌شده و Confidence همیشه کنار هم | §81 | UX.md §6 F-05 · SC-E1-04 |
+| ED-77 | مدل دسترسی بیمار در UI؟ | PATIENT مالکیت‌محور (کاتالوگ Permission برای بیمار خالی)؛ UI بیمار از session، سرور مالکیت را Enforce می‌کند — UI منبع مجاز نیست | §5 · SECURITY.md | SCREEN-MAP §12 |
+| ED-78 | Settings مدیر؟ | صفحه هدف v2 (SC-AD-13) برای پیکربندی Runtime (SMS/درگاه/ارسال/SLA)؛ v1 این مقادیر Code-level اند — صفحه نیمه‌تمام ساخته نمی‌شود | §64 | SC-AD-13 |
+| ED-79 | مدل Routing؟ | v1: تک-SPA با view-state حفظ؛ v2: مسیرهای RESTful Area-first — مهاجرت صفحه‌به‌صفحه در فاز UI rebuild بدون تغییر رفتار/Shell | §40 | UX.md §5.2 |
+| ED-80 | الگوی اعلان‌ها؟ | زنگ سراسری + صفحه SH-05 برای همه نقش‌ها؛ Badge خوانده‌نشده؛ Mark-All-Read؛ هر اعلان Deep-link به صفحه هدف مربوط | §31 | SC-SH-05 |
 
 ---
 

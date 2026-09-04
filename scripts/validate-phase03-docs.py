@@ -120,7 +120,7 @@ for i in range(35, 47):
     if f"| ED-{i} |" not in br: err(f"BUSINESS-RULES.md missing ED-{i}")
     if f"ADR-{i-34:04d}" not in br: err(f"BUSINESS-RULES.md ED-{i} lacks ADR ref")
 ed_count = len(re.findall(r"^\| ED-\d+ \|", br, re.M))
-if ed_count != 70: err(f"ED total count {ed_count} != 70")
+if ed_count != 80: err(f"ED total count {ed_count} != 80")  # 70 + phase-06 ED-71..80
 
 # ---------- 6. mermaid ----------
 blocks = re.findall(r"```mermaid\n(.*?)```", diag, re.S)

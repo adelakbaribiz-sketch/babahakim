@@ -19,7 +19,11 @@
 
 > ۱۴۰۵/۰۶/۱۴ (2026-09-04) — PHASE 04 (بخش D1/D2 نقشه): معماری و پیاده‌سازی کامل پایگاه داده PostgreSQL — ۱۵ Schema = ۱۵ Bounded Context، ۴۹ جدول (۴۰ Entity §47 + ۹ پشتیبان)، ۳۴ FK درون-Context + Soft-Ref بین-Context (D4)، ۱۶۷ Check Constraint، ۱۹۰ ایندکس (Partial/BRIN/trgm)، ۴۴ تریگر امنیتی (Append-Only/Hard-Delete-Forbidden/updated_at)، ۴ Migration با Alembic + ERD ×۱۷. اسناد: `docs/DATABASE.md` + `docs/DATABASE-ERD.md` + ADR-0013. تست: ۸۵/۸۵ PASS (pytest — فقط از مسیر Migration).
 
-> ۱۴۰۵/۰۶/۱۴ (2026-09-04) — PHASE 05: Security & Privacy کامل — لایه اجرای امنیت (Middleware Origin/CSRF سراسری + هدرها ADR-0014)، سخت‌سازی AuthN (چرخش Refresh + کشف Replay ED-64، OTP/MFA ED-63، RL ED-60، Secret fail-fast ED-59)، بستن شکاف Permission تصویر (ED-66)، حقوق داده (Consent/Export/Deletion→Anonymization — ADR-0015). اسناد: `docs/SECURITY.md` + `docs/THREAT-MODEL.md` (STRIDE+DREAD). تست: ۳۵ Unit + ۴۵ Pentest = ۸۰/۸۰ PASS.## 1) ماتریس اصلی — Functional Requirements
+> ۱۴۰۵/۰۶/۱۴ (2026-09-04) — PHASE 05: Security & Privacy کامل — لایه اجرای امنیت (Middleware Origin/CSRF سراسری + هدرها ADR-0014)، سخت‌سازی AuthN (چرخش Refresh + کشف Replay ED-64، OTP/MFA ED-63، RL ED-60، Secret fail-fast ED-59)، بستن شکاف Permission تصویر (ED-66)، حقوق داده (Consent/Export/Deletion→Anonymization — ADR-0015). اسناد: `docs/SECURITY.md` + `docs/THREAT-MODEL.md` (STRIDE+DREAD). تست: ۳۵ Unit + ۴۵ Pentest = ۸۰/۸۰ PASS.
+
+> ۱۴۰۵/۰۶/۱۴ (2026-09-04) — PHASE 06 (طبق فرمان محصول، پیش از ساخت UI نهایی): **UX Architecture** — ۶ User Journey (هر نقش) · Sitemap با مدل Routing دو-نسخه‌ای · **Screen Inventory = ۷۳ صفحه با SC-ID و ۹ فیلد اجباری** (هدف/کاربر/اطلاعات/Actions/دسترسی/Empty/Loading/Error/Success — پوشش کامل ۲۷ صفحه فرمان + Operator + Doctor) · Flow Diagram ×۱۰ (ناوبری/Auth/مسیر طلایی ۱۷ مرحله‌ای/Quality Gate/E1+E2+Doctor/پرداخت/فروشگاه/تیکت/Reassessment) · State System با ۸ الگوی استاندارد SP. اسناد: `docs/UX.md` + `docs/SCREEN-MAP.md` + ED-71..ED-80. اعتبارسنجی: `scripts/validate-phase06-docs.py` (PASS).
+
+## 1) ماتریس اصلی — Functional Requirements
 
 ### دامنه AUTH / PROF / MIZAJ
 
@@ -336,7 +340,7 @@
 | 94 | Local VSCode Validation | فاز 05 چک‌لیست | ⏳ فاز 05 |
 | 95 | Production Checklist | فاز 05 + PRD C1 | ⏳ فاز 05 |
 | 96 | ممنوعیت «باید پیاده شود» | RTM وضعیت صادقانه (I/P/R) | ✅ |
-| 97 | تصمیم‌گیری ابهام | ED-01..ED-70 (فاز 01: 01..30 · فاز 02: 31..34 · فاز 03: 35..46 · فاز 04: 47..58 · فاز 05: 59..70) | ✅ |
+| 97 | تصمیم‌گیری ابهام | ED-01..ED-80 (فاز 01: 01..30 · فاز 02: 31..34 · فاز 03: 35..46 · فاز 04: 47..58 · فاز 05: 59..70 · فاز 06: 71..80) | ✅ |
 | 98 | ۱۸ Milestone | PRD §12 | ✅ |
 | 99 | AI Model Strategy | ED-01/25 · FR-AI-01 | ✅ |
 | 100 | عدم جعل پزشکی | BR-MED-07 · ED-15 | ✅ |
