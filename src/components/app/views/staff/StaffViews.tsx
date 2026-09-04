@@ -12,7 +12,7 @@ import { SectionCard, StatusBadge, StatCard, JalaliDate, LoadingRows, EmptyState
 import { CaseWorkspace } from '../CaseWorkspace'
 import { fmtMoney } from '@/lib/i18n'
 import { STATUS_META, ROLE_LABELS } from '@/lib/constants'
-import { LayoutDashboard, Users, FolderOpen, ListChecks, CreditCard, Truck, Bell, CheckCircle2, XCircle, Hourglass, ScanHeart, ClipboardCheck, Stethoscope, Package, BarChart3 } from 'lucide-react'
+import { LayoutDashboard, Users, FolderOpen, ListChecks, CreditCard, Truck, Bell, CheckCircle2, XCircle, Hourglass, ScanHeart, ClipboardCheck, Stethoscope, Package, BarChart3, User } from 'lucide-react'
 
 // ── Staff dashboard ─────────────────────────────────────────────────────
 export function StaffDashboard({ navigate }: { navigate: (p: string, params?: Record<string, string>) => void }) {
@@ -38,18 +38,18 @@ export function StaffDashboard({ navigate }: { navigate: (p: string, params?: Re
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard title={lang === 'fa' ? 'کل پرونده‌ها' : 'Total cases'} value={s.totalCases} icon={<FolderOpen size={18} />} />
-        {role === 'EXPERT_1' && <StatCard title={lang === 'fa' ? 'در صف شما' : 'In your queue'} value={s.pendingExpert1} icon={<ListChecks size={18} />} tone="bg-amber-500/10 text-amber-600" />}
-        {role === 'EXPERT_2' && <StatCard title={lang === 'fa' ? 'در انتظار بازبینی' : 'Awaiting review'} value={s.pendingExpert2} icon={<ListChecks size={18} />} tone="bg-[#57AFE2]/15 text-[#173F76] dark:text-[#57AFE2]" />}
-        {role === 'DOCTOR' && <StatCard title={lang === 'fa' ? 'در انتظار تأیید' : 'Awaiting approval'} value={s.pendingDoctor} icon={<Stethoscope size={18} />} tone="bg-[#173F76]/10 text-[#173F76] dark:bg-[#57AFE2]/15 dark:text-[#57AFE2]" />}
+        {role === 'EXPERT_1' && <StatCard title={lang === 'fa' ? 'در صف شما' : 'In your queue'} value={s.pendingExpert1} icon={<ListChecks size={18} />} tone="bg-status-warning/10 text-status-warning" />}
+        {role === 'EXPERT_2' && <StatCard title={lang === 'fa' ? 'در انتظار بازبینی' : 'Awaiting review'} value={s.pendingExpert2} icon={<ListChecks size={18} />} tone="bg-brand-light/15 text-brand-dark dark:text-brand-light" />}
+        {role === 'DOCTOR' && <StatCard title={lang === 'fa' ? 'در انتظار تأیید' : 'Awaiting approval'} value={s.pendingDoctor} icon={<Stethoscope size={18} />} tone="bg-brand-dark/10 text-brand-dark dark:bg-brand-light/15 dark:text-brand-light" />}
         {(role === 'OPERATOR' || role === 'ADMIN') && <>
-          <StatCard title={lang === 'fa' ? 'در انتظار پرداخت' : 'Awaiting payment'} value={s.awaitingPayment} icon={<CreditCard size={18} />} tone="bg-rose-500/10 text-rose-600" />
+          <StatCard title={lang === 'fa' ? 'در انتظار پرداخت' : 'Awaiting payment'} value={s.awaitingPayment} icon={<CreditCard size={18} />} tone="bg-destructive/10 text-destructive" />
           <StatCard title={lang === 'fa' ? 'پیش‌فاکتور' : 'Proformas'} value={s.proformas} icon={<Hourglass size={18} />} />
           <StatCard title={lang === 'fa' ? 'در ارسال' : 'Shipping'} value={s.shipped} icon={<Truck size={18} />} />
         </>}
         <StatCard title={lang === 'fa' ? 'بیماران' : 'Patients'} value={s.totalPatients} icon={<Users size={18} />} />
-        <StatCard title={lang === 'fa' ? 'تیکت‌های باز' : 'Open tickets'} value={s.openTickets} icon={<Bell size={18} />} tone="bg-amber-500/10 text-amber-600" />
+        <StatCard title={lang === 'fa' ? 'تیکت‌های باز' : 'Open tickets'} value={s.openTickets} icon={<Bell size={18} />} tone="bg-status-warning/10 text-status-warning" />
         <StatCard title={lang === 'fa' ? 'پیگیری فعال' : 'Follow-ups'} value={s.followups} icon={<ScanHeart size={18} />} />
-        {(role === 'ADMIN' || role === 'OPERATOR' || role === 'EXPERT_2') && <StatCard title={t('revenue')} value={fmtMoney(s.revenue || 0, lang)} icon={<BarChart3 size={18} />} tone="bg-[#57AFE2]/15 text-[#173F76] dark:text-[#57AFE2]" />}
+        {(role === 'ADMIN' || role === 'OPERATOR' || role === 'EXPERT_2') && <StatCard title={t('revenue')} value={fmtMoney(s.revenue || 0, lang)} icon={<BarChart3 size={18} />} tone="bg-brand-light/15 text-brand-dark dark:text-brand-light" />}
       </div>
 
       <div className="grid lg:grid-cols-3 gap-5">
@@ -63,7 +63,7 @@ export function StaffDashboard({ navigate }: { navigate: (p: string, params?: Re
                     <StatusBadge status={c.status} />
                     {c.priority !== 'NORMAL' && <Badge variant="destructive" className="text-[10px]">{c.priority}</Badge>}
                     <span className="text-xs text-muted-foreground">{c.patient.firstName} {c.patient.lastName}</span>
-                    <span className="ms-auto text-xs text-amber-600 flex items-center gap-1" dir={lang === 'fa' ? 'rtl' : 'ltr'}>
+                    <span className="ms-auto text-xs text-status-warning flex items-center gap-1" dir={lang === 'fa' ? 'rtl' : 'ltr'}>
                       <Hourglass size={12} /> {c.waitingHours} {t('hours')}
                     </span>
                   </div>
@@ -79,7 +79,7 @@ export function StaffDashboard({ navigate }: { navigate: (p: string, params?: Re
               <div key={e.id} className="text-xs space-y-1">
                 <div className="flex items-center gap-2">
                   {e.case && <span className="tabular-nums text-muted-foreground">{e.case.code}</span>}
-                  {e.toStatus && <Badge className={`${(STATUS_META as Record<string, { color: string }>)[e.toStatus]?.color || 'bg-slate-500'} text-white text-[9px]`}>
+                  {e.toStatus && <Badge className={`${(STATUS_META as Record<string, { color: string }>)[e.toStatus]?.color || 'bg-status-neutral text-status-neutral-fg'} text-[9px]`}>
                     {(STATUS_META as Record<string, { fa: string }>)[e.toStatus]?.fa || e.toStatus}
                   </Badge>}
                 </div>
@@ -127,7 +127,7 @@ export function QueuePage({ navigate }: { navigate: (p: string, params?: Record<
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><ListChecks size={22} />{t('queue')}</h1>
+        <h1 className="page-title"><ListChecks size={22} />{t('queue')}</h1>
         <div className="ms-auto flex gap-2 flex-wrap">
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} className="w-52" />
           {statusOptions && (
@@ -157,7 +157,7 @@ export function QueuePage({ navigate }: { navigate: (p: string, params?: Record<
                   {c.mizajSnapshot?.mizajFa && <Badge variant="outline" className="text-[10px]">{c.mizajSnapshot.mizajFa}</Badge>}
                 </button>
                 <div className="ms-auto flex items-center gap-2">
-                  <span className="text-xs text-amber-600 flex items-center gap-1 tabular-nums"><Hourglass size={12} />{c.waitingHours}{t('hours')}</span>
+                  <span className="text-xs text-status-warning flex items-center gap-1 tabular-nums"><Hourglass size={12} />{c.waitingHours}{t('hours')}</span>
                   {claimable && c.status === 'WAITING_FOR_EXPERT_1' && (
                     <Button size="sm" className="gap-1" onClick={() => claim(c.id)}><ClipboardCheck size={14} />{lang === 'fa' ? 'دریافت' : 'Claim'}</Button>
                   )}
@@ -195,7 +195,7 @@ export function PaymentsVerifyPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><CreditCard size={22} />{t('payments')}</h1>
+        <h1 className="page-title"><CreditCard size={22} />{t('payments')}</h1>
         <Select value={status || 'ALL'} onValueChange={(v) => setStatus(v === 'ALL' ? '' : v)}>
           <SelectTrigger className="w-64 ms-auto"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -222,7 +222,7 @@ export function PaymentsVerifyPage() {
                   <div className="flex gap-2 ms-2">
                     {p.receiptUrl && <Button size="sm" variant="outline" onClick={() => setSel(p)}>{t('receipt')}</Button>}
                     <Button size="sm" className="btn-brand-hover gap-1" onClick={() => verify(p.id, 'APPROVE')}><CheckCircle2 size={14} /></Button>
-                    <Button size="sm" variant="outline" className="text-rose-600 gap-1" onClick={() => verify(p.id, 'REJECT', 'رسید نامعتبر')}><XCircle size={14} /></Button>
+                    <Button size="sm" variant="outline" className="text-destructive gap-1" onClick={() => verify(p.id, 'REJECT', 'رسید نامعتبر')}><XCircle size={14} /></Button>
                   </div>
                 )}
               </CardContent>
@@ -243,7 +243,7 @@ export function PaymentsVerifyPage() {
             {!sel.receiptUrl && <div className="text-sm text-muted-foreground">رسید تصویری ارسال نشده — شماره پیگیری: {sel.trackingCode || '—'}</div>}
             <div className="flex gap-2 mt-3">
               <Button className="flex-1 btn-brand-hover gap-1" onClick={() => verify(sel.id, 'APPROVE')}><CheckCircle2 size={14} />{t('confirm')}</Button>
-              <Button variant="outline" className="flex-1 text-rose-600 gap-1" onClick={() => verify(sel.id, 'REJECT', 'رسید نامعتبر')}><XCircle size={14} />{t('reject')}</Button>
+              <Button variant="outline" className="flex-1 text-destructive gap-1" onClick={() => verify(sel.id, 'REJECT', 'رسید نامعتبر')}><XCircle size={14} />{t('reject')}</Button>
             </div>
           </div>
         </div>
@@ -273,7 +273,7 @@ export function ShipmentsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold flex items-center gap-2"><Truck size={22} />{lang === 'fa' ? 'ارسال و تحویل' : 'Shipping & delivery'}</h1>
+      <h1 className="page-title"><Truck size={22} />{lang === 'fa' ? 'ارسال و تحویل' : 'Shipping & delivery'}</h1>
       {shipments.length === 0 ? <EmptyState /> : (
         <div className="space-y-2">
           {shipments.map((s) => (
@@ -283,7 +283,7 @@ export function ShipmentsPage() {
                 <span>{methodFa[s.method] || s.method}</span>
                 <Badge variant={s.status === 'DELIVERED' ? 'secondary' : s.status === 'SHIPPED' ? 'default' : 'outline'}>{s.status}</Badge>
                 <span className="text-xs text-muted-foreground">{s.order.user.firstName} {s.order.user.lastName} · {s.order.user.phone}</span>
-                {s.driverName && <span className="text-xs text-muted-foreground">👤 {s.driverName}</span>}
+                {s.driverName && <span className="meta-inline"><User size={12} /> {s.driverName}</span>}
                 {s.trackingCode && <span className="text-xs text-muted-foreground" dir="ltr">#: {s.trackingCode}</span>}
                 <span className="tabular-nums text-xs text-muted-foreground"><Money amount={s.cost} /></span>
                 <div className="ms-auto flex gap-2">

@@ -365,6 +365,18 @@
 | ED-78 | Settings مدیر؟ | صفحه هدف v2 (SC-AD-13) برای پیکربندی Runtime (SMS/درگاه/ارسال/SLA)؛ v1 این مقادیر Code-level اند — صفحه نیمه‌تمام ساخته نمی‌شود | §64 | SC-AD-13 |
 | ED-79 | مدل Routing؟ | v1: تک-SPA با view-state حفظ؛ v2: مسیرهای RESTful Area-first — مهاجرت صفحه‌به‌صفحه در فاز UI rebuild بدون تغییر رفتار/Shell | §40 | UX.md §5.2 |
 | ED-80 | الگوی اعلان‌ها؟ | زنگ سراسری + صفحه SH-05 برای همه نقش‌ها؛ Badge خوانده‌نشده؛ Mark-All-Read؛ هر اعلان Deep-link به صفحه هدف مربوط | §31 | SC-SH-05 |
+| ED-81 | منبع توکن طراحی؟ | دو-منبعی: globals.css (runtime) + design-system/tokens.ts (JS/Charts)؛ همگام‌سازی با گیت E6 ممیزی `audit:ui` | §3 · §27 | DESIGN-SYSTEM §1 |
+| ED-82 | رنگ وضعیت‌ها؟ | ۸ توکن معنایی §9 (info/progress/success/warning/danger/neutral/navy/revision)؛ چیپ mode-invariant؛ درجه متنی mode-aware؛ STATUS_METAها فقط statusClass ارجاع می‌دهند | §9 | DESIGN-SYSTEM §3 |
+| ED-83 | کانفیگ Tailwind؟ | v4 CSS-first مرجع است؛ tailwind.config.ts زائد v3 (مسیرها hsl غلط) حذف شد | — | DESIGN-SYSTEM §1 |
+| ED-84 | RTL در کلاس‌ها؟ | ابزار فیزیکی (ml/mr/pl/pr/left/right/text-left/right) در سطح اپ ممنوع = خطای E5 ممیزی؛ فقط منطقی (ms/me/ps/pe/start/end) | §24 | DESIGN-SYSTEM §15 |
+| ED-85 | Style Guide کجا؟ | نمای درون-برنامه‌ای designSystem (قید تک-مسیر /) با لینک فوتر Landing+AppShell؛ مرجع زنده §37/§38 | §37 | DESIGN-SYSTEM §18 |
+| ED-86 | muted-foreground نارس AA؟ | تیره‌تر شد: #64799A (4.43:1) → #5B6F91 (5.09:1) — اصلاح واقعی دسترس‌پذیری §34 | §34 | DESIGN-SYSTEM §16 |
+| ED-87 | دکمه Accent؟ | #57AFE2/#173F76 = 4.31:1 → فقط لیبل درشت/بولد و اجزای UI (≥3:1)؛ متن بدنه از Primary | §8 · §34 | DESIGN-SYSTEM §16 |
+| ED-88 | رنگ نمودارها؟ | فقط --chart-1..5 از طریق chartVars/chartTheme؛ hex خام فقط Canvas؛ hsl(var()) ممنوع (E4 — باگ گرید AdminReports رفع شد) | §22 | DESIGN-SYSTEM §13 |
+| ED-89 | سیستم Toast؟ | sonner = مرجع (AppToaster جهت‌آگاه داخل AppProvider)؛ radix use-toast فریز legacy | §26 | DESIGN-SYSTEM §15 |
+| ED-90 | تضمین یکپارچگی UI؟ | scripts/ui-audit.mjs (E1..E7 + W1/W2) با exit code؛ npm audit:ui — خط پایه ۱۳۳ تخلف → ۰ | §27 · §39 | DESIGN-SYSTEM §17 |
+| ED-91 | States چهارگانه؟ | کامپوننت‌های استاندارد atoms.tsx: EmptyState/LoadingRows/LoadingCard/LoadingSpinner/ErrorState/SuccessState/PageState + ConfirmDialog (SP-1..8) | §31 · §32 | DESIGN-SYSTEM §10 |
+| ED-92 | کلاس‌های تکراری؟ | idiomهای مشترک تک‌منبع در @layer components: page-title/meta-inline/footer-link/tile-row (رفع W1) | §27 | DESIGN-SYSTEM §8 |
 
 ---
 

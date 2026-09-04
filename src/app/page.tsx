@@ -4,6 +4,8 @@
 import React from 'react'
 import { AppProvider, useApp } from '@/contexts/app'
 import { AppShell } from '@/components/app/AppShell'
+import { AppToaster } from '@/components/app/AppToaster'
+import { DesignSystemView } from '@/components/app/views/DesignSystemView'
 import { Landing } from '@/components/app/views/Landing'
 import { AuthView } from '@/components/app/views/AuthView'
 import { PatientDashboard, ProfilePage, QuestionnairePage, NewCasePage, CasesList, CaseDetailForPatient } from '@/components/app/views/patient/PatientViews'
@@ -16,9 +18,10 @@ import { AdminPricesPage, AdminReportsPage, AdminAuditPage, AdminQuestionnairePa
 function Router() {
   const { user, view, navigate } = useApp()
 
-  // public
+  // public (incl. design-system style guide — ED-85)
   if (!user) {
     if (view.page === 'login' || view.page === 'register') return <AuthView />
+    if (view.page === 'designSystem') return <DesignSystemView navigate={navigate} />
     return <Landing />
   }
 
@@ -26,7 +29,8 @@ function Router() {
   const role = user.role
 
   let content: React.ReactNode
-  if (page === 'dashboard') content = <PatientDashboard navigate={navigate} />
+  if (page === 'designSystem') content = <DesignSystemView navigate={navigate} />
+  else if (page === 'dashboard') content = <PatientDashboard navigate={navigate} />
   else if (page === 'profile') content = <ProfilePage />
   else if (page === 'questionnaire') content = <QuestionnairePage />
   else if (page === 'newCase') content = <NewCasePage />
@@ -66,6 +70,8 @@ export default function Home() {
   return (
     <AppProvider>
       <RouterWithStaffDefault />
+      {/* PHASE 07: direction-aware toaster inside provider tree */}
+      <AppToaster />
     </AppProvider>
   )
 }
@@ -74,6 +80,7 @@ function RouterWithStaffDefault() {
   const { user, view, navigate } = useApp()
   if (!user) {
     if (view.page === 'login' || view.page === 'register') return <AuthView />
+    if (view.page === 'designSystem') return <DesignSystemView navigate={navigate} />
     return <Landing />
   }
   if (view.page === 'dashboard' && user.role !== 'PATIENT') {

@@ -19,7 +19,7 @@ import { toast } from 'sonner'
 import { SectionCard, StatusBadge, JalaliDate, Money, LoadingRows, EmptyState } from '../shared/atoms'
 import { AIAnalysisCard, ImageGallery, PrescriptionCard, PaymentPanel, Timeline } from '../shared/clinical'
 import { STATUS_META } from '@/lib/constants'
-import { ArrowLeft, CheckCircle2, XCircle, ClipboardCheck, Pill, FileText, Truck, PackageCheck, CalendarClock, Stethoscope, User } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, XCircle, ClipboardCheck, Pill, FileText, Truck, PackageCheck, CalendarClock, Stethoscope, User, Send, Package } from 'lucide-react'
 
 interface CaseData {
   id: string; code: string; status: string; priority: string; description?: string
@@ -97,11 +97,11 @@ export function CaseWorkspace({ caseId, onChanged }: { caseId: string; onChanged
               <p className="text-sm leading-relaxed whitespace-pre-wrap">{data.description || '—'}</p>
               <Separator />
               <div className="flex flex-wrap gap-2 text-xs">
-                {data.mizajSnapshot && <Badge className="bg-[#173F76] text-white">{t('mizaj')}: {lang === 'fa' ? data.mizajSnapshot.mizajFa : data.mizajSnapshot.mizajEn}</Badge>}
+                {data.mizajSnapshot && <Badge className="bg-brand-dark text-white">{t('mizaj')}: {lang === 'fa' ? data.mizajSnapshot.mizajFa : data.mizajSnapshot.mizajEn}</Badge>}
                 {data.patientProfile?.heightCm && <Badge variant="outline">{data.patientProfile.heightCm} cm</Badge>}
                 {data.patientProfile?.weightKg && <Badge variant="outline">{data.patientProfile.weightKg} kg</Badge>}
                 {data.patientProfile?.province && <Badge variant="outline">{data.patientProfile.province}{data.patientProfile.city ? ` / ${data.patientProfile.city}` : ''}</Badge>}
-                {data.patientProfile?.allergies && <Badge variant="outline" className="text-rose-600">حساسیت: {data.patientProfile.allergies}</Badge>}
+                {data.patientProfile?.allergies && <Badge variant="outline" className="text-destructive">حساسیت: {data.patientProfile.allergies}</Badge>}
               </div>
             </div>
           </SectionCard>
@@ -140,13 +140,13 @@ export function CaseWorkspace({ caseId, onChanged }: { caseId: string; onChanged
 
           {/* Patient approval */}
           {role === 'PATIENT' && data.status === 'WAITING_FOR_USER_APPROVAL' && (
-            <Card className="border-amber-400/50">
+            <Card className="border-status-warning/40">
               <CardHeader className="pb-2"><CardTitle className="text-base">{t('assessment')} — {t('confirm')}</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 <div className="text-sm leading-relaxed whitespace-pre-wrap">{data.expert1Summary}</div>
                 <div className="grid grid-cols-2 gap-2">
                   <Button className="btn-brand-hover gap-1.5" onClick={() => action('USER_APPROVE')}><CheckCircle2 size={16} />{t('continueTreatment')}</Button>
-                  <Button variant="outline" className="text-rose-600 gap-1.5" onClick={() => action('USER_DECLINE', { reason: 'عدم تمایل به ادامه' })}><XCircle size={16} />{t('declineTreatment')}</Button>
+                  <Button variant="outline" className="text-destructive gap-1.5" onClick={() => action('USER_DECLINE', { reason: 'عدم تمایل به ادامه' })}><XCircle size={16} />{t('declineTreatment')}</Button>
                 </div>
               </CardContent>
             </Card>
@@ -200,7 +200,7 @@ export function CaseWorkspace({ caseId, onChanged }: { caseId: string; onChanged
                 {role === 'PATIENT' && data.status === 'PROFORMA_CREATED' && (
                   <div className="grid grid-cols-2 gap-2">
                     <Button className="btn-brand-hover" onClick={() => action('CONFIRM_PROFORMA')}>{t('confirmProforma')}</Button>
-                    <Button variant="outline" className="text-rose-600" onClick={() => action('REJECT_PROFORMA')}>{t('rejectProforma')}</Button>
+                    <Button variant="outline" className="text-destructive" onClick={() => action('REJECT_PROFORMA')}>{t('rejectProforma')}</Button>
                   </div>
                 )}
 
@@ -297,10 +297,10 @@ function ProgressTrack({ status }: { status: string }) {
     <div className="flex items-center gap-1 overflow-x-auto pb-1">
       {flow.map((s, i) => (
         <React.Fragment key={s}>
-          <div className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] whitespace-nowrap ${i < idx ? 'bg-[#57AFE2] text-[#173F76] font-medium' : i === idx ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+          <div className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] whitespace-nowrap ${i < idx ? 'bg-status-info text-status-info-fg font-medium' : i === idx ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
             {(STATUS_META as Record<string, { fa: string; en: string }>)[s]?.fa || s}
           </div>
-          {i < flow.length - 1 && <div className={`h-0.5 w-4 shrink-0 ${i < idx ? 'bg-[#57AFE2]' : 'bg-muted'}`} />}
+          {i < flow.length - 1 && <div className={`h-0.5 w-4 shrink-0 ${i < idx ? 'bg-brand-light' : 'bg-muted'}`} />}
         </React.Fragment>
       ))}
     </div>
@@ -343,7 +343,7 @@ export function PrescriptionEditor({ onSubmit, products }: { onSubmit: (items: R
       <CardContent className="space-y-4">
         {items.map((it, i) => (
           <div key={i} className="rounded-lg border p-3 space-y-2.5 relative">
-            {items.length > 1 && <Button variant="ghost" size="sm" className="absolute top-2 end-2 h-6 text-rose-600" onClick={() => setItems(items.filter((_, x) => x !== i))}>×</Button>}
+            {items.length > 1 && <Button variant="ghost" size="sm" className="absolute top-2 end-2 h-6 text-destructive" onClick={() => setItems(items.filter((_, x) => x !== i))}>×</Button>}
             <div className="grid sm:grid-cols-2 gap-2.5">
               <div className="space-y-1"><Label className="text-xs">{lang === 'fa' ? 'نام دارو / محصول' : 'Drug'} *</Label>
                 {products && products.length > 0 ? (
@@ -384,7 +384,7 @@ export function Expert2Review({ prescription, onSubmit }: {
   const [busy, setBusy] = useState(false)
 
   return (
-    <Card className="border-[#57AFE2]/50">
+    <Card className="border-brand-light/50">
       <CardHeader className="pb-3"><CardTitle className="text-base">{lang === 'fa' ? 'بازبینی کارشناس دوم — اقلام و قیمت' : 'Expert 2 Review — items & pricing'}</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -392,11 +392,11 @@ export function Expert2Review({ prescription, onSubmit }: {
             <div key={r.id} className="rounded-lg border p-3 grid sm:grid-cols-[1fr_auto_auto_auto] gap-2.5 items-center">
               <span className="text-sm font-medium">{prescription.items[i]?.drugName}</span>
               <div className="flex items-center gap-1.5 text-xs">
-                <input type="checkbox" id={`av-${r.id}`} checked={r.available} onChange={(e) => setRows(rows.map((x, idx) => idx === i ? { ...x, available: e.target.checked, missing: !e.target.checked } : x))} className="size-4 accent-[#225BBE]" />
+                <input type="checkbox" id={`av-${r.id}`} checked={r.available} onChange={(e) => setRows(rows.map((x, idx) => idx === i ? { ...x, available: e.target.checked, missing: !e.target.checked } : x))} className="size-4 accent-primary" />
                 <label htmlFor={`av-${r.id}`}>{t('available')}</label>
               </div>
               <div className="flex items-center gap-1.5 text-xs">
-                <input type="checkbox" id={`ms-${r.id}`} checked={r.missing} onChange={(e) => setRows(rows.map((x, idx) => idx === i ? { ...x, missing: e.target.checked } : x))} className="size-4 accent-amber-600" />
+                <input type="checkbox" id={`ms-${r.id}`} checked={r.missing} onChange={(e) => setRows(rows.map((x, idx) => idx === i ? { ...x, missing: e.target.checked } : x))} className="size-4 accent-status-warning" />
                 <label htmlFor={`ms-${r.id}`}>{t('missing')}</label>
               </div>
               <Input type="number" value={r.unitPrice} onChange={(e) => setRows(rows.map((x, idx) => idx === i ? { ...x, unitPrice: Number(e.target.value) } : x))} className="w-32 h-8 text-xs" dir="ltr" placeholder={lang === 'fa' ? 'قیمت (تومان)' : 'Price'} />
@@ -419,7 +419,7 @@ function DoctorDecision({ onSubmit }: { onSubmit: (decision: 'APPROVE' | 'REJECT
   const [days, setDays] = useState('40')
   const [busy, setBusy] = useState(false)
   return (
-    <Card className="border-[#173F76]/40">
+    <Card className="border-brand-dark/40">
       <CardHeader className="pb-3"><CardTitle className="text-base">{t('doctorComment')}</CardTitle></CardHeader>
       <CardContent className="space-y-3">
         <Textarea rows={3} value={comment} onChange={(e) => setComment(e.target.value)} placeholder={lang === 'fa' ? 'اظهارنظر پزشک…' : 'Doctor comment…'} />
@@ -432,7 +432,7 @@ function DoctorDecision({ onSubmit }: { onSubmit: (decision: 'APPROVE' | 'REJECT
         <div className="grid grid-cols-3 gap-2">
           <Button className="btn-brand-hover gap-1" disabled={busy} onClick={async () => { setBusy(true); await onSubmit('APPROVE', comment, Number(days) || 40); setBusy(false) }}><CheckCircle2 size={15} />{t('confirm')}</Button>
           <Button variant="outline" className="gap-1" disabled={busy} onClick={async () => { setBusy(true); await onSubmit('REVISION', comment, Number(days) || 40); setBusy(false) }}>↺ {lang === 'fa' ? 'اصلاح' : 'Revise'}</Button>
-          <Button variant="outline" className="text-rose-600 gap-1" disabled={busy} onClick={async () => { setBusy(true); await onSubmit('REJECT', comment, Number(days) || 40); setBusy(false) }}><XCircle size={15} />{t('reject')}</Button>
+          <Button variant="outline" className="text-destructive gap-1" disabled={busy} onClick={async () => { setBusy(true); await onSubmit('REJECT', comment, Number(days) || 40); setBusy(false) }}><XCircle size={15} />{t('reject')}</Button>
         </div>
       </CardContent>
     </Card>
@@ -513,10 +513,10 @@ function ShipmentInfo({ shipment }: { shipment: { method: string; status: string
         <span>{lang === 'fa' ? methodFa[shipment.method] : shipment.method}</span>
         <Badge variant="outline" className="ms-auto">{shipment.status}</Badge>
       </div>
-      {shipment.driverName && <div className="text-xs text-muted-foreground">👤 {shipment.driverName} {shipment.driverPhone ? `· ${shipment.driverPhone}` : ''}</div>}
+      {shipment.driverName && <div className="meta-inline"><User size={12} /> {shipment.driverName} {shipment.driverPhone ? `· ${shipment.driverPhone}` : ''}</div>}
       {shipment.trackingCode && <div className="text-xs text-muted-foreground" dir="ltr">#: {shipment.trackingCode}</div>}
-      {shipment.shippingDate && <div className="text-xs text-muted-foreground">📤 <JalaliDate date={shipment.shippingDate} /></div>}
-      {shipment.deliveryDate && <div className="text-xs text-muted-foreground">📦 <JalaliDate date={shipment.deliveryDate} /></div>}
+      {shipment.shippingDate && <div className="meta-inline"><Send size={12} /> <JalaliDate date={shipment.shippingDate} /></div>}
+      {shipment.deliveryDate && <div className="meta-inline"><Package size={12} /> <JalaliDate date={shipment.deliveryDate} /></div>}
     </div>
   )
 }

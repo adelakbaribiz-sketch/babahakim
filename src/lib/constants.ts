@@ -4,6 +4,8 @@
 import { CASE_MACHINE } from '@/lib/workflow/machines/case'
 import type { TransitionDef } from '@/lib/workflow/types'
 import { resolveTransition } from '@/lib/workflow/engine'
+// PHASE 07 (§9/§27): status colors come ONLY from design-system tokens — never hardcoded
+import { statusClass } from '@/design-system/tokens'
 
 export const ROLES = ['ADMIN', 'EXPERT_1', 'EXPERT_2', 'OPERATOR', 'DOCTOR', 'PATIENT'] as const
 export type Role = (typeof ROLES)[number]
@@ -57,27 +59,27 @@ export const CASE_STATUS = [
 export type CaseStatus = (typeof CASE_STATUS)[number]
 
 export const STATUS_META: Record<CaseStatus, { fa: string; en: string; color: string }> = {
-  NEW: { fa: 'جدید', en: 'New', color: 'bg-slate-500' },
-  WAITING_FOR_EXPERT_1: { fa: 'در صف کارشناس اول', en: 'Waiting for Expert 1', color: 'bg-[#57AFE2] text-[#173F76] font-medium' },
-  EXPERT_1_REVIEW: { fa: 'بررسی کارشناس اول', en: 'Expert 1 Review', color: 'bg-[#225BBE] text-white' },
-  WAITING_FOR_USER_APPROVAL: { fa: 'در انتظار تأیید کاربر', en: 'Waiting for User Approval', color: 'bg-amber-500 text-white' },
-  WAITING_FOR_EXPERT_1_PRESCRIPTION: { fa: 'در انتظار نسخه کارشناس اول', en: 'Waiting for Expert 1 Prescription', color: 'bg-[#225BBE] text-white' },
-  WAITING_FOR_EXPERT_2: { fa: 'در انتظار کارشناس دوم', en: 'Waiting for Expert 2', color: 'bg-[#57AFE2] text-[#173F76] font-medium' },
-  REVISION_REQUESTED: { fa: 'اصلاح درخواست‌شده', en: 'Revision Requested', color: 'bg-violet-500 text-white' },
-  WAITING_FOR_DOCTOR: { fa: 'در انتظار پزشک', en: 'Waiting for Doctor', color: 'bg-[#173F76] text-white' },
-  PRESCRIPTION_APPROVED: { fa: 'نسخه تأیید شد', en: 'Prescription Approved', color: 'bg-emerald-600 text-white' },
-  PREPARING_ORDER: { fa: 'آماده‌سازی سفارش', en: 'Preparing Order', color: 'bg-[#225BBE] text-white' },
-  PROFORMA_CREATED: { fa: 'پیش‌فاکتور صادر شد', en: 'Proforma Created', color: 'bg-[#173F76] text-white' },
-  WAITING_FOR_USER_CONFIRMATION: { fa: 'در انتظار تأیید پیش‌فاکتور', en: 'Waiting for Proforma Confirmation', color: 'bg-amber-500 text-white' },
-  WAITING_FOR_PAYMENT: { fa: 'در انتظار پرداخت', en: 'Waiting for Payment', color: 'bg-amber-600 text-white' },
-  PAYMENT_CONFIRMED: { fa: 'پرداخت تأیید شد', en: 'Payment Confirmed', color: 'bg-emerald-600 text-white' },
-  PREPARING_SHIPMENT: { fa: 'آماده‌سازی ارسال', en: 'Preparing Shipment', color: 'bg-[#225BBE] text-white' },
-  SHIPPED: { fa: 'ارسال شد', en: 'Shipped', color: 'bg-[#57AFE2] text-[#173F76] font-medium' },
-  DELIVERED: { fa: 'تحویل شد', en: 'Delivered', color: 'bg-green-700 text-white' },
-  FOLLOW_UP: { fa: 'پیگیری درمان', en: 'Follow Up', color: 'bg-violet-600 text-white' },
-  REFERRED_AGAIN: { fa: 'ارجاع مجدد', en: 'Referred Again', color: 'bg-violet-700 text-white' },
-  CLOSED: { fa: 'بسته شد', en: 'Closed', color: 'bg-slate-700 text-white' },
-  CANCELLED: { fa: 'لغو شد', en: 'Cancelled', color: 'bg-rose-700 text-white' },
+  NEW: { fa: 'جدید', en: 'New', color: statusClass.neutral },
+  WAITING_FOR_EXPERT_1: { fa: 'در صف کارشناس اول', en: 'Waiting for Expert 1', color: statusClass.info },
+  EXPERT_1_REVIEW: { fa: 'بررسی کارشناس اول', en: 'Expert 1 Review', color: statusClass.progress },
+  WAITING_FOR_USER_APPROVAL: { fa: 'در انتظار تأیید کاربر', en: 'Waiting for User Approval', color: statusClass.warning },
+  WAITING_FOR_EXPERT_1_PRESCRIPTION: { fa: 'در انتظار نسخه کارشناس اول', en: 'Waiting for Expert 1 Prescription', color: statusClass.progress },
+  WAITING_FOR_EXPERT_2: { fa: 'در انتظار کارشناس دوم', en: 'Waiting for Expert 2', color: statusClass.info },
+  REVISION_REQUESTED: { fa: 'اصلاح درخواست‌شده', en: 'Revision Requested', color: statusClass.revision },
+  WAITING_FOR_DOCTOR: { fa: 'در انتظار پزشک', en: 'Waiting for Doctor', color: statusClass.navy },
+  PRESCRIPTION_APPROVED: { fa: 'نسخه تأیید شد', en: 'Prescription Approved', color: statusClass.success },
+  PREPARING_ORDER: { fa: 'آماده‌سازی سفارش', en: 'Preparing Order', color: statusClass.progress },
+  PROFORMA_CREATED: { fa: 'پیش‌فاکتور صادر شد', en: 'Proforma Created', color: statusClass.navy },
+  WAITING_FOR_USER_CONFIRMATION: { fa: 'در انتظار تأیید پیش‌فاکتور', en: 'Waiting for Proforma Confirmation', color: statusClass.warning },
+  WAITING_FOR_PAYMENT: { fa: 'در انتظار پرداخت', en: 'Waiting for Payment', color: statusClass.warning },
+  PAYMENT_CONFIRMED: { fa: 'پرداخت تأیید شد', en: 'Payment Confirmed', color: statusClass.success },
+  PREPARING_SHIPMENT: { fa: 'آماده‌سازی ارسال', en: 'Preparing Shipment', color: statusClass.progress },
+  SHIPPED: { fa: 'ارسال شد', en: 'Shipped', color: statusClass.info },
+  DELIVERED: { fa: 'تحویل شد', en: 'Delivered', color: statusClass.success },
+  FOLLOW_UP: { fa: 'پیگیری درمان', en: 'Follow Up', color: statusClass.revision },
+  REFERRED_AGAIN: { fa: 'ارجاع مجدد', en: 'Referred Again', color: statusClass.revision },
+  CLOSED: { fa: 'بسته شد', en: 'Closed', color: statusClass.neutral },
+  CANCELLED: { fa: 'لغو شد', en: 'Cancelled', color: statusClass.danger },
 }
 
 export type WorkflowAction =
@@ -99,35 +101,35 @@ export function canTransition(status: string, action: string, role: string) {
 }
 
 export const ORDER_STATUS_META: Record<string, { fa: string; en: string; color: string }> = {
-  CART: { fa: 'سبد خرید', en: 'Cart', color: 'bg-slate-500' },
-  PENDING_CONFIRMATION: { fa: 'در انتظار تأیید', en: 'Pending Confirmation', color: 'bg-amber-500 text-white' },
-  CONFIRMED: { fa: 'تأیید شد', en: 'Confirmed', color: 'bg-[#225BBE] text-white' },
-  PAYMENT_PENDING: { fa: 'در انتظار پرداخت', en: 'Payment Pending', color: 'bg-amber-600 text-white' },
-  PAID: { fa: 'پرداخت شد', en: 'Paid', color: 'bg-emerald-600 text-white' },
-  PREPARING: { fa: 'آماده‌سازی', en: 'Preparing', color: 'bg-[#225BBE] text-white' },
-  READY_TO_SHIP: { fa: 'آماده ارسال', en: 'Ready to Ship', color: 'bg-[#57AFE2] text-[#173F76] font-medium' },
-  SHIPPED: { fa: 'ارسال شد', en: 'Shipped', color: 'bg-[#173F76] text-white' },
-  DELIVERED: { fa: 'تحویل شد', en: 'Delivered', color: 'bg-green-700 text-white' },
-  CANCELLED: { fa: 'لغو شد', en: 'Cancelled', color: 'bg-rose-700 text-white' },
-  REFUNDED: { fa: 'بازپرداخت', en: 'Refunded', color: 'bg-slate-600 text-white' },
+  CART: { fa: 'سبد خرید', en: 'Cart', color: statusClass.neutral },
+  PENDING_CONFIRMATION: { fa: 'در انتظار تأیید', en: 'Pending Confirmation', color: statusClass.warning },
+  CONFIRMED: { fa: 'تأیید شد', en: 'Confirmed', color: statusClass.progress },
+  PAYMENT_PENDING: { fa: 'در انتظار پرداخت', en: 'Payment Pending', color: statusClass.warning },
+  PAID: { fa: 'پرداخت شد', en: 'Paid', color: statusClass.success },
+  PREPARING: { fa: 'آماده‌سازی', en: 'Preparing', color: statusClass.progress },
+  READY_TO_SHIP: { fa: 'آماده ارسال', en: 'Ready to Ship', color: statusClass.info },
+  SHIPPED: { fa: 'ارسال شد', en: 'Shipped', color: statusClass.navy },
+  DELIVERED: { fa: 'تحویل شد', en: 'Delivered', color: statusClass.success },
+  CANCELLED: { fa: 'لغو شد', en: 'Cancelled', color: statusClass.danger },
+  REFUNDED: { fa: 'بازپرداخت', en: 'Refunded', color: statusClass.neutral },
 }
 
 export const PAYMENT_STATUS_META: Record<string, { fa: string; en: string; color: string }> = {
-  PENDING: { fa: 'در انتظار', en: 'Pending', color: 'bg-[#57AFE2] text-[#173F76] font-medium' },
-  AWAITING_VERIFY: { fa: 'در انتظار تأیید اپراتور', en: 'Awaiting Verify', color: 'bg-amber-500 text-white' },
-  PAID: { fa: 'پرداخت‌شده', en: 'Paid', color: 'bg-emerald-600 text-white' },
-  FAILED: { fa: 'ناموفق', en: 'Failed', color: 'bg-red-600 text-white' },
-  REJECTED: { fa: 'رد‌شده', en: 'Rejected', color: 'bg-rose-700 text-white' },
-  REFUNDED: { fa: 'بازپرداخت', en: 'Refunded', color: 'bg-slate-600 text-white' },
+  PENDING: { fa: 'در انتظار', en: 'Pending', color: statusClass.info },
+  AWAITING_VERIFY: { fa: 'در انتظار تأیید اپراتور', en: 'Awaiting Verify', color: statusClass.warning },
+  PAID: { fa: 'پرداخت‌شده', en: 'Paid', color: statusClass.success },
+  FAILED: { fa: 'ناموفق', en: 'Failed', color: statusClass.danger },
+  REJECTED: { fa: 'رد‌شده', en: 'Rejected', color: statusClass.danger },
+  REFUNDED: { fa: 'بازپرداخت', en: 'Refunded', color: statusClass.neutral },
 }
 
 export const TICKET_STATUS_META: Record<string, { fa: string; en: string; color: string }> = {
-  OPEN: { fa: 'باز', en: 'Open', color: 'bg-amber-500 text-white' },
-  IN_PROGRESS: { fa: 'در حال بررسی', en: 'In Progress', color: 'bg-[#225BBE] text-white' },
-  WAITING_USER: { fa: 'در انتظار کاربر', en: 'Waiting User', color: 'bg-amber-600 text-white' },
-  WAITING_EXPERT: { fa: 'در انتظار کارشناس', en: 'Waiting Expert', color: 'bg-[#57AFE2] text-[#173F76] font-medium' },
-  RESOLVED: { fa: 'حل شد', en: 'Resolved', color: 'bg-emerald-600 text-white' },
-  CLOSED: { fa: 'بسته', en: 'Closed', color: 'bg-slate-600 text-white' },
+  OPEN: { fa: 'باز', en: 'Open', color: statusClass.warning },
+  IN_PROGRESS: { fa: 'در حال بررسی', en: 'In Progress', color: statusClass.progress },
+  WAITING_USER: { fa: 'در انتظار کاربر', en: 'Waiting User', color: statusClass.warning },
+  WAITING_EXPERT: { fa: 'در انتظار کارشناس', en: 'Waiting Expert', color: statusClass.info },
+  RESOLVED: { fa: 'حل شد', en: 'Resolved', color: statusClass.success },
+  CLOSED: { fa: 'بسته', en: 'Closed', color: statusClass.neutral },
 }
 
 // مِزاج‌ها (Temperaments — Traditional Persian Medicine)

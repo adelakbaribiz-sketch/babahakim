@@ -14,6 +14,8 @@ import { SectionCard, StatCard, JalaliDate, LoadingRows, EmptyState, Money, Stat
 import { fmtMoney } from '@/lib/i18n'
 import { Tags, BarChart3, ShieldCheck, FileText, Bot, MessageSquareText, Upload, Percent, CheckCircle2, XCircle, Download } from 'lucide-react'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar } from 'recharts'
+// PHASE 07 (§22/§27): chart colors ONLY via design-system tokens
+import { chartTheme } from '@/design-system/tokens'
 
 // ── Prices: import + bulk + history ─────────────────────────────────────
 export function AdminPricesPage() {
@@ -51,7 +53,7 @@ export function AdminPricesPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold flex items-center gap-2"><Tags size={22} />{t('prices')}</h1>
+      <h1 className="page-title"><Tags size={22} />{t('prices')}</h1>
       <Tabs defaultValue="import">
         <TabsList>
           <TabsTrigger value="import" className="gap-1.5"><Upload size={14} />{t('importCsv')}</TabsTrigger>
@@ -76,13 +78,13 @@ export function AdminPricesPage() {
                   <thead><tr className="border-b text-muted-foreground"><th className="text-start p-1.5">#</th><th className="text-start p-1.5">SKU</th><th className="text-start p-1.5">{lang === 'fa' ? 'محصول' : 'Product'}</th><th className="text-start p-1.5">{t('oldPrice')}</th><th className="text-start p-1.5">{t('newPrice')}</th><th className="text-start p-1.5">{t('status')}</th></tr></thead>
                   <tbody>
                     {preview.rows.map((r) => (
-                      <tr key={r.line} className={`border-b border-border/40 ${r.valid ? '' : 'bg-rose-50/50 dark:bg-rose-950/20'}`}>
+                      <tr key={r.line} className={`border-b border-border/40 ${r.valid ? '' : 'bg-destructive/10'}`}>
                         <td className="p-1.5 tabular-nums text-muted-foreground">{r.line}</td>
                         <td className="p-1.5 font-mono" dir="ltr">{r.sku}</td>
                         <td className="p-1.5">{r.productName}</td>
                         <td className="p-1.5 tabular-nums text-muted-foreground">{r.oldPrice ? new Intl.NumberFormat('fa-IR').format(r.oldPrice) : '—'}</td>
                         <td className="p-1.5 tabular-nums font-bold">{new Intl.NumberFormat('fa-IR').format(r.newPrice)}</td>
-                        <td className="p-1.5">{r.valid ? <CheckCircle2 size={14} className="text-emerald-600" /> : <span className="text-rose-600 flex items-center gap-1"><XCircle size={13} />{r.error}</span>}</td>
+                        <td className="p-1.5">{r.valid ? <CheckCircle2 size={14} className="text-status-success" /> : <span className="text-destructive flex items-center gap-1"><XCircle size={13} />{r.error}</span>}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -158,16 +160,16 @@ export function AdminReportsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><BarChart3 size={22} />{t('reports')}</h1>
+        <h1 className="page-title"><BarChart3 size={22} />{t('reports')}</h1>
         <Button size="sm" variant="outline" className="ms-auto gap-1.5" onClick={() => exportCSV(data.recentPayments)}>
           <Download size={14} />CSV {t('exportData')}
         </Button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard title={t('revenue')} value={fmtMoney(data.summary.income, lang)} tone="bg-[#57AFE2]/15 text-[#173F76] dark:text-[#57AFE2]" icon={<BarChart3 size={18} />} />
-        <StatCard title={t('expenses')} value={fmtMoney(data.summary.expenses, lang)} tone="bg-rose-500/10 text-rose-600" icon={<BarChart3 size={18} />} />
-        <StatCard title={t('profit')} value={fmtMoney(data.summary.profit, lang)} tone="bg-[#173F76]/10 text-[#173F76] dark:bg-[#57AFE2]/15 dark:text-[#57AFE2]" icon={<BarChart3 size={18} />} />
+        <StatCard title={t('revenue')} value={fmtMoney(data.summary.income, lang)} tone="bg-brand-light/15 text-brand-dark dark:text-brand-light" icon={<BarChart3 size={18} />} />
+        <StatCard title={t('expenses')} value={fmtMoney(data.summary.expenses, lang)} tone="bg-destructive/10 text-destructive" icon={<BarChart3 size={18} />} />
+        <StatCard title={t('profit')} value={fmtMoney(data.summary.profit, lang)} tone="bg-brand-dark/10 text-brand-dark dark:bg-brand-light/15 dark:text-brand-light" icon={<BarChart3 size={18} />} />
         <StatCard title={lang === 'fa' ? 'پرداخت موفق / ناموفق' : 'Paid / failed'} value={`${data.summary.paidCount} / ${data.summary.failedCount}`} icon={<BarChart3 size={18} />} />
       </div>
 
@@ -175,12 +177,12 @@ export function AdminReportsPage() {
         <SectionCard title={lang === 'fa' ? 'درآمد ۱۴ روز اخیر (میلیون تومان)' : 'Revenue last 14 days (M Toman)'}>
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={chartData}>
-              <defs><linearGradient id="rev" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#225BBE" stopOpacity={0.35} /><stop offset="95%" stopColor="#225BBE" stopOpacity={0} /></linearGradient></defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-              <Area type="monotone" dataKey="amount" stroke="#225BBE" fill="url(#rev)" strokeWidth={2} />
+              <defs><linearGradient id="rev" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.35} /><stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0} /></linearGradient></defs>
+              <CartesianGrid strokeDasharray={chartTheme.grid.strokeDasharray} stroke={chartTheme.grid.stroke} vertical={chartTheme.grid.vertical} />
+              <XAxis dataKey="date" {...chartTheme.axis} />
+              <YAxis {...chartTheme.axis} />
+              <Tooltip contentStyle={{ ...chartTheme.tooltip }} cursor={{ stroke: 'var(--chart-2)', strokeDasharray: '4 4' }} />
+              <Area type="monotone" dataKey="amount" stroke="var(--chart-1)" fill="url(#rev)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </SectionCard>
@@ -189,11 +191,11 @@ export function AdminReportsPage() {
           {data.topProducts.length === 0 ? <EmptyState /> : (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={data.topProducts.slice(0, 6).map((p) => ({ name: p.name.slice(0, 14), revenue: p.revenue / 1000000 }))}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={0} angle={-20} textAnchor="end" height={50} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                <Bar dataKey="revenue" fill="#57AFE2" radius={[4, 4, 0, 0]} name="M" />
+                <CartesianGrid strokeDasharray={chartTheme.grid.strokeDasharray} stroke={chartTheme.grid.stroke} vertical={chartTheme.grid.vertical} />
+                <XAxis dataKey="name" interval={0} angle={-20} textAnchor="end" height={50} {...chartTheme.axis} />
+                <YAxis {...chartTheme.axis} />
+                <Tooltip contentStyle={{ ...chartTheme.tooltip }} cursor={{ fill: 'var(--chart-1)', opacity: 0.06 }} />
+                <Bar dataKey="revenue" fill="var(--chart-2)" radius={[4, 4, 0, 0]} name="M" />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -205,7 +207,7 @@ export function AdminReportsPage() {
           {data.referralStats.length === 0 ? <EmptyState /> : (
             <div className="space-y-2 text-sm">
               {data.referralStats.map((r, i) => (
-                <div key={i} className="flex items-center gap-2 flex-wrap rounded-lg border p-2.5">
+                <div key={i} className="tile-row">
                   <span className="font-medium">{r.referrer}</span>
                   <code className="text-[10px] text-muted-foreground" dir="ltr">{r.code.slice(0, 14)}</code>
                   <span className="text-xs text-muted-foreground">→ {r.referredUser}</span>
@@ -222,7 +224,7 @@ export function AdminReportsPage() {
           {data.recentPayments.length === 0 ? <EmptyState /> : (
             <div className="max-h-72 overflow-y-auto space-y-1.5 text-xs">
               {data.recentPayments.map((p) => (
-                <div key={p.code} className="flex items-center gap-2 flex-wrap rounded-lg border p-2.5">
+                <div key={p.code} className="tile-row">
                   <span className="font-mono" dir="ltr">{p.code}</span>
                   <Badge variant="outline" className="text-[9px]">{p.method}</Badge>
                   <span>{p.user}</span>
@@ -271,15 +273,15 @@ export function AdminAuditPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><ShieldCheck size={22} />{t('auditLogs')}</h1>
+        <h1 className="page-title"><ShieldCheck size={22} />{t('auditLogs')}</h1>
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} className="w-64 ms-auto" />
       </div>
       {logs.length === 0 ? <EmptyState /> : (
         <div className="space-y-1.5">
           {logs.map((l) => (
-            <details key={l.id} className={`rounded-lg border p-3 text-xs ${l.sensitive ? 'border-amber-500/40' : ''}`}>
+            <details key={l.id} className={`rounded-lg border p-3 text-xs ${l.sensitive ? 'border-status-warning/40' : ''}`}>
               <summary className="cursor-pointer flex items-center gap-2 flex-wrap">
-                {l.sensitive && <Badge className="bg-amber-600 text-white text-[9px]">حساس</Badge>}
+                {l.sensitive && <Badge className="bg-status-warning text-status-warning-fg text-[9px]">حساس</Badge>}
                 <Badge variant="outline" className="font-mono text-[10px]">{l.action}</Badge>
                 <span className="text-muted-foreground">{l.entity}</span>
                 {l.user && <span className="font-medium">{l.user.firstName} {l.user.lastName} <span className="text-muted-foreground">({l.user.role})</span></span>}
@@ -327,7 +329,7 @@ export function AdminQuestionnairePage() {
   return (
     <div className="space-y-4 max-w-3xl">
       <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><FileText size={22} />{t('questionnaireEditor')}</h1>
+        <h1 className="page-title"><FileText size={22} />{t('questionnaireEditor')}</h1>
         <Button className="ms-auto" disabled={busy || questions.length < 3} onClick={save}>{lang2('ایجاد نسخه جدید', 'Create new version')}</Button>
       </div>
       <p className="text-xs text-muted-foreground leading-relaxed">{lang2('ذخیره، نسخه جدیدی از پرسشنامه ایجاد می‌کند و نسخه قبلی غیرفعال می‌شود — تاریخچه نتایج کاربران همیشه حفظ می‌شود.', 'Saving creates a new questionnaire version and deactivates the old one — user result history is always preserved.')}</p>
@@ -337,7 +339,7 @@ export function AdminQuestionnairePage() {
             <div className="flex items-center gap-2">
               <Badge variant="secondary">{i + 1}</Badge>
               <Input value={q.textFa} onChange={(e) => setQ(i, 'textFa', e.target.value)} placeholder="متن سؤال (فارسی)" className="flex-1" />
-              <Button variant="ghost" size="sm" className="text-rose-600" onClick={() => setQuestions(questions.filter((_, x) => x !== i))}>×</Button>
+              <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setQuestions(questions.filter((_, x) => x !== i))}>×</Button>
             </div>
             <Input value={q.textEn} onChange={(e) => setQ(i, 'textEn', e.target.value)} placeholder="Question text (English)" dir="ltr" className="text-xs" />
             <div className="space-y-2 ps-4 border-s-2 border-border">
@@ -348,7 +350,7 @@ export function AdminQuestionnairePage() {
                   <select value={o.dimension} onChange={(e) => setO(i, j, 'dimension', e.target.value)} className="h-8 text-xs rounded-md border bg-background px-2">
                     {['HOT', 'COLD', 'WET', 'DRY'].map((d) => <option key={d} value={d}>{({ HOT: 'گرما', COLD: 'برودت', WET: 'رطوبت', DRY: 'خشکی' } as Record<string, string>)[d]}</option>)}
                   </select>
-                  <Button variant="ghost" size="sm" className="text-rose-600 h-7" onClick={() => setQuestions(questions.map((qq, idx) => idx === i ? { ...qq, options: qq.options.filter((_, x) => x !== j) } : qq))}>×</Button>
+                  <Button variant="ghost" size="sm" className="text-destructive h-7" onClick={() => setQuestions(questions.map((qq, idx) => idx === i ? { ...qq, options: qq.options.filter((_, x) => x !== j) } : qq))}>×</Button>
                 </div>
               ))}
               <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setQuestions(questions.map((qq, idx) => idx === i ? { ...qq, options: [...qq.options, { textFa: '', textEn: '', score: 2, dimension: 'HOT' }] } : qq))}>+ گزینه</Button>
@@ -377,7 +379,7 @@ export function AdminAIModelsPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold flex items-center gap-2"><Bot size={22} />{t('aiModels')}</h1>
+      <h1 className="page-title"><Bot size={22} />{t('aiModels')}</h1>
 
       <div className="grid md:grid-cols-2 gap-4">
         {data.models.map((m) => (
@@ -386,7 +388,7 @@ export function AdminAIModelsPage() {
               <div className="flex items-center gap-2 flex-wrap">
                 <Bot size={18} className={m.isActive ? 'text-primary' : 'text-muted-foreground'} />
                 <span className="font-bold">{m.name} <span className="text-muted-foreground font-normal">v{m.version}</span></span>
-                {m.isActive && <Badge className="bg-emerald-600 text-white text-[10px]">فعال</Badge>}
+                {m.isActive && <Badge className="bg-status-success text-status-success-fg text-[10px]">فعال</Badge>}
                 <Badge variant="outline" className="text-[10px] ms-auto">{m.approvalStatus}</Badge>
               </div>
               {m.metrics && (
@@ -408,13 +410,13 @@ export function AdminAIModelsPage() {
       <SectionCard title={lang2('دیتاست یادگیری (AI vs انسان)', 'Learning dataset (AI vs human)')}>
         <div className="grid grid-cols-3 gap-3 mb-4">
           <StatCard title={lang2('کل تحلیل‌ها', 'Total analyses')} value={data.datasetStats.total} />
-          <StatCard title={lang2('بازبینی‌شده', 'Human reviewed')} value={data.datasetStats.reviewed} tone="bg-[#57AFE2]/15 text-[#173F76] dark:text-[#57AFE2]" />
+          <StatCard title={lang2('بازبینی‌شده', 'Human reviewed')} value={data.datasetStats.reviewed} tone="bg-brand-light/15 text-brand-dark dark:text-brand-light" />
           <StatCard title={lang2('میانگین اطمینان', 'Avg confidence')} value={`${Math.round(data.datasetStats.avgConfidence * 100)}%`} />
         </div>
         {data.dataset.length === 0 ? <EmptyState /> : (
           <div className="max-h-96 overflow-y-auto space-y-1.5 text-xs">
             {data.dataset.map((d) => (
-              <div key={d.id} className="flex items-center gap-2 flex-wrap rounded-lg border p-2.5">
+              <div key={d.id} className="tile-row">
                 <span className="tabular-nums text-muted-foreground">{d.caseCode}</span>
                 <span className="font-medium">{d.topPrediction}</span>
                 <Badge variant={d.humanReviewed ? 'secondary' : 'outline'} className="text-[9px]">{d.humanReviewed ? 'بازبینی ✓' : 'در انتظار'}</Badge>
@@ -437,11 +439,11 @@ export function AdminSMSPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold flex items-center gap-2"><MessageSquareText size={22} />{t('smsLog')}</h1>
+      <h1 className="page-title"><MessageSquareText size={22} />{t('smsLog')}</h1>
       {logs.length === 0 ? <EmptyState /> : (
         <div className="space-y-1.5 text-xs">
           {logs.map((l) => (
-            <div key={l.id} className="flex items-center gap-2 flex-wrap rounded-lg border p-2.5">
+            <div key={l.id} className="tile-row">
               <span dir="ltr" className="tabular-nums text-muted-foreground">{l.recipient}</span>
               <Badge variant="outline" className="text-[9px]">{l.template}</Badge>
               <span className="flex-1 min-w-40">{l.content}</span>

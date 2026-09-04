@@ -58,7 +58,7 @@ export function AuthView() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#173F76]/[0.05] to-background dark:from-[#173F76]/25 dark:to-background">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-dark/5 to-background dark:from-brand-dark/25 dark:to-background">
       <header className="h-16 flex items-center px-4 md:px-8 max-w-6xl w-full mx-auto">
         <button onClick={() => navigate('landing')} className="flex items-center gap-2" aria-label={t('appName')}>
           <Logo size={34} variant="dark" showText />
@@ -71,8 +71,8 @@ export function AuthView() {
         <div className="w-full max-w-5xl grid lg:grid-cols-[1.1fr_1fr] gap-8 items-stretch">
 
           {/* Brand panel (§10) — Primary Dark */}
-          <div className="hidden lg:flex flex-col justify-between rounded-2xl bg-[#173F76] dark:bg-[#0F2440] p-10 relative overflow-hidden">
-            <div className="absolute inset-0 opacity-[0.12]" style={{ backgroundImage: 'linear-gradient(rgba(87,175,226,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(87,175,226,.6) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
+          <div className="hidden lg:flex flex-col justify-between rounded-2xl bg-brand-dark dark:bg-sidebar p-10 relative overflow-hidden">
+            <div className="absolute inset-0 opacity-[0.12]" style={{ backgroundImage: 'linear-gradient(var(--bh-primary-light) 1px, transparent 1px), linear-gradient(90deg, var(--bh-primary-light) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
             <div className="relative">
               <Logo size={56} variant="light" showText textClassName="text-white text-2xl" />
               <h2 className="mt-8 text-2xl font-black text-white leading-relaxed max-w-sm">
@@ -87,7 +87,7 @@ export function AuthView() {
                 { icon: <Stethoscope size={16} />, fa: 'تصاویر پزشکی فقط با لینک امن و موقت', en: 'Medical images served only via secure short-lived links' },
               ].map((f, i) => (
                 <div key={i} className="flex items-start gap-3 text-[13px] text-white/85">
-                  <span className="size-7 rounded-lg bg-[#57AFE2]/20 text-[#57AFE2] flex items-center justify-center shrink-0 mt-0.5">{f.icon}</span>
+                  <span className="size-7 rounded-lg bg-brand-light/20 text-brand-light flex items-center justify-center shrink-0 mt-0.5">{f.icon}</span>
                   <span className="leading-relaxed">{lang === 'fa' ? f.fa : f.en}</span>
                 </div>
               ))}
@@ -136,7 +136,7 @@ export function AuthView() {
               <div className="grid sm:grid-cols-2 gap-2">
                 {DEMO.map((d) => (
                   <button key={d.phone} onClick={() => quickLogin(d.phone)} disabled={busy}
-                    className="flex items-center justify-between rounded-lg border border-brand-neutral bg-card px-3.5 py-2 text-sm hover:border-[#225BBE] hover:bg-[#57AFE2]/[0.06] transition-colors disabled:opacity-50">
+                    className="flex items-center justify-between rounded-lg border border-brand-neutral bg-card px-3.5 py-2 text-sm hover:border-primary hover:bg-brand-light/10 transition-colors disabled:opacity-50">
                     <span className="truncate">{lang === 'fa' ? d.role : d.roleEn}</span>
                     <span className="text-[11px] tabular-nums text-muted-foreground" dir="ltr">{d.phone}</span>
                   </button>
@@ -154,7 +154,7 @@ export function AuthView() {
 function Field({ label, name, type = 'text', placeholder, required, dir }: { label: string; name: string; type?: string; placeholder?: string; required?: boolean; dir?: 'ltr' | 'rtl' }) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={name} className="text-[#173F76] dark:text-[#CFE4F5]">{label}</Label>
+      <Label htmlFor={name} className="text-foreground">{label}</Label>
       <Input id={name} name={name} type={type} placeholder={placeholder} required={required} dir={dir} autoComplete="off" />
     </div>
   )

@@ -619,8 +619,8 @@ Registration ─→ Questionnaire ─→ Image Upload ─→ AI Analysis ─→ 
 | **Phase 04** (انجام‌شده — D1/D2 به‌جای M15، طبق فرمان محصول) | M15 (بخش Database) — معماری و پیاده‌سازی PostgreSQL: ۱۵ Schema/۴۹ جدول/۱۶۷ Check/۱۹۰ ایندکس/۴۴ تریگر امنیتی + Alembic + ERD×17 + ۸۵ تست | `docs/DATABASE.md` · `DATABASE-ERD.md` · ADR-0013 · ED-47..58 |
 | **Phase 05** (انجام‌شده — M15 کامل طبق فرمان محصول) | M15 (Security + Audit): لایه امنیت سراسری + OTP/MFA + Privacy/Consent/Export/Deletion + THREAT-MODEL | `SECURITY.md` · `THREAT-MODEL.md` · ADR-0014/0015 · ED-59..70 · ۸۰/۸۰ تست |
 | **Phase 06** (انجام‌شده — طبق فرمان محصول، پیش از ساخت UI نهایی) | **UX Architecture**: User Journey ×۶ نقش · Sitemap · Screen Inventory (۷۳ صفحه، ۹ فیلد) · Flow Diagram ×۱۰ · State System | `UX.md` · `SCREEN-MAP.md` · ED-71..80 |
-| **Phase 07** | M17 (Deployment) + M18 (Hardening) | UI Rebuild طبق SC-ID · Docker Production، Nginx/SSL، CI/CD، Monitoring (ADR-0012)، Backup/DR |
-| **Phase 08+** | توسعه محصول | Coupon مستقل، Email/Push، OTP، Export داده، MLOps واقعی، PWA |
+| **Phase 07** (انجام‌شده — طبق فرمان محصول: «UI System») | **Design System مرکزی**: توکن‌های دو-منبعی CSS+TS · ۸ توکن وضعیت §9 · Typography/Spacing/Grid/Breakpoints/Radius/Shadow · کامپوننت‌های Forms/Tables/Cards/Dialogs/Navigation/Notifications/Charts/States/Icons · RTL/LTR + Dark Mode + A11y (۳۲ جفت کنتراست گیت‌شده) · Style Guide زنده · ممیزی یکپارچگی `audit:ui` (۱۳۳→۰ تخلف) | `DESIGN-SYSTEM.md` · ED-81..92 |
+| **Phase 08+** | M17 (Deployment) + M18 (Hardening) + توسعه محصول | UI Rebuild طبق SC-ID · Docker Production، Nginx/SSL، CI/CD، Monitoring (ADR-0012)، Backup/DR · Coupon مستقل، Email/Push، Export داده، MLOps واقعی، PWA |
 
 > یادداشت توالی (فاز 03): شماره فازها در اجرای واقعی جلوتر از پیش‌بینی اولیه این نقشه حرکت کرده است (فاز ۰۲ = Workflow به‌جای M1). این جدول در پایان هر فاز با وضعیت واقعی هم‌تراز می‌شود؛ شماره Milestoneها (M1..M18) مرجع ثابت باقی می‌مانند.
 
@@ -662,6 +662,7 @@ Registration ─→ Questionnaire ─→ Image Upload ─→ AI Analysis ─→ 
 | `docs/UX.md` | معماری تجربه کاربری (اصول/Journey/Sitemap/Flow/State) | فاز ۰۶ |
 | `docs/SCREEN-MAP.md` | Screen Inventory — ۷۳ صفحه با ۹ فیلد | فاز ۰۶ |
 | `docs/BRANDING.md` | سیستم طراحی BabaHakim | فاز قبل |
+| `docs/DESIGN-SYSTEM.md` | مرجع کامل سیستم طراحی (توکن‌ها/کامپوننت‌ها/حالت‌ها/RTL/A11y/ممیزی) | فاز ۰۷ |
 | Master Prompt | منبع نیازمندی (۱۰۴ بخش) | `upload/` |
 
 **پایان PRD — انشعاب فنی عمدی ندارد؛ این سند مبنای TRACING فازهای بعدی است.**

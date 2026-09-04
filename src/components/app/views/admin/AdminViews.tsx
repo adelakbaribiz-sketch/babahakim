@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { toast } from 'sonner'
 import { SectionCard, JalaliDate, LoadingRows, EmptyState, Money, StatusBadge } from '../../shared/atoms'
 import { ROLE_LABELS, ROLE_PERMISSIONS } from '@/lib/constants'
-import { Users2, Stethoscope, Pill, Plus, ShieldCheck, ShieldOff, CheckCircle2 } from 'lucide-react'
+import { Users2, Stethoscope, Pill, Plus, ShieldCheck, ShieldOff, CheckCircle2, Microscope, MessageSquare } from 'lucide-react'
 
 // ── Users ───────────────────────────────────────────────────────────────
 export function AdminUsersPage() {
@@ -38,7 +38,7 @@ export function AdminUsersPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Users2 size={22} />{t('users')}</h1>
+        <h1 className="page-title"><Users2 size={22} />{t('users')}</h1>
         <div className="ms-auto flex gap-2">
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} className="w-52" />
           <Select value={role} onValueChange={setRole}>
@@ -68,9 +68,9 @@ export function AdminUsersPage() {
                 <div className="ms-auto flex items-center gap-2">
                   {u.role === 'PATIENT' && <Badge variant="secondary" className="text-[10px]">{u.referralCode?.slice(0, 12)}</Badge>}
                   {u.isActive ? (
-                    <Button variant="outline" size="sm" className="gap-1 text-amber-600 h-8" onClick={() => patch(u.id, { isActive: false })}><ShieldOff size={13} />غیرفعال</Button>
+                    <Button variant="outline" size="sm" className="gap-1 text-status-warning h-8" onClick={() => patch(u.id, { isActive: false })}><ShieldOff size={13} />غیرفعال</Button>
                   ) : (
-                    <Button variant="outline" size="sm" className="gap-1 text-[#225BBE] dark:text-[#57AFE2] h-8" onClick={() => patch(u.id, { isActive: true })}><ShieldCheck size={13} />فعال</Button>
+                    <Button variant="outline" size="sm" className="gap-1 text-primary dark:text-brand-light h-8" onClick={() => patch(u.id, { isActive: true })}><ShieldCheck size={13} />فعال</Button>
                   )}
                 </div>
               </CardContent>
@@ -92,7 +92,7 @@ export function AdminUsersPage() {
                 <tr key={perm} className="border-b border-border/40">
                   <td className="p-2 font-mono text-[10px]" dir="ltr">{perm}</td>
                   {Object.keys(ROLE_LABELS).map((r) => (
-                    <td key={r} className="p-2 text-center">{(ROLE_PERMISSIONS as Record<string, string[]>)[r]?.includes(perm) ? <CheckCircle2 size={13} className="text-emerald-600 mx-auto" /> : <span className="text-muted-foreground">—</span>}</td>
+                    <td key={r} className="p-2 text-center">{(ROLE_PERMISSIONS as Record<string, string[]>)[r]?.includes(perm) ? <CheckCircle2 size={13} className="text-status-success mx-auto" /> : <span className="text-muted-foreground">—</span>}</td>
                   ))}
                 </tr>
               ))}
@@ -130,7 +130,7 @@ export function AdminDiseasesPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Stethoscope size={22} />{t('diseases')}</h1>
+        <h1 className="page-title"><Stethoscope size={22} />{t('diseases')}</h1>
         <Button size="sm" className="ms-auto gap-1.5" onClick={() => setEdit({})}><Plus size={14} />{lang === 'fa' ? 'بیماری جدید' : 'New'}</Button>
       </div>
       <div className="grid gap-2 md:grid-cols-2">
@@ -143,8 +143,8 @@ export function AdminDiseasesPage() {
                 <Badge variant="secondary" className="text-[10px] ms-auto">{d.category || '—'}</Badge>
               </div>
               {d.descriptionFa && <p className="text-xs text-muted-foreground leading-relaxed">{d.descriptionFa}</p>}
-              {d.symptomsFa && <p className="text-xs text-muted-foreground">🔬 {d.symptomsFa}</p>}
-              {d.expertNotes && <p className="text-xs text-primary">💬 {d.expertNotes}</p>}
+              {d.symptomsFa && <p className="text-xs text-muted-foreground"><Microscope size={12} className="inline me-1" />{d.symptomsFa}</p>}
+              {d.expertNotes && <p className="text-xs text-primary"><MessageSquare size={12} className="inline me-1" />{d.expertNotes}</p>}
               <div className="flex gap-2 pt-1">
                 <Button variant="outline" size="sm" className="h-7" onClick={() => setEdit(d)}>{t('details')}</Button>
                 <Button variant="ghost" size="sm" className="h-7" onClick={() => toggle(d)}>{d.active ? 'غیرفعال' : 'فعال'}</Button>
@@ -199,7 +199,7 @@ export function AdminProductsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Pill size={22} />{t('products')}</h1>
+        <h1 className="page-title"><Pill size={22} />{t('products')}</h1>
         <Button size="sm" className="ms-auto gap-1.5" onClick={() => setEdit({ sku: '', nameFa: '', currentPrice: 0, stock: 0 })}><Plus size={14} />{lang === 'fa' ? 'محصول جدید' : 'New'}</Button>
       </div>
       {products.length === 0 ? <EmptyState /> : (
@@ -211,11 +211,11 @@ export function AdminProductsPage() {
                   <Badge variant="outline" className="font-mono text-[10px]" dir="ltr">{p.sku}</Badge>
                   <span className="font-bold">{p.nameFa}</span>
                   <span className="text-xs text-muted-foreground">{p.brand} · {p.category}</span>
-                  {p.requiresPrescription ? <Badge className="text-[10px] bg-amber-600 text-white">Rx</Badge> : <Badge variant="secondary" className="text-[10px]">OTC</Badge>}
+                  {p.requiresPrescription ? <Badge className="text-[10px] bg-status-warning text-status-warning-fg">Rx</Badge> : <Badge variant="secondary" className="text-[10px]">OTC</Badge>}
                   <span className="ms-auto font-bold tabular-nums text-primary"><Money amount={p.currentPrice} /></span>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
-                  <span>{lang === 'fa' ? 'موجودی' : 'Stock'}: <b className={p.stock <= 5 ? 'text-rose-600' : ''}>{p.stock}</b></span>
+                  <span>{lang === 'fa' ? 'موجودی' : 'Stock'}: <b className={p.stock <= 5 ? 'text-destructive' : ''}>{p.stock}</b></span>
                   <span>{lang === 'fa' ? 'قیمت خرید' : 'Purchase'}: {new Intl.NumberFormat(lang === 'fa' ? 'fa-IR' : 'en-US').format(p.purchasePrice)}</span>
                 </div>
                 {p.priceHistory.length > 0 && (

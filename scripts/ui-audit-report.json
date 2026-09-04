@@ -1,0 +1,299 @@
+{
+  "generatedAt": "2026-09-04T01:39:10.748Z",
+  "phase": "PHASE 07 — UI System consistency audit",
+  "filesScanned": 152,
+  "errors": 0,
+  "warnings": 5,
+  "contrast": {
+    "checked": 32,
+    "failed": 0
+  },
+  "details": {
+    "errors": [],
+    "warnings": [
+      {
+        "rule": "W1 duplicated className literal",
+        "count": 3,
+        "match": "flex flex-col items-center justify-center text-center py-10 px-4 gap-2"
+      },
+      {
+        "rule": "W1 duplicated className literal",
+        "count": 3,
+        "match": "text-xs text-muted-foreground max-w-sm leading-relaxed"
+      },
+      {
+        "rule": "W1 duplicated className literal",
+        "count": 3,
+        "match": "text-[11px] text-muted-foreground leading-relaxed"
+      },
+      {
+        "rule": "W1 duplicated className literal",
+        "count": 3,
+        "match": "text-sm leading-relaxed whitespace-pre-wrap"
+      },
+      {
+        "rule": "W1 duplicated className literal",
+        "count": 3,
+        "match": "text-xs text-muted-foreground leading-relaxed"
+      }
+    ]
+  },
+  "contrastResults": [
+    {
+      "label": "light: foreground on background",
+      "fg": "#0F2A50",
+      "bg": "#FFFFFF",
+      "ratio": 14.31,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "light: muted-foreground on background",
+      "fg": "#5B6F91",
+      "bg": "#FFFFFF",
+      "ratio": 5.09,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "light: muted-foreground on muted",
+      "fg": "#5B6F91",
+      "bg": "#F4F3F3",
+      "ratio": 4.59,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "light: primary link text on background",
+      "fg": "#225BBE",
+      "bg": "#FFFFFF",
+      "ratio": 6.35,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "light: secondary-foreground on secondary",
+      "fg": "#173F76",
+      "bg": "#E7F1FA",
+      "ratio": 9.14,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "light: sidebar-foreground on sidebar",
+      "fg": "#D5E1F0",
+      "bg": "#173F76",
+      "ratio": 7.89,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "light: white on brand-dark",
+      "fg": "#FFFFFF",
+      "bg": "#173F76",
+      "ratio": 10.45,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "dark: foreground on background",
+      "fg": "#E7EEF8",
+      "bg": "#0D1B30",
+      "ratio": 14.78,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "dark: muted-foreground on background",
+      "fg": "#8FA5C2",
+      "bg": "#0D1B30",
+      "ratio": 6.85,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "dark: muted-foreground on card",
+      "fg": "#8FA5C2",
+      "bg": "#12233C",
+      "ratio": 6.26,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "dark: secondary-foreground on secondary",
+      "fg": "#CFE4F5",
+      "bg": "#1A2E4D",
+      "ratio": 10.42,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "dark: sidebar-foreground on sidebar",
+      "fg": "#CFE4F5",
+      "bg": "#0F2440",
+      "ratio": 11.93,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "dark: destructive on background",
+      "fg": "#F87171",
+      "bg": "#0D1B30",
+      "ratio": 6.24,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "dark: primary-foreground on primary",
+      "fg": "#0F2A50",
+      "bg": "#57AFE2",
+      "ratio": 5.89,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "dark: primary text on background",
+      "fg": "#57AFE2",
+      "bg": "#0D1B30",
+      "ratio": 7.1,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "dark: status-success-text",
+      "fg": "#4ADE80",
+      "bg": "#0D1B30",
+      "ratio": 9.91,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "dark: status-warning-text",
+      "fg": "#E8A94D",
+      "bg": "#0D1B30",
+      "ratio": 8.4,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "dark: status-danger-text on card",
+      "fg": "#F87171",
+      "bg": "#12233C",
+      "ratio": 5.7,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "status info chip",
+      "fg": "#122F5C",
+      "bg": "#57AFE2",
+      "ratio": 5.44,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "status progress chip",
+      "fg": "#FFFFFF",
+      "bg": "#225BBE",
+      "ratio": 6.35,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "status success chip",
+      "fg": "#FFFFFF",
+      "bg": "#157347",
+      "ratio": 5.87,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "status warning chip",
+      "fg": "#FFFFFF",
+      "bg": "#B45309",
+      "ratio": 5.02,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "status danger chip",
+      "fg": "#FFFFFF",
+      "bg": "#B91C1C",
+      "ratio": 6.47,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "status neutral chip",
+      "fg": "#FFFFFF",
+      "bg": "#3F5070",
+      "ratio": 8.1,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "status navy chip",
+      "fg": "#FFFFFF",
+      "bg": "#173F76",
+      "ratio": 10.45,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "status revision chip",
+      "fg": "#FFFFFF",
+      "bg": "#6D28D9",
+      "ratio": 7.1,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "light: destructive text on background",
+      "fg": "#DC2626",
+      "bg": "#FFFFFF",
+      "ratio": 4.83,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "accent button text (AA-large / UI only — ED-87)",
+      "fg": "#173F76",
+      "bg": "#57AFE2",
+      "ratio": 4.3,
+      "min": 3,
+      "pass": true
+    },
+    {
+      "label": "status-info-text on light bg",
+      "fg": "#1D6BB5",
+      "bg": "#FFFFFF",
+      "ratio": 5.49,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "status-success-text on light bg",
+      "fg": "#157347",
+      "bg": "#FFFFFF",
+      "ratio": 5.87,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "status-warning-text on light bg",
+      "fg": "#B45309",
+      "bg": "#FFFFFF",
+      "ratio": 5.02,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "label": "status-danger-text on light bg",
+      "fg": "#B91C1C",
+      "bg": "#FFFFFF",
+      "ratio": 6.47,
+      "min": 4.5,
+      "pass": true
+    }
+  ]
+}

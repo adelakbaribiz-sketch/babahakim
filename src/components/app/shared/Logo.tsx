@@ -18,20 +18,22 @@ interface LogoProps {
 /**
  * Brand mark: rounded square in Primary Dark (#173F76, or Sky #57AFE2 on the
  * light variant) containing a stylized tongue + AI scan-line.
+ * PHASE 07 (§3/§27): colors reference design tokens (CSS vars), never raw hex.
  * To swap the logo project-wide, replace ONLY this component (§25).
  */
 export function Logo({ size = 36, variant = 'dark', showText = false, textClassName = '' }: LogoProps) {
   const { t } = useApp()
-  const box = variant === 'light' ? '#57AFE2' : '#173F76'
-  const tongue = variant === 'light' ? '#173F76' : '#57AFE2'
-  const groove = variant === 'light' ? '#57AFE2' : '#173F76'
-  const scan = '#FFFFFF'
+  // Token references — resolve at runtime, theme-aware (§27)
+  const box = variant === 'light' ? 'var(--bh-primary-light)' : 'var(--bh-primary-dark)'
+  const tongue = variant === 'light' ? 'var(--bh-primary-dark)' : 'var(--bh-primary-light)'
+  const groove = variant === 'light' ? 'var(--bh-primary-light)' : 'var(--bh-primary-dark)'
+  const scan = '#FFFFFF' // §5 — white base surface (allowed)
 
   return (
     <span className="inline-flex items-center gap-2 select-none" role="img" aria-label="BabaHakim">
       <span
         className="flex items-center justify-center shrink-0 rounded-[28%]"
-        style={{ width: size, height: size, backgroundColor: box, boxShadow: '0 2px 8px rgba(23, 63, 118, 0.18)' }}
+        style={{ width: size, height: size, backgroundColor: box, boxShadow: 'var(--shadow-card-hover)' }}
       >
         <svg width={size * 0.62} height={size * 0.62} viewBox="0 0 100 100" fill="none" aria-hidden="true">
           {/* stylized tongue */}

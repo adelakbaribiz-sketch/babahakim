@@ -14,7 +14,7 @@ import { toast } from 'sonner'
 import { SectionCard, StatusBadge, JalaliDate, Money, LoadingRows, EmptyState } from '../../shared/atoms'
 import { PaymentPanel, ShipmentCard } from './shopSupport'
 import { fmtMoney } from '@/lib/i18n'
-import { ShoppingBag, ShoppingCart, Package, Ticket as TicketIcon, Bell, Plus, Minus, Trash2, CheckCircle2 } from 'lucide-react'
+import { ShoppingBag, ShoppingCart, Package, Ticket as TicketIcon, Bell, Plus, Minus, Trash2, CheckCircle2, Pill } from 'lucide-react'
 
 // ── Shop ────────────────────────────────────────────────────────────────
 export function ShopPage() {
@@ -34,7 +34,7 @@ export function ShopPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><ShoppingBag size={22} />{t('shop')}</h1>
+        <h1 className="page-title"><ShoppingBag size={22} />{t('shop')}</h1>
         <div className="ms-auto flex gap-2 flex-wrap">
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} className="w-52" />
           <Select value={cat} onValueChange={setCat}>
@@ -76,14 +76,14 @@ function ProductCard({ p }: { p: { id: string; sku: string; nameFa: string; name
   return (
     <Card className="overflow-hidden hover:border-primary/40 transition-colors">
       <CardContent className="p-4 space-y-2.5">
-        <div className="aspect-square rounded-lg bg-gradient-to-br from-[#173F76]/10 to-[#57AFE2]/20 flex items-center justify-center text-4xl select-none">💊</div>
+        <div className="aspect-square rounded-lg bg-gradient-to-br from-brand-dark/10 to-brand-light/20 flex items-center justify-center select-none" aria-hidden><Pill className="size-10 text-primary" /></div>
         <div>
           <div className="font-bold text-sm leading-snug">{lang === 'fa' ? p.nameFa : p.nameEn}</div>
           <div className="text-xs text-muted-foreground">{p.brand} · {p.category}</div>
         </div>
         <div className="flex items-center justify-between">
           <span className="font-bold tabular-nums text-primary">{fmtMoney(p.price, lang)}</span>
-          {p.requiresPrescription ? <Badge variant="outline" className="text-amber-600 border-amber-500/50 text-[10px]">{t('rx')}</Badge> : <Badge variant="secondary" className="text-[10px]">{t('otc')}</Badge>}
+          {p.requiresPrescription ? <Badge variant="outline" className="text-status-warning border-status-warning/50 text-[10px]">{t('rx')}</Badge> : <Badge variant="secondary" className="text-[10px]">{t('otc')}</Badge>}
         </div>
         <div className="text-[11px] text-muted-foreground">{p.stock > 5 ? t('inStock') : p.stock > 0 ? t('lowStock') : '—'} · {lang === 'fa' ? 'موجودی' : 'stock'}: {p.stock}</div>
         {p.usageFa && <div className="text-[11px] text-muted-foreground leading-relaxed">{p.usageFa}</div>}
@@ -118,7 +118,7 @@ export function CartPage() {
   if (!data) return <LoadingRows />
   return (
     <div className="max-w-2xl space-y-4">
-      <h1 className="text-2xl font-bold flex items-center gap-2"><ShoppingCart size={22} />{t('cart')}</h1>
+      <h1 className="page-title"><ShoppingCart size={22} />{t('cart')}</h1>
       {data.items.length === 0 ? <EmptyState /> : (
         <>
           <div className="space-y-2">
@@ -135,7 +135,7 @@ export function CartPage() {
                     <Button variant="outline" size="icon" className="size-7" onClick={() => setQty(i.id, i.quantity + 1)} disabled={i.quantity >= i.stock}><Plus size={13} /></Button>
                   </div>
                   <div className="w-24 text-end text-sm font-medium tabular-nums"><Money amount={i.lineTotal} /></div>
-                  <Button variant="ghost" size="icon" className="text-rose-600 size-8" onClick={() => setQty(i.id, 0)}><Trash2 size={14} /></Button>
+                  <Button variant="ghost" size="icon" className="text-destructive size-8" onClick={() => setQty(i.id, 0)}><Trash2 size={14} /></Button>
                 </CardContent>
               </Card>
             ))}
@@ -169,7 +169,7 @@ export function OrdersPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold flex items-center gap-2"><Package size={22} />{t('orders')}</h1>
+      <h1 className="page-title"><Package size={22} />{t('orders')}</h1>
       {orders.length === 0 ? <EmptyState /> : (
         <div className="space-y-3">
           {orders.map((o) => (
@@ -245,7 +245,7 @@ export function TicketsPage() {
   return (
     <div className="space-y-4 max-w-3xl">
       <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><TicketIcon size={22} />{t('tickets')}</h1>
+        <h1 className="page-title"><TicketIcon size={22} />{t('tickets')}</h1>
         {user?.role === 'PATIENT' && <Button size="sm" className="ms-auto gap-1.5" onClick={() => setOpen(true)}>+ {t('newTicket')}</Button>}
       </div>
 
@@ -341,7 +341,7 @@ export function NotificationsPage() {
   return (
     <div className="space-y-4 max-w-2xl">
       <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Bell size={22} />{t('notifications')}</h1>
+        <h1 className="page-title"><Bell size={22} />{t('notifications')}</h1>
         <Button variant="outline" size="sm" className="ms-auto" onClick={async () => { await api('/api/v1/notifications', { method: 'PATCH', json: {} }); load() }}>{t('markAllRead')}</Button>
       </div>
       {items.length === 0 ? <EmptyState /> : (
@@ -350,7 +350,7 @@ export function NotificationsPage() {
             <Card key={n.id} className={n.read ? 'opacity-60' : ''}>
               <CardContent className="p-3.5">
                 <div className="flex items-start gap-2">
-                  {!n.read && <span className="size-2 rounded-full bg-[#57AFE2] mt-2 shrink-0" />}
+                  {!n.read && <span className="size-2 rounded-full bg-brand-light mt-2 shrink-0" />}
                   <div className="min-w-0">
                     <div className="font-medium text-sm">{lang === 'fa' ? n.titleFa : n.titleEn}</div>
                     <div className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{lang === 'fa' ? n.bodyFa : n.bodyEn}</div>

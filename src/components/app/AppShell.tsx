@@ -100,7 +100,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               )}>
               {item.icon}
               <span className="truncate">{item.label}</span>
-              {item.page === 'notifications' && notifCount > 0 && <Badge className="ms-auto bg-[#57AFE2] text-[#173F76] font-bold">{notifCount}</Badge>}
+              {item.page === 'notifications' && notifCount > 0 && <Badge className="ms-auto bg-status-info text-status-info-fg font-bold">{notifCount}</Badge>}
             </button>
           ))}
         </nav>
@@ -131,7 +131,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="font-bold">{t('appName')}</span>
         </button>
         <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
-          <Heart size={14} className="text-[#225BBE]" />
+          <Heart size={14} className="text-primary" />
           {t('appDesc')}
         </div>
         <div className="ms-auto flex items-center gap-1.5">
@@ -145,7 +145,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <button className="flex items-center gap-2 rounded-full hover:bg-muted p-1 ps-2 transition-colors" aria-label="User menu">
                 <span className="hidden sm:block text-xs font-medium">{user?.firstName} {user?.lastName}</span>
                 <Avatar className="size-8">
-                  <AvatarFallback className="bg-[#173F76]/10 text-[#173F76] dark:bg-[#57AFE2]/15 dark:text-[#9CCBEF] text-xs font-bold">
+                  <AvatarFallback className="bg-primary/10 text-primary dark:bg-brand-light/15 dark:text-brand-light text-xs font-bold">
                     {user?.firstName?.[0]}{user?.lastName?.[0]}
                   </AvatarFallback>
                 </Avatar>
@@ -159,7 +159,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               )}
               <DropdownMenuItem onClick={() => navigate('notifications')}><Bell size={14} className="me-2" />{t('notifications')}</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => logoutUser(setUser, navigate)} className="text-rose-600"><LogOut size={14} className="me-2" />{t('logout')}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => logoutUser(setUser, navigate)} className="text-destructive"><LogOut size={14} className="me-2" />{t('logout')}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -170,8 +170,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </aside>
         <main className="flex-1 min-w-0 p-4 md:p-6 max-w-[1400px] w-full mx-auto">{children}</main>
       </div>
-      <footer className="mt-auto bg-[#173F76] dark:bg-[#0F2440] text-white/80 py-3 px-4 text-center text-[11px]">
+      <footer className="mt-auto bg-brand-dark dark:bg-sidebar text-white/80 py-3 px-4 text-center text-[11px]">
         {t('appName')} — {t('appDesc')} · {t('disclaimerMedical')}
+        <button onClick={() => navigate('designSystem')} className="footer-link">{t('designSystem')}</button>
       </footer>
     </div>
   )
@@ -189,7 +190,7 @@ function ThemeToggle() {
       onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
     >
       <Moon size={17} className="dark:hidden" />
-      <Sun size={17} className="hidden dark:block text-[#57AFE2]" />
+      <Sun size={17} className="hidden dark:block text-brand-light" />
     </Button>
   )
 }
@@ -211,7 +212,7 @@ function NotificationBell() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative" aria-label={t('notifications')}>
           <Bell size={18} />
-          {notifCount > 0 && <span className="absolute -top-0.5 -end-0.5 size-4 rounded-full bg-[#57AFE2] text-[#173F76] text-[9px] font-bold flex items-center justify-center">{notifCount}</span>}
+          {notifCount > 0 && <span className="absolute -top-0.5 -end-0.5 size-4 rounded-full bg-status-info text-status-info-fg text-[9px] font-bold flex items-center justify-center">{notifCount}</span>}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
@@ -226,7 +227,7 @@ function NotificationBell() {
               <div className={`text-xs ${n.read ? 'text-muted-foreground' : 'font-medium'}`}>{lang === 'fa' ? n.titleFa : n.titleEn}</div>
               <div className="text-[10px] text-muted-foreground mt-0.5">{lang === 'fa' ? n.bodyFa : n.bodyEn}</div>
             </div>
-            {!n.read && <span className="size-1.5 rounded-full bg-[#57AFE2] shrink-0 mt-1.5" />}
+            {!n.read && <span className="size-1.5 rounded-full bg-brand-light shrink-0 mt-1.5" />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

@@ -2,6 +2,7 @@
 
 > منبع: «BabaHakim Master UI Branding Prompt» (§1–39) + قواعد Lead Engineer.
 > این سند مرجع رسمی ظاهر پروژه است؛ هیچ صفحه‌ای خارج از این سیستم ساخته نمی‌شود.
+> **PHASE 07:** مرجع مهندسی کامل (توکن‌ها/کامپوننت‌ها/حالت‌ها/RTL/A11y/ممیزی): `docs/DESIGN-SYSTEM.md` · Style Guide زنده: نمای «سیستم طراحی» در فوتر · ممیزی: `bun run audit:ui`
 
 ## ۱. هویت برند
 

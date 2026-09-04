@@ -23,6 +23,8 @@
 
 > ۱۴۰۵/۰۶/۱۴ (2026-09-04) — PHASE 06 (طبق فرمان محصول، پیش از ساخت UI نهایی): **UX Architecture** — ۶ User Journey (هر نقش) · Sitemap با مدل Routing دو-نسخه‌ای · **Screen Inventory = ۷۳ صفحه با SC-ID و ۹ فیلد اجباری** (هدف/کاربر/اطلاعات/Actions/دسترسی/Empty/Loading/Error/Success — پوشش کامل ۲۷ صفحه فرمان + Operator + Doctor) · Flow Diagram ×۱۰ (ناوبری/Auth/مسیر طلایی ۱۷ مرحله‌ای/Quality Gate/E1+E2+Doctor/پرداخت/فروشگاه/تیکت/Reassessment) · State System با ۸ الگوی استاندارد SP. اسناد: `docs/UX.md` + `docs/SCREEN-MAP.md` + ED-71..ED-80. اعتبارسنجی: `scripts/validate-phase06-docs.py` (PASS).
 
+> ۱۴۰۵/۰۶/۱۴ (2026-09-04) — PHASE 07 (طبق فرمان محصول: «UI System»): **Design System مرکزی** — توکن‌های دو-منبعی CSS+TS با گیت همگام‌سازی (ED-81) · ۸ توکن وضعیت §9 جایگزین ۱۳۳ تخلف Hardcode (ED-82) · Tailwind v4 CSS-first مرجع (ED-83) · ابزارهای منطقی اجباری برای RTL (ED-84) · Style Guide زنده درون-برنامه‌ای (ED-85) · اصلاح WCAG برای muted-foreground (ED-86) · ۳۲ جفت کنتراست تحت گیت E7 · کامپوننت‌های States چهارگانه SP-1..8 (ED-91) · chartTheme توکنی (ED-88) · Toast جهت‌آگاه sonner (ED-89) · ممیزی یکپارچگی `bun run audit:ui` (ED-90) — خط پایه ۱۳۳→۰. اسناد: `docs/DESIGN-SYSTEM.md` + ED-81..ED-92. راستی‌آزمایی: `scripts/validate-phase07-docs.py` + ممیزی UI PASS + ۸۶/۸۶ تست رگرسیون.
+
 ## 1) ماتریس اصلی — Functional Requirements
 
 ### دامنه AUTH / PROF / MIZAJ
@@ -340,7 +342,7 @@
 | 94 | Local VSCode Validation | فاز 05 چک‌لیست | ⏳ فاز 05 |
 | 95 | Production Checklist | فاز 05 + PRD C1 | ⏳ فاز 05 |
 | 96 | ممنوعیت «باید پیاده شود» | RTM وضعیت صادقانه (I/P/R) | ✅ |
-| 97 | تصمیم‌گیری ابهام | ED-01..ED-80 (فاز 01: 01..30 · فاز 02: 31..34 · فاز 03: 35..46 · فاز 04: 47..58 · فاز 05: 59..70 · فاز 06: 71..80) | ✅ |
+| 97 | تصمیم‌گیری ابهام | ED-01..ED-92 (فاز 01: 01..30 · فاز 02: 31..34 · فاز 03: 35..46 · فاز 04: 47..58 · فاز 05: 59..70 · فاز 06: 71..80 · فاز 07: 81..92) | ✅ |
 | 98 | ۱۸ Milestone | PRD §12 | ✅ |
 | 99 | AI Model Strategy | ED-01/25 · FR-AI-01 | ✅ |
 | 100 | عدم جعل پزشکی | BR-MED-07 · ED-15 | ✅ |

@@ -3,7 +3,6 @@ import { Vazirmatn } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
-import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 
 const vazir = Vazirmatn({
   variable: "--font-vazir",
@@ -28,8 +27,9 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
           {children}
         </ThemeProvider>
+        {/* radix toaster (legacy use-toast) — kept for backwards compatibility;
+            sonner AppToaster (dir-aware) is rendered inside AppProvider (page.tsx) */}
         <Toaster />
-        <SonnerToaster position="top-center" richColors closeButton />
       </body>
     </html>
   );

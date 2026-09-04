@@ -241,3 +241,33 @@ Stage Summary:
 - Key decisions: ED-71 SC-ID as single source of truth · ED-72 three-column §80 layout · ED-73 patient view decomposition v1²→v2 · ED-74 mandatory 4-states · ED-75 queue speed (virtual table, optimistic claim) · ED-76 AI review → AI_REVIEW machine · ED-77 ownership-based patient access · ED-78 settings deferred to v2 · ED-79 routing migration path · ED-80 notification deep-link pattern
 - Remaining risks (honest): F-01..F-10 mermaid structurally validated (fences/quotes/braces) but not browser-rendered (same policy as phase 03); nav badge counts + virtual queue table + PT-20/AD-13/E1-08/E2-08/DR-05 pages are v2 targets (statuses marked in sitemap); UX debt items in v1 SPA (case codes TC- prefix, MFA UI toggle) inherited unchanged
 - Next: PHASE 07 — UI rebuild per SC-ID (component plan from SCREEN-MAP) or Deployment hardening per updated PRD §12 roadmap
+
+---
+Task ID: 9
+Agent: Main agent (Super Z)
+Task: PHASE 07 — UI System: Design System مرکزی + Design Tokens همه‌جا + حذف Hardcodeها + Dark/RTL-LTR/A11y + ممیزی یکپارچگی
+
+Work Log:
+- Pre-stage audit (rule 4): worklog (8 stages), git log, re-read Master UI Branding PDF (§1–39 via pdftotext), globals.css/tailwind.config/layout/atoms/constants/AppShell/page.tsx/i18n — خط پایه ممیزی: ۱۳۳ تخلف (۵۷ کلاس hex + ۷۶ پالت خام در ۱۱ فایل) + tailwind.config.ts زائد v3 + فونت‌های مرده geist + hsl(var()) شکسته در نمودارها
+- Token layer: globals.css — ۸ توکن وضعیت §9 (bg/fg mode-invariant + text-grade mode-aware آگاه از دارک)، alias تایپوگرافی §23 (display/title/caption)، shadow-card/hover §21، فونت mono، اصلاح WCAG muted-foreground #64799A→#5B6F91 (4.43→5.09:1، ED-86)
+- src/design-system/tokens.ts + index.ts (ED-81): آینه TS کامل (brand/derived/status/statusText/semantic light-dark/chartVars/chartPalette/chartTheme/typography/spacing/breakpoints/grid/radius/shadow/zIndex/iconSize) با قانون sync E6
+- constants.ts: هر ۴ STATUS_META (۴۴ مدخل) → statusClass توکنی (ED-82)
+- atoms.tsx (ED-91): EmptyState ارتقا (icon/title/hint/action سازگار)، LoadingRows/LoadingCard/LoadingSpinner، ErrorState (role=alert + retry)، SuccessState، PageState (SP-7)، ConfirmDialog (AlertDialog)، ConfidenceBar توکنی + ui/spinner.tsx جدید
+- رفع ۱۳۳ تخلف در ۱۱ فایل اپ (AppShell/Landing/AuthView/clinical/StaffViews/AdminViews×2/CaseWorkspace/PatientViews/ShopViews/toast) + Logo.tsx به var() + AdminViews2 charts به chartVars/chartTheme (رفع باگ hsl(var()) گرید) + ایموجی‌های تصویری → lucide
+- AppToaster (ED-89): sonner جهت‌آگاه داخل AppProvider؛ layout پاک‌سازی؛ dead tailwind.config.ts حذف (ED-83)
+- Style Guide زنده (ED-85): DesignSystemView + DsShowcase (۱۵ بخش: توکن‌ها/رنگ‌ها/۲۱ وضعیت/تایپو/فاصله/دکمه×۸/فرم×۶حالت/جدول §19/کارت/دیالوگ×3/ناوبری/اعلان/نمودار/چهار State + دموی PageState/آیکون/Breakpoints) + ثبت router + لینک فوتر Landing/AppShell + ۲۶ کلید i18n
+- کلاس‌های idiom تک‌منبع (ED-92): page-title/meta-inline/footer-link/tile-row + sed متمرکز
+- scripts/ui-audit.mjs (ED-90) + npm audit:ui: E1..E7 + W1/W2، گیت exit 1، گزارش JSON؛ ۱۵۲ فایل، ۳۲ جفت کنتراست همه PASS
+- Test→Fix: باگ RouterWithStaffDefault (designSystem برای مهمان)، ShopViews brace اضافی (parse error)، hsl sidebar، کامنت/hex ممیزی، تورفتگی PatientViews، CardLike rename — ۴ چرخه تا سبز
+- راستی‌آزمایی مرورگر (agent-browser): Landing 200 بدون خطای کنسول/Hydration → DS view رندر (fa/en × light/dark) → دیالوگ باز/Confirm → توست success → ۲ recharts + ۶ skeleton → PageState error/success → computed: statusInfoBg=rgb(87,175,226)، Vazirmatn، bodyBg دارک، page-title flex — تصاویر: verify-ds-*.png
+- مستندات: docs/DESIGN-SYSTEM.md (۱۹ بخش، ED-85/86/87/90/91/92 ارجاع)؛ رجیستری: PRD §12 (فاز ۰۷ انجام‌شده + فاز ۰۸ Deployment) + فهرست اسناد، BUSINESS-RULES ED-81..92، RTM یادداشت فاز ۰۷ + §97 ED-01..92، BRANDING cross-ref
+- اعتبارسنج: scripts/validate-phase07-docs.py (7 deliverable + wiring + registry + گیت زنده ممیزی + CJK/secret) — PASS؛ ۵ اعتبارسنج رگرسیون (01/03/04/05/06) بازتنظیم ED=92 — همه PASS
+- امنیت: اسکن secret/PHI روی تغییرات = فقط داده demo مصنوعی (091200000xx + Pass1234 نمایشی)؛ dangerouslySetInnerHTML فقط chart.tsx فروشگاه shadcn (بدون ورودی کاربر)؛ صفر وابستگی جدید
+- Git commit: توکن‌ها + DS views + ممیزی + مستندات + رجیستری
+
+Stage Summary:
+- Deliverables: Design System مرکزی دو-منبعی (globals.css + tokens.ts) · ۸ توکن وضعیت §9 · Typography/Spacing/Grid/Breakpoints/Radius/Shadow · States چهارگانه SP-1..8 · Style Guide زنده درون-برنامه‌ای · ui-audit.mjs گیت CI · DESIGN-SYSTEM.md ۱۹ بخشی · ED-81..92 · ۶ اعتبارسنج PASS
+- Verification: ممیزی UI ۱۳۳→۰ خطا؛ ۳۲/۳۲ کنتراست WCAG؛ lint ۰؛ ۸۶/۸۶ تست رگرسیون؛ browser-verified (دیالوگ/توست/چارت/State/دارک/RTL/LTR)
+- Key decisions: ED-81 دو-منبعی توکن + گیت sync · ED-82 وضعیت معنایی mode-invariant · ED-83 حذف کانفیگ v3 · ED-84 منطقی-اجباری · ED-85 style guide درون-برنامه‌ای · ED-86 اصلاح AA · ED-87 قاعده Accent · ED-88 chartTheme · ED-89 sonner مرجع · ED-90 گیت ممیزی · ED-91 States استاندارد · ED-92 idiom تک‌منبع
+- Remaining risks (honest): radix use-toast legacy فریز؛ PageHeader کامپوننتی (به‌جای .page-title) اختیاری v2؛ DatePicker جلالی v2؛ WCAG خودکار فقط Node (Cypress بعدی)؛ scope دکمه‌های sticky در تست خودکار
+- Next: PHASE 08 — UI Rebuild طبق SC-ID (SCREEN-MAP ۷۳ صفحه) روی همین Design System، یا Deployment per PRD §12

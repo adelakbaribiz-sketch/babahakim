@@ -144,7 +144,7 @@ if no_ac:
 stats = {
     'FR': (len(fr_def), 154), 'NFR': (len(nfr_def), 25),
     'US': (len(us_def), 142), 'UC': (len(uc_def), 30),
-    'BR': (len(br_def), 69), 'ED': (len(ed_def), 80), 'AC': (len(ac_def), 150),
+    'BR': (len(br_def), 69), 'ED': (len(ed_def), 92), 'AC': (len(ac_def), 150),
 }
 for label, (actual, claimed) in stats.items():
     if actual < claimed * 0.9 or actual > claimed * 1.1:

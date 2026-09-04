@@ -15,7 +15,7 @@ import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import { ConfidenceBar, StatusBadge, JalaliDate, Money, SectionCard } from './atoms'
-import { Bot, ShieldAlert, Clock, Upload, CreditCard, CheckCircle2, XCircle, Info } from 'lucide-react'
+import { Bot, ShieldAlert, Clock, Upload, CreditCard, CheckCircle2, XCircle, Info, AlertTriangle } from 'lucide-react'
 
 // ── Timeline ────────────────────────────────────────────────────────────
 export function Timeline({ items }: { items: { at: string | Date; desc: string; actor: string; actorRole: string; code: string }[] }) {
@@ -79,11 +79,11 @@ export function AIAnalysisCard({ analysis }: { analysis: {
             {analysis.processingMs != null && <div>⏱ {analysis.processingMs} ms</div>}
           </div>
         )}
-        <Alert className="py-2.5 border-amber-300/50 bg-amber-50/60 dark:bg-amber-950/30">
-          <ShieldAlert size={16} className="text-amber-600 shrink-0" />
+        <Alert className="py-2.5 border-status-warning/30 bg-status-warning/10">
+          <ShieldAlert size={16} className="text-status-warning shrink-0" />
           <AlertDescription className="text-xs leading-relaxed">
             {t('aiDisclaimer')}
-            {analysis.humanReviewed && <> · <b className="text-emerald-600">{t('needsReview')} ✓</b></>}
+            {analysis.humanReviewed && <> · <b className="text-status-success">{t('needsReview')} ✓</b></>}
           </AlertDescription>
         </Alert>
       </CardContent>
@@ -120,7 +120,7 @@ export function ImageGallery({ images, onUploaded }: { images: { id: string; typ
               { }
               <img src={selImg.urls.compressed} alt="medical" className="w-full rounded-lg" />
               {selImg.quality?.issues && selImg.quality.issues.length > 0 && (
-                <div className="text-xs text-amber-700 dark:text-amber-400 space-y-1">
+                <div className="text-xs text-status-warning space-y-1">
                   {selImg.quality.issues.map((iss, i) => <div key={i}>• {iss}</div>)}
                 </div>
               )}
@@ -149,9 +149,9 @@ export function PrescriptionCard({ prescription, role }: {
         <div className="flex items-center gap-2 flex-wrap">
           <CardTitle className="text-base">{t('prescription')} — {t('version')} {prescription.version}</CardTitle>
           <Badge variant="outline" className={
-            prescription.status === 'APPROVED' ? 'border-emerald-500 text-emerald-600' :
-            prescription.status === 'REJECTED' ? 'border-rose-500 text-rose-600' :
-            prescription.status === 'REVISION_REQUESTED' ? 'border-amber-500 text-amber-600' : ''
+            prescription.status === 'APPROVED' ? 'border-status-success/60 text-status-success' :
+            prescription.status === 'REJECTED' ? 'border-destructive/60 text-destructive' :
+            prescription.status === 'REVISION_REQUESTED' ? 'border-status-warning/60 text-status-warning' : ''
           }>{prescription.status}</Badge>
           <span className="ms-auto text-xs text-muted-foreground"><JalaliDate date={prescription.createdAt} /></span>
         </div>
@@ -159,11 +159,11 @@ export function PrescriptionCard({ prescription, role }: {
       <CardContent className="space-y-4">
         <div className="grid gap-2">
           {prescription.items.map((it) => (
-            <div key={it.id} className={`rounded-lg border p-3 ${it.missing ? 'border-amber-400/60 bg-amber-50/50 dark:bg-amber-950/20' : ''}`}>
+            <div key={it.id} className={`rounded-lg border p-3 ${it.missing ? 'border-status-warning/40 bg-status-warning/10' : ''}`}>
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium text-sm">{it.drugName}</span>
                 <div className="flex gap-1.5">
-                  {it.available ? <Badge className="bg-emerald-600 text-white text-[10px]">{t('available')}</Badge> : <Badge className="bg-amber-600 text-white text-[10px]">{t('missing')}</Badge>}
+                  {it.available ? <Badge className="bg-status-success text-status-success-fg text-[10px]">{t('available')}</Badge> : <Badge className="bg-status-warning text-status-warning-fg text-[10px]">{t('missing')}</Badge>}
                   {it.unitPrice != null && it.unitPrice > 0 && role !== 'PATIENT' && <span className="text-xs tabular-nums"><Money amount={it.unitPrice} /></span>}
                 </div>
               </div>
@@ -173,7 +173,7 @@ export function PrescriptionCard({ prescription, role }: {
                 {it.duration && <span>{t('duration')}: {it.duration}</span>}
               </div>
               {it.instructionsFa && <div className="text-xs mt-1.5 text-muted-foreground leading-relaxed">{t('instructions')}: {it.instructionsFa}</div>}
-              {it.warnings && <div className="text-xs mt-1 text-rose-600">⚠ {it.warnings}</div>}
+              {it.warnings && <div className="text-xs mt-1 text-destructive flex items-center gap-1"><AlertTriangle size={12} /> {it.warnings}</div>}
             </div>
           ))}
         </div>
@@ -252,7 +252,7 @@ export function PaymentPanel({ order, onDone }: {
             {active.refNumber && <div className="text-xs">{t('refNumber')}: <span dir="ltr" className="tabular-nums">{active.refNumber}</span></div>}
             {active.trackingCode && <div className="text-xs">{t('trackingCode')}: <span dir="ltr" className="tabular-nums">{active.trackingCode}</span></div>}
             {active.status === 'AWAITING_VERIFY' && (
-              <Badge variant="outline" className="text-amber-600 border-amber-500">در انتظار تأیید اپراتور</Badge>
+              <Badge variant="outline" className="text-status-warning border-status-warning/50">در انتظار تأیید اپراتور</Badge>
             )}
           </div>
         ) : null}
@@ -268,18 +268,18 @@ export function PaymentPanel({ order, onDone }: {
         <Dialog open={!!gw} onOpenChange={(o) => !o && setGw(null)}>
           <DialogContent className="max-w-sm">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2"><CreditCard size={18} className="text-[#225BBE]" />{t('paymentGateway')}</DialogTitle>
+              <DialogTitle className="flex items-center gap-2"><CreditCard size={18} className="text-primary" />{t('paymentGateway')}</DialogTitle>
               <DialogDescription>Zarinpal · {gw?.merchant}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 text-center">
-              <div className="rounded-xl bg-[#57AFE2]/10 p-4">
+              <div className="rounded-xl bg-brand-light/10 p-4">
                 <div className="text-xs text-muted-foreground">{t('amount')}</div>
                 <div className="text-2xl font-black tabular-nums"><Money amount={gw?.amount || 0} /></div>
                 <div className="text-[10px] text-muted-foreground mt-1" dir="ltr">Authority: {gw?.authority?.slice(0, 20)}…</div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Button className="btn-brand-hover gap-1" onClick={() => gatewayPay(true)} disabled={busy}><CheckCircle2 size={16} />{t('confirm')}</Button>
-                <Button variant="outline" className="gap-1 text-rose-600" onClick={() => gatewayPay(false)} disabled={busy}><XCircle size={16} />{t('cancel')}</Button>
+                <Button variant="outline" className="gap-1 text-destructive" onClick={() => gatewayPay(false)} disabled={busy}><XCircle size={16} />{t('cancel')}</Button>
               </div>
             </div>
           </DialogContent>

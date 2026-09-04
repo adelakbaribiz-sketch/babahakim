@@ -34,15 +34,15 @@ export function PatientDashboard({ navigate }: { navigate: (p: string, params?: 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">{user?.firstName} {user?.lastName} 👋</h1>
+        <h1 className="text-2xl font-bold">{user?.firstName} {user?.lastName}</h1>
         <p className="text-muted-foreground text-sm mt-1">{t('appDesc')}</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard title={t('myCases')} value={data.stats.totalCases} icon={<FolderOpen size={18} />} />
-        <StatCard title={t('status') + ' (فعال)'} value={data.stats.activeCases} icon={<Activity size={18} />} tone="bg-[#57AFE2]/15 text-[#173F76] dark:text-[#57AFE2]" />
+        <StatCard title={t('status') + ' (فعال)'} value={data.stats.activeCases} icon={<Activity size={18} />} tone="bg-brand-light/15 text-brand-dark dark:text-brand-light" />
         <StatCard title={t('orders')} value={data.stats.totalOrders} icon={<Package size={18} />} />
-        <StatCard title={t('tickets')} value={data.stats.openTickets} icon={<Ticket size={18} />} tone="bg-amber-500/10 text-amber-600" />
+        <StatCard title={t('tickets')} value={data.stats.openTickets} icon={<Ticket size={18} />} tone="bg-status-warning/10 text-status-warning" />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
@@ -75,13 +75,13 @@ export function PatientDashboard({ navigate }: { navigate: (p: string, params?: 
         <SectionCard title={t('mizaj')}>
           {data.lastMizaj ? (
             <div className="space-y-2">
-              <Badge className="bg-[#173F76] text-white text-sm py-1.5 px-3">{lang === 'fa' ? data.lastMizaj.mizajFa : data.lastMizaj.mizajEn}</Badge>
+              <Badge className="bg-brand-dark text-white text-sm py-1.5 px-3">{lang === 'fa' ? data.lastMizaj.mizajFa : data.lastMizaj.mizajEn}</Badge>
               <div className="text-xs text-muted-foreground"><JalaliDate date={data.lastMizaj.createdAt} /></div>
               <Button variant="outline" size="sm" onClick={() => navigate('questionnaire')}>{t('retake')}</Button>
             </div>
           ) : (
             <div className="space-y-3 text-center py-2">
-              <Heart size={28} className="mx-auto text-rose-400" />
+              <Heart size={28} className="mx-auto text-destructive" />
               <p className="text-xs text-muted-foreground leading-relaxed">برای شروع، پرسشنامه مزاج‌شناسی را تکمیل کنید.</p>
               <Button size="sm" onClick={() => navigate('questionnaire')} className="gap-1.5"><ClipboardList size={14} />{t('questionnaire')}</Button>
             </div>
@@ -154,7 +154,7 @@ export function ProfilePage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <h1 className="text-2xl font-bold flex items-center gap-2"><User size={24} />{t('profile')}</h1>
+      <h1 className="page-title"><User size={24} />{t('profile')}</h1>
       <SectionCard title={t('profile')}>
         <div className="grid sm:grid-cols-2 gap-3">
           {F('firstName', t('firstName'))}
@@ -238,10 +238,10 @@ export function QuestionnairePage() {
   if (result) {
     return (
       <div className="max-w-xl mx-auto space-y-5">
-        <Card className="border-[#57AFE2]/50 bg-gradient-to-br from-[#57AFE2]/15 to-transparent">
+        <Card className="border-brand-light/50 bg-gradient-to-br from-brand-light/15 to-transparent">
           <CardContent className="p-8 text-center space-y-4">
-            <div className="mx-auto size-16 rounded-2xl bg-[#173F76] flex items-center justify-center">
-              <Sparkles size={34} className="text-[#57AFE2]" />
+            <div className="mx-auto size-16 rounded-2xl bg-brand-dark flex items-center justify-center">
+              <Sparkles size={34} className="text-brand-light" />
             </div>
             <div className="text-xs text-muted-foreground">{t('mizajResult')}</div>
             <div className="text-3xl font-black">{lang === 'fa' ? result.mizajFa : result.mizajEn}</div>
@@ -272,7 +272,7 @@ export function QuestionnairePage() {
         <h1 className="text-xl font-bold">{t('questionnaire')}</h1>
         <span className="text-xs text-muted-foreground ms-auto tabular-nums">{lang === 'fa' ? `${new Intl.NumberFormat('fa-IR').format(answered)}/${new Intl.NumberFormat('fa-IR').format(total)}` : `${answered}/${total}`}</span>
       </div>
-      <Progress value={(answered / total) * 100} className="[&>div]:bg-[#57AFE2]" />
+      <Progress value={(answered / total) * 100} className="[&>div]:bg-brand-light" />
       <div className="space-y-4">
         {page.map((qq) => (
           <Card key={qq.id}>
@@ -341,9 +341,9 @@ export function NewCasePage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-5">
-      <h1 className="text-2xl font-bold flex items-center gap-2"><ImagePlus size={24} className="text-primary" />{t('newCase')}</h1>
+      <h1 className="page-title"><ImagePlus size={24} className="text-primary" />{t('newCase')}</h1>
 
-      <Card className={`border-2 border-dashed transition-colors ${uploadResult?.qualityOk === true ? 'border-emerald-500/60' : uploadResult ? 'border-amber-500/60' : 'border-border'}`}>
+      <Card className={`border-2 border-dashed transition-colors ${uploadResult?.qualityOk === true ? 'border-status-success/60' : uploadResult ? 'border-status-warning/60' : 'border-border'}`}>
         <CardContent className="p-6">
           <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) doUpload(f) }} />
           {preview ? (
@@ -352,7 +352,7 @@ export function NewCasePage() {
                 { }
                 <img src={preview} alt="preview" className="rounded-xl w-full" />
                 {uploadResult?.quality?.score != null && (
-                  <Badge className={`absolute top-2 end-2 text-white ${uploadResult.qualityOk ? 'bg-emerald-600' : 'bg-amber-600'}`}>Q: {uploadResult.quality.score}/100</Badge>
+                  <Badge className={`absolute top-2 end-2 ${uploadResult.qualityOk ? 'bg-status-success text-status-success-fg' : 'bg-status-warning text-status-warning-fg'}`}>Q: {uploadResult.quality.score}/100</Badge>
                 )}
               </div>
               {uploadResult && (
@@ -366,7 +366,7 @@ export function NewCasePage() {
                     </div>
                   )}
                   {uploadResult.issues.length > 0 && (
-                    <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-300/50 p-3 space-y-1 text-xs text-amber-700 dark:text-amber-400">
+                    <div className="rounded-lg bg-status-warning/10 border border-status-warning/30 p-3 space-y-1 text-xs text-status-warning">
                       {uploadResult.issues.map((iss, i) => <div key={i}>⚠ {iss}</div>)}
                     </div>
                   )}
