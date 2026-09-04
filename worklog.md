@@ -360,3 +360,30 @@ Stage Summary:
 - Key decisions: ED-121 (تعویض مدل از DB بدون کد) · ED-125 (دروازهٔ سه‌سطحی اعتبارسنجی انسانی) · ED-127 (metrics فقط محاسبه‌شده) · ED-123 (تفکیک بیمار-محور ضد-نشت) · ED-131 (statusKey)
 - Remaining risks (honest): D-11-1 UI اصلاح per-indicator برای E1 (DTO/سرویس/تست موجود؛ فرم مانده) · D-11-2 salt پروداکشن · D-11-3 retention لاگ استنتاج · D-11-5 ارزیابی v1 روی لیبل توافق درصدهای پایین صادقانه می‌دهد · D-11-6 ریترین واقعی خارج از scope ولی زیرساخت کامل
 - Next: PHASE 09 remediation (۷۳ صفحه SC-ID + D-11-1 فرم اصلاح) یا Deployment طبق PRD §12 فاز 12+
+
+---
+Task ID: 13
+Agent: Main agent (Super Z)
+Task: PHASE 12 — Business Workflow Engineering (تمام Workflowها با ۱۱ بُعد + تبدیل به State Machine + Backend Source of Truth)
+
+Work Log:
+- ممیزی پایه: ۸ ماشین موجود (PHASE 02) پوشش ۷ بُعد؛ شکاف‌های شناسایی‌شده: Timeout/Retry/Failure/Recovery غایب، ۳ فرآیند مهم بدون ماشین (DeletionRequest/MedicalImage/Invoice)، ۷ مسیر bypass موتور (کاسکاد پرداخت، شروع پرداخت با حفره گراف PAYMENT_PENDING، پل مدیا، MARK_PROCESSED، followup-scan updateMany، deletion مستقیم، invoice پراکنده)
+- Prisma: مدل WorkflowState (Projection اتمیک هر گذار: enteredAt/reminderCount/escalatedAt/lastDriftSyncAt) + migration 20260905090000_workflow_state_phase12 (افزودنی، applied)
+- policies.ts (خالص/Client-Safe): TIMEOUT_POLICIES (۵۰+ سیاست، نردبان REMIND→ESCALATE + انقضای خودکار درگاه ۳۰m)، RETRY_POLICIES، FAILURE_POLICIES، governanceDecision خالص
+- subtransition.ts: applySubTransition — کاسکادهای Machine-Guarded داخل tx فراخواننده (گارد+Audit+CaseEvent+WorkflowState)؛ cascadeSubTransition برای no-op idempotent
+- engine.ts: sync WorkflowState در تراکنش هر گذار + executeAdminRecovery (فرار اضطراری ADMIN با Audit کامل)
+- ۳ ماشین جدید + registry: DELETION_REQUEST (۴ وضعیت، ناشناس‌سازی اتمیک با anonymizeUserTx)، MEDICAL_IMAGE (۴ وضعیت، REJECT از همه وضعیت‌های زنده برای حق حذف + REVALIDATE)، INVOICE (۵ وضعیت) → ۱۱ ماشین
+- رفع bypassها: paymentPaidCascade→زیر‌گذار ORDER/CASE/INVOICE؛ cascadePaid→INVOICE.MARK_PAID؛ startPayment→ORDER.ENTER_PAYMENT (ED-126)+INVOICE.CONFIRM؛ media bridge→VALIDATE/REJECT؛ ai/pipeline→MARK_PROCESSED؛ followup-scan→گذار سطربه‌سطر Audited؛ patchDeletionRequest→ماشین
+- governance.ts: Runtime هر ۲ دقیقه (بک‌فیل Bounded + Drift→Audit + SLA ladder) + workflowHealthSnapshot؛ bootstrap v6 (rewire HMR hotfix)
+- API کنسول: GET/POST admin/workflow/overview|scan|recover (ADMIN-only + zod + rate-limit در سرویس + Audit)
+- رفع باگ‌های کشف‌شده حین فاز: FK audit با id ساختگی (wrapper anonymizeUser→SYSTEM)؛ TS_CAPS (نقشه ستون‌های زمانی — Invoice/deletionRequest فاقد updatedAt/deletedAt)؛ بازسازی images/upload (ED-127 — commit‌نشده گمشده)؛ notifyRole+extraFa؛ مقایسه‌های TS مرده در پل مدیا
+- چرخه منشور: bun test 283/283 · lint 0 خطا · backend-audit PASSED (E5/E1 اصلاح: rate-limit انتقال به سرویس، zod در upload، BODYLESS برای scan) · frontend-audit PASSED · pentest 45/45 · probe امنیتی (401/403/PATIENT×3=403) · probe عملکردی ADMIN (scan: 11 ماشین/93/0 خطا؛ recover واقعی AI_REVIEW→ACCEPTED با Audit+WorkflowState اتمیک) · مرورگر: رندر+لاگین مدیر+صفر خطای console
+- مستندات: WORKFLOW.md v2.0.0 (§12–19: کاتالوگ ۱۱بُعدی، ۱۱ ماشین، Governance، Recovery سه‌لایه، API) · ADR-0016 + ثبت در README · BUSINESS-RULES §6 (BR-WF-01..10) + ED-121..129
+- Git: commit b82e344
+
+Stage Summary:
+- ۱۱ ماشین وضعیت با تمام ۱۱ بُعد PHASE 12 (States/Transitions/Actors/Permissions/Conditions/Events/Notifications/Timeouts/Retries/Failures/Recovery)
+- لایه حاکمیت زنده: Governance Runtime هر ۲ دقیقه با Drift Detection (پاسدار فعال Backend-SoT) و SLA Enforcement
+- بازیابی سه‌لایه: طبیعی (گذارهای ماشین) / خودکار (SLA) / اضطراری (ADMIN + Audit)
+- هر ۷ مسیر bypass بسته شد؛ حفره گراف ORDER.PAYMENT_PENDING رفع شد (ED-126)
+- artifacts: src/lib/workflow/{policies,subtransition,governance}.ts · machines/{deletionRequest,medicalImage,invoice}.ts · WorkflowState migration · api/v1/admin/workflow/* · api/v1/images/upload (بازسازی) · docs (WORKFLOW §12–19, ADR-0016, BR-WF) · commit b82e344
