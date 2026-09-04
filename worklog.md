@@ -271,3 +271,29 @@ Stage Summary:
 - Key decisions: ED-81 دو-منبعی توکن + گیت sync · ED-82 وضعیت معنایی mode-invariant · ED-83 حذف کانفیگ v3 · ED-84 منطقی-اجباری · ED-85 style guide درون-برنامه‌ای · ED-86 اصلاح AA · ED-87 قاعده Accent · ED-88 chartTheme · ED-89 sonner مرجع · ED-90 گیت ممیزی · ED-91 States استاندارد · ED-92 idiom تک‌منبع
 - Remaining risks (honest): radix use-toast legacy فریز؛ PageHeader کامپوننتی (به‌جای .page-title) اختیاری v2؛ DatePicker جلالی v2؛ WCAG خودکار فقط Node (Cypress بعدی)؛ scope دکمه‌های sticky در تست خودکار
 - Next: PHASE 08 — UI Rebuild طبق SC-ID (SCREEN-MAP ۷۳ صفحه) روی همین Design System، یا Deployment per PRD §12
+
+---
+Task ID: 10
+Agent: Main agent (Super Z)
+Task: PHASE 08 — Backend Engineering: Audit + تکمیل/Refactor به معماری لایه‌ای + استانداردسازی ۱۲ مورد + جلوگیری از Logic در Controller + Unit/Integration Test
+
+Work Log:
+- Pre-stage audit (rule 4): worklog (۹ فاز)، git log (۱۰ کامیت)، خواندن کامل ۴۲ مسیر API + lib (api/auth/caseService/db/notify) — ۱۶ یافته: A1 Logic در Controller (۲۶۳خط)، A2 **Checkout بدون Transaction (بحرانی)**، A3 بدون zod، A4/A5 بدون Pagination/Sort استاندارد، A6 بدون Cache، A7 AI همزمان در request، A8 بدون Event، A9/A10 خطا و لاگ ad-hoc، A11/A12 نسخه‌بندی/مجوز ناسازگار، A13 lib بدون مرز، A14 نویز لاگ DB، **A15 RBAC: create_invoice برای OPERATOR غایب (ماتریس کد ≠ ED-04/مستندات)**، A16 دو-نمونه Cache زیر HMR
+- معماری (ED-93): src/server چهارلایه — core (errors/logger/ids/context) · api (apiRoute/parseBody/guards/query/envelope/schemas) · domain/policies (منطق خالص: موجودی/جمع فاکتور/امتیاز مزاج/پیش‌شرط‌ها) · application (dto zod + ۱۲ سرویس: CaseAction/Case/Order/Catalog/Cart/Questionnaire/Profile/Support(Ticket/Shipment/Followup/Notification)/Payment/Auth/Image+Privacy/Dashboard/Admin) · infrastructure (cache/events/jobs/uow/audit/bootstrap)؛ RequestContext خنثی به‌جای NextRequest؛ src/lib = Shared Kernel منجمد؛ toAuditReq(ctx) برای موتور فاز ۰۲
+- ۴۱ مسیر refactor: Controller نازک (guard → parseBody → service → data)؛ حذف route.ts قالبی؛ ۱۲ استاندارد: zod(ED-96) · سرویس‌سازی(ED-93) · گارد(ED-97) · withTransaction اتمیک با re-check موجودی(ED-103/104 — رفع A2) · Envelope خطا واحد {error,code,requestId}(ED-94) · Logger JSON + redaction(ED-95) · Cache TTL+invalidation Event-driven+HMR-safe globalThis(ED-98/A16) · JobQueue retry/backoff/DLQ + ai-analysis async + followup-scan ۵min(ED-102) · DomainEventBus ۱۸ رویداد(ED-99) · X-API-Version/X-Request-Id(ED-101) · قرارداد page/limit/sort/order/q + meta(ED-100) · فیلتر دامنه‌ای
+- گیت معماری (ED-105): scripts/backend-audit.mjs (E1..E8+W1/W2) + npm audit:backend — ۴۵ فایل، ۰ خطا/۰ هشدار؛ gate زنده در validator فاز ۰۸
+- CREATE_PROFORMA: guard-first (assertGuards قبل از ساخت موجودیت) + compensation (حذف order/invoice اگر گذار شکست خورد)
+- تست: ۳۵ unit (backend-core: خطا/کوئری/کش/ایونت/جاب/پالیسی‌ها شامل مزاج ۸حالته) + ۱۹ integration (tests/integration/api-golden-path.test.ts روی :3000 با Cookie-Jar+CSRF+IP یکتا: قرارداد envelope/header/صفحه‌بندی، ثبت‌نام→پرسشنامه→آپلود(نویز JPEG پاس گیت کیفیت)→پرونده→AI async→۱۸ اکشن→درگاه idempotent→تحویل→CLOSED، Checkout اتمیک (جمع/موجودی/سبد)، 403 ادمین، لاگ ساختاریافته) + رگرسیون ۵۱ workflow + ۳۵ security + ۴۵ pentest = ۱۸۵ سبز
+- چرخه‌های Test→Fix: parseListQuery Number(null)=0 (limit→1)، import تکراری db در authService، نقش تست SCHEDULE/COMPLETE_FOLLOWUP (باید EXPERT_1/OPERATOR نه DOCTOR)، 422 OTP حفظ قرارداد pentest (اعتبارسنجی معنایی در سرویس)، cache stale stock (publish ProductCatalogChanged در checkout)، bootstrap guard نسخه‌دار + invalidation با globalThis در زمان event
+- مستندات: docs/BACKEND.md (۱۱ بخش: ممیزی ۱۶ یافته، لایه‌ها، ۱۲ استاندارد، قرارداد Envelope، تست‌ها، گیت، نسخه‌بندی، نقشه سرویس‌ها، ED-93..105، بدهی D-08-1..6)؛ رجیستری: BR +۱۳ ردیف ED، PRD §12 فاز ۰۸ + فهرست اسناد، RTM یادداشت فاز ۰۸ + ED-01..105؛ ۵ validator قدیمی بازتنظیم (ED count/مسیر مارکرها به سرویس) — ۷/۷ PASS
+- امنیت: اسکن secret/PHI روی همه تغییرات پاک؛ .env ignored (راستی‌آزمایی)؛ lint ۰/۰؛ tsc لایه‌های server/api پاک
+- Browser verification: Landing→Demo login→داشبورد بیمار (سارا)→پرونده‌ها→فضای کاری پرونده (رندر کامل: وضعیت/مزاج/پروفایل)→فروشگاه (محصولات + موجودی زنده ۱۹) — ۰ خطای کنسول/صفحه
+- Git commit 43c2b71: ۹۲ فایل (+۵۳۷۵/−۲۴۴۳)
+
+Stage Summary:
+- Deliverables: معماری Backend لایه‌ای کامل src/server (۱۶ ماژول) + ۴۱ مسیر نازک‌شده + ۱۲ استاندارد cross-cutting + گیت CI backend-audit + ۵۴ تست جدید + docs/BACKEND.md + ED-93..105 + validator فاز ۰۸
+- دو باگ واقعی پروداکشن رفع شد: A2 (Checkout غیراتمیک: order/invoice/موجودی/سبد حالا اتمیک با re-check موجودی) و A15 (اپراتور دوباره create_invoice دارد طبق ED-04/ماتریس BR §2)
+- Verification: ۱۸۵/۱۸۵ تست (۳۵ unit جدید + ۱۹ integration جدید + ۵۱+۳۵ رگرسیون + ۴۵ pentest)؛ گیت معماری ۰ تخلف؛ ۷ validator PASS؛ lint ۰؛ browser-verified
+- Key decisions: ED-93 لایه‌ای+Shared Kernel منجمد · ED-94 envelope واحد سازگار v1 · ED-96 zod مرز واحد · ED-98 کش HMR-safe آماده Redis · ED-99 سرویس‌ها notify مستقیم نمی‌زنند · ED-100 قرارداد صفحه‌بندی · ED-101 نسخه‌بندی هدر+URL · ED-102 جاب BullMQ-سازگار · ED-103 uow اتمیک · ED-104 گارد موجودی · ED-105 گیت Controller نازک
+- Remaining risks (honest): D-08-1 فهرست‌های ادمین cap ثابت (صفحه‌بندی کامل v1²) · D-08-2/3 Cache و JobQueue تک-نمونه‌ای (port آماده Redis/BullMQ) · D-08-4 گزارش‌ها مستقیم OLTP · D-08-6 CSP unsafe-inline (ارث فاز ۰۵) · AI job همچنان in-process (worker جدا در فاز Deployment)
+- Next: PHASE 09 — UI Rebuild طبق SC-ID (SCREEN-MAP ۷۳ صفحه) روی Design System فاز ۰۷ + Backend فاز ۰۸، یا Deployment (Docker/CI) طبق PRD §12
