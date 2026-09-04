@@ -29,6 +29,8 @@ const D: Dict = {
   questionnaireEditor: ['ویرایش پرسشنامه', 'Questionnaire'],
   aiModels: ['مدل‌های AI', 'AI Models'],
   smsLog: ['پیامک‌ها', 'SMS Log'],
+  integrations: ['Integrations', 'Integrations'],
+  refresh: ['بازخوانی', 'Refresh'],
   logout: ['خروج', 'Logout'],
   notifications: ['اعلان‌ها', 'Notifications'],
   markAllRead: ['همه خوانده شد', 'Mark all read'],

@@ -455,6 +455,27 @@
 
 ---
 
+## §8 — قوانین Integrations خارجی فاز ۱۳ (BR-INT)
+
+| شناسه | قانون | دامنه | مرجع اجرا |
+|---|---|---|---|
+| BR-INT-01 | هر سرویس خارجی فقط از مسیر Adapter/Provider + هستهٔ Resilience عبور می‌کند؛ fetch() خام در سرور ممنوع | معماری | I1 (audit:integrations) |
+| BR-INT-02 | حالت LIVE فقط با Credential کامل فعال می‌شود (AUTO/MOCK پیش‌فرض) — LIVE ناقص → MOCK با هشدار (fail-safe) | امنیت | config.ts ED-138 |
+| BR-INT-03 | عملیات Idempotent (payment request/verify، CRM upsert) با کلید یکتا: SUCCESS قبلی = Replay بدون فراخوانی مجدد — پرداخت دوباره ثبت نمی‌شود | مالی | IntegrationCallLog unique |
+| BR-INT-04 | Retry فقط برای TIMEOUT/NETWORK/RATE_LIMIT/5xx؛ AUTH/VALIDATION هرگز retry نمی‌شود؛ مسیر پول حداکثر ۱ retry | قابلیت اطمینان | resilience.ts |
+| BR-INT-05 | Circuit Breaker per provider: N شکست متوالی → fail-fast بدون تماس؛ cooldown → پروب تکی | قابلیت اطمینان | circuit-breaker.ts |
+| BR-INT-06 | مقدار Credential هرگز در لاگ/DB/UI ظاهر نمی‌شود — فقط presence؛ PII در CallLog masked | امنیت/حریم خصوصی | ED-137 |
+| BR-INT-07 | رکورد تحویل پیامک باید بازتاب نتیجهٔ واقعی Adapter باشد — جعل DELIVERED ممنوع | یکپارچگی حسابرسی | ED-143 |
+| BR-INT-08 | وضعیت/عملیات Integration در UI فقط خواندنی + Smoke-test است؛ هر تغییر state کسب‌وکار در Backend (Backend-SoT فاز 12) | معماری | AdminViews3 |
+| BR-INT-09 | ماژول‌های گراف مشترک Client (lib/*) هرگز @/server/* import نمی‌کنند — کانال‌ها با تزریق وصل می‌شوند | معماری Frontend | ED-137b |
+| BR-INT-10 | تله‌متری Integration تک‌نویسنده است (هسته) + Retention ۹۰ روزه | داده | I10 · purgeIntegrationLogs |
+
+### تصمیمات مهندسی فاز ۱۳ (ادامه §5)
+
+کاتالوگ کامل ED-135..150 در `INTEGRATIONS.md §13` و ADR-0017 ثبت شده است (خلاصه: هستهٔ Resilience هشت‌دغدنگی ED-140 · Credential ED-136/137/138 · رجیستری ED-150 · پل AI فاز 11 ED-146 · Payment/SMS صادق ED-142/143).
+
+---
+
 ## تغییرات آتی این سند
 
 - هر BR/ED جدید فقط با Append و شماره جدید؛ حذف ممنوع (هم‌راستا با P4).

@@ -22,7 +22,7 @@ import { canViewRoute } from '@/components/app/routes'
 import {
   LayoutDashboard, User, ClipboardList, ImagePlus, FolderOpen, ShoppingBag, ShoppingCart, Package,
   Ticket, CalendarClock, Stethoscope, Users2, Pill, Tags, BarChart3, ShieldCheck, Bot, MessageSquareText,
-  ListChecks, LogOut, Bell, Menu, Languages, Heart, CreditCard, Truck, FileText, Moon, Sun,
+  ListChecks, LogOut, Bell, Menu, Languages, Heart, CreditCard, Truck, FileText, Moon, Sun, Plug,
 } from 'lucide-react'
 
 export interface NavItem { page: string; label: string; icon: React.ReactNode }
@@ -52,6 +52,7 @@ const NAV_CATALOGUE: NavItem[] = [
   { page: 'questionnaireEditor', label: 'questionnaireEditor', icon: <FileText size={18} /> },
   { page: 'aiModels', label: 'aiModels', icon: <Bot size={18} /> },
   { page: 'smsLog', label: 'smsLog', icon: <MessageSquareText size={18} /> },
+  { page: 'integrations', label: 'integrations', icon: <Plug size={18} /> },
 ]
 
 export function useNavItems(): NavItem[] {

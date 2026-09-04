@@ -1,7 +1,15 @@
 {
-  "ranAt": "2026-09-04T11:34:01.291Z",
-  "files": 144,
+  "ranAt": "2026-09-04T22:11:17.561Z",
+  "files": 172,
   "errors": 0,
-  "warnings": 0,
-  "results": []
+  "warnings": 1,
+  "results": [
+    {
+      "file": "src/server/infrastructure/media/pipeline.ts",
+      "rule": "W1",
+      "line": 0,
+      "message": "media module is 401 lines — consider splitting",
+      "level": "warn"
+    }
+  ]
 }

@@ -1,9 +1,9 @@
 {
   "tool": "backend-audit",
-  "generatedAt": "2026-09-04T21:10:07.610Z",
-  "files": 62,
+  "generatedAt": "2026-09-04T22:11:17.434Z",
+  "files": 64,
   "errors": 0,
-  "warnings": 5,
+  "warnings": 6,
   "results": [
     {
       "file": "src/app/api/v1/admin/ai/datasets/route.ts",
@@ -28,6 +28,13 @@
     },
     {
       "file": "src/app/api/v1/admin/ai/prompts/route.ts",
+      "rule": "E8",
+      "line": null,
+      "message": "GET collection without parseListQuery — verify non-list semantics",
+      "level": "warn"
+    },
+    {
+      "file": "src/app/api/v1/admin/integrations/route.ts",
       "rule": "E8",
       "line": null,
       "message": "GET collection without parseListQuery — verify non-list semantics",

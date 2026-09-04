@@ -1,13 +1,15 @@
 // ── BabaHakim Backend · Application Service: Payments (PHASE 08) ──────────
 // Start/verify/receipt/gateway-callback. Status writes flow through the
 // PAYMENT machine (Phase 02); start is now transactional (ED-103).
+// PHASE 13: every gateway interaction goes through the PaymentProvider
+// adapter (Zarinpal live / deterministic mock — ED-142) behind the
+// integration resilience stack. The service NEVER talks HTTP itself.
 import { db } from '@/lib/db'
 import type { AuthContext } from '@/lib/auth'
 import { executeTransition } from '@/lib/workflow'
 import { applySubTransition, cascadeSubTransition } from '@/lib/workflow/subtransition'
 import { ORDER_MACHINE } from '@/lib/workflow/machines/order'
 import { INVOICE_MACHINE } from '@/lib/workflow/machines/invoice'
-import { createHash } from 'crypto'
 import { genCode } from '@/server/core/ids'
 import { AppError, BusinessRuleError, ForbiddenError, NotFoundError, ValidationError, ErrorCode } from '@/server/core/errors'
 import { writeAudit, toAuditReq } from '@/server/infrastructure/audit'
@@ -16,6 +18,7 @@ import { publish, Events } from '@/server/infrastructure/events'
 import type { RequestContext } from '@/server/core/context'
 import { assertOrderPayable, assertNoActivePayment } from '@/server/domain/policies'
 import type { paymentStartSchema, paymentVerifySchema, receiptSchema } from '@/server/application/dto'
+import { payment as paymentProvider, IntegrationError, paymentSettings, zarinpalMerchantMasked } from '@/server/integrations'
 import type { z } from 'zod'
 
 const SYSTEM_ACTOR = { id: 'SYSTEM', role: 'SYSTEM' as const }
@@ -29,6 +32,33 @@ export async function startPayment(
   if (!order || order.userId !== auth.user.id) throw new NotFoundError('سفارش یافت نشد')
   assertOrderPayable(order.status)
   assertNoActivePayment(order.payments.some((p) => !['FAILED', 'REJECTED', 'REFUNDED'].includes(p.status)))
+
+  // PHASE 13 (ED-142): the gateway request goes through the PaymentProvider
+  // adapter (Zarinpal live / deterministic mock) with idempotency per order —
+  // retrying start never opens a second gateway session. Provider failures
+  // surface as 502 with the humanized Persian message (ED-141).
+  let gateway: { authority: string; gatewayUrl: string }
+  if (input.method === 'ZARINPAL') {
+    const user = await db.user.findUnique({ where: { id: auth.user.id }, select: { phone: true } })
+    const base = paymentSettings().callbackBase
+    try {
+      const created = await paymentProvider().createPayment({
+        amount: order.total,
+        description: `سفارش ${order.code} — باباحکیم`,
+        callbackUrl: `${base}/api/v1/payments/zarinpal/callback`,
+        mobile: user?.phone ?? null,
+        orderId: input.orderId,
+      })
+      gateway = { authority: created.authority, gatewayUrl: created.gatewayUrl }
+    } catch (e) {
+      if (e instanceof IntegrationError) {
+        throw new AppError('BAD_GATEWAY' as ErrorCode, e.message, 502, { code: e.code, provider: e.provider })
+      }
+      throw e
+    }
+  } else {
+    gateway = { authority: '', gatewayUrl: '' }
+  }
 
   const payment = await withTransaction(async (tx) => {
     // PHASE 12 (ED-126): order + invoice state changes are machine-guarded
@@ -48,9 +78,7 @@ export async function startPayment(
         code: genCode('PAY'), orderId: input.orderId, invoiceId: order.invoices?.[0]?.id || null,
         userId: auth.user.id, method: input.method, amount: order.total,
         status: input.method === 'CARD_TO_CARD' ? 'AWAITING_VERIFY' : 'PENDING',
-        authority: input.method === 'ZARINPAL'
-          ? createHash('sha256').update(`${input.orderId}-${Date.now()}`).digest('hex').slice(0, 36)
-          : null,
+        authority: input.method === 'ZARINPAL' ? gateway.authority : null,
         idempotencyKey: `order-${input.orderId}`,
       },
     })
@@ -61,8 +89,10 @@ export async function startPayment(
   if (input.method === 'ZARINPAL') {
     return {
       payment: { id: payment.id, code: payment.code, amount: payment.amount, authority: payment.authority },
-      gatewayUrl: `/api/v1/payments/zarinpal/callback?authority=${payment.authority}&status=OK`,
-      mockGateway: { authority: payment.authority, amount: payment.amount, merchant: process.env.ZARINPAL_MERCHANT_ID || 'MOCK-MERCHANT' },
+      gatewayUrl: gateway.gatewayUrl,
+      mockGateway: paymentProvider().name.startsWith('mock-')
+        ? { authority: payment.authority, amount: payment.amount, merchant: zarinpalMerchantMasked() }
+        : undefined,
     }
   }
   return { payment: { id: payment.id, code: payment.code, amount: payment.amount, status: payment.status }, uploadReceipt: true }
@@ -121,7 +151,7 @@ export async function submitReceipt(
   return { ok: true, message: 'رسید شما ارسال شد و توسط اپراتور بررسی می‌شود' }
 }
 
-// ── GATEWAY CALLBACK (Zarinpal mock, idempotent — BR-FIN-01) ──────────────
+// ── GATEWAY CALLBACK (provider-verified, idempotent — BR-FIN-01) ──────────
 export async function gatewayCallback(ctx: RequestContext, authority: string, status: string) {
   const payment = await db.payment.findFirst({ where: { authority } })
   if (!payment) throw new NotFoundError('تراکنش یافت نشد')
@@ -130,7 +160,26 @@ export async function gatewayCallback(ctx: RequestContext, authority: string, st
     return { alreadyPaid: true, code: payment.code } // idempotent replay
   }
 
-  if (status !== 'OK') {
+  // PHASE 13 (ED-142): verification is the PROVIDER's job (Zarinpal verify
+  // API live / deterministic mock). Provider-level idempotency
+  // (`verify:{authority}`) makes repeated callbacks free (BR-INT-03).
+  let verified: { ok: boolean; refNumber?: string }
+  try {
+    verified = await paymentProvider().verifyPayment({ authority, amount: payment.amount, orderId: payment.orderId, status })
+  } catch (e) {
+    // transient provider failure → GATEWAY_FAIL keeps the row honest; the
+    // payer/gateway may retry (idempotency replays the SUCCESS later)
+    const res = await executeTransition({
+      machine: 'PAYMENT', entityId: payment.id, action: 'GATEWAY_FAIL',
+      actor: SYSTEM_ACTOR,
+      payload: { error: e instanceof IntegrationError ? `${e.code}: ${e.message}` : 'provider error' },
+      req: toAuditReq(ctx),
+    })
+    if (!res.ok) throw new AppError(mapEngineCode(res.code), res.error, res.httpStatus, res.details)
+    return { failed: true, providerError: e instanceof IntegrationError ? e.code : 'PROVIDER' }
+  }
+
+  if (!verified.ok) {
     const res = await executeTransition({
       machine: 'PAYMENT', entityId: payment.id, action: 'GATEWAY_FAIL',
       actor: SYSTEM_ACTOR, payload: { error: 'Canceled by user (gateway)' }, req: toAuditReq(ctx),
@@ -139,7 +188,7 @@ export async function gatewayCallback(ctx: RequestContext, authority: string, st
     return { failed: true }
   }
 
-  const refNumber = 100000000 + Math.floor(Math.random() * 900000000)
+  const refNumber = verified.refNumber ?? ''
   const res = await executeTransition({
     machine: 'PAYMENT', entityId: payment.id, action: 'GATEWAY_VERIFY',
     actor: SYSTEM_ACTOR, payload: { refNumber: String(refNumber), authority }, req: toAuditReq(ctx),

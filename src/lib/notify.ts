@@ -1,5 +1,37 @@
-// Notification engine: in-app + SMS log (multi-channel abstraction)
+// Notification engine: in-app + SMS (via integration adapter) + optional email.
+// PHASE 13: SMS delivery is REAL — the SmsProvider adapter (Kavenegar live /
+// deterministic mock) sends behind the resilience stack and the SMSLog row
+// reflects the ACTUAL outcome (SENT/FAILED + provider + delivery + error).
+// Pre-13 bug closed: rows were written as KAVENEGAR/SENT/DELIVERED with zero
+// network calls — a falsified delivery record (audit-integrity issue).
+//
+// ⚠ Client-graph safety (ED-137b): this module sits in the SHARED import
+// graph (workflow machines → notify, and machines are imported by client
+// constants/atoms). It must NEVER import @/server/* (node builtins would
+// break the browser bundle). The SMS/email PROVIDERS are therefore
+// INJECTED by the server bootstrap (bindNotificationChannels) — dependency
+// inversion instead of an upward import.
 import { db } from '@/lib/db'
+
+// ── injected channels (server side only — see bootstrap.ts v7) ─────────────
+export interface SmsChannel {
+  readonly providerName: string
+  send(input: { recipient: string; message: string; templateId?: string }): Promise<unknown>
+}
+
+export interface EmailChannel {
+  send(input: { to: string; subject: string; text: string; html?: string }): Promise<unknown>
+}
+
+const g = globalThis as unknown as { __bhNotifyChannels?: { sms?: SmsChannel; email?: EmailChannel } }
+const channels = g.__bhNotifyChannels ?? {}
+g.__bhNotifyChannels = channels
+
+/** Server bootstrap wires the integration adapters in (idempotent). */
+export function bindNotificationChannels(smsChannel?: SmsChannel, emailChannel?: EmailChannel): void {
+  if (smsChannel) channels.sms = smsChannel
+  if (emailChannel) channels.email = emailChannel
+}
 
 type EventCode =
   | 'REGISTERED' | 'PROFILE_COMPLETED' | 'QUESTIONNAIRE_DONE' | 'IMAGE_RECEIVED' | 'CASE_IN_QUEUE'
@@ -53,7 +85,7 @@ const TEMPLATES: Record<EventCode, { titleFa: string; titleEn: string; bodyFa: s
 export async function notify(
   userId: string,
   event: EventCode,
-  opts?: { link?: string; sms?: boolean; phone?: string | null; extraFa?: string; extraEn?: string },
+  opts?: { link?: string; sms?: boolean; phone?: string | null; emailTo?: string | null; extraFa?: string; extraEn?: string },
 ) {
   const t = TEMPLATES[event]
   try {
@@ -64,13 +96,55 @@ export async function notify(
         bodyFa: t.bodyFa, bodyEn: t.bodyEn, link: opts?.link || null,
       },
     })
-    if (opts?.sms && opts?.phone) {
-      await db.sMSLog.create({
-        data: { userId, recipient: opts.phone, template: event, content: t.smsFa, provider: 'KAVENEGAR', status: 'SENT', deliveryStatus: 'DELIVERED' },
-      })
-    }
   } catch (e) {
     console.error('notify failed', e)
+  }
+  // SMS channel — through the INJECTED provider adapter (PHASE 13).
+  // Notification failures stay isolated (never break the business flow) but
+  // are now HONEST: FAILED rows + provider error, not faked DELIVERED.
+  // No channel bound (e.g. browser chunk or cold server) → FAILED row with
+  // the wiring reason — never a fake success (ED-143).
+  if (opts?.sms && opts?.phone) {
+    const channel = channels.sms
+    if (!channel) {
+      await db.sMSLog.create({
+        data: {
+          userId, recipient: opts.phone, template: event, content: t.smsFa,
+          provider: 'UNWIRED', status: 'FAILED', deliveryStatus: 'FAILED',
+          error: 'sms channel not bound (bootstrap did not run on this path)',
+        },
+      }).catch(() => undefined)
+    } else {
+      try {
+        await channel.send({ recipient: opts.phone, message: t.smsFa, templateId: event })
+        await db.sMSLog.create({
+          data: {
+            userId, recipient: opts.phone, template: event, content: t.smsFa,
+            provider: channel.providerName, status: 'SENT', deliveryStatus: 'QUEUED',
+          },
+        })
+      } catch (e) {
+        await db.sMSLog.create({
+          data: {
+            userId, recipient: opts.phone, template: event, content: t.smsFa,
+            provider: channel.providerName, status: 'FAILED', deliveryStatus: 'FAILED',
+            error: (e instanceof Error ? e.message : String(e)).slice(0, 500),
+          },
+        }).catch(() => undefined)
+      }
+    }
+  }
+  // Email channel — injected likewise; failures isolated by design.
+  if (opts?.emailTo && channels.email) {
+    try {
+      await channels.email.send({
+        to: opts.emailTo,
+        subject: `${t.titleFa} — باباحکیم`,
+        text: `${t.bodyFa}\n\n${t.titleEn}: ${t.bodyEn}`,
+      })
+    } catch {
+      // isolated by design — the in-app notification already landed
+    }
   }
 }
 

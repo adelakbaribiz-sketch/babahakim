@@ -264,3 +264,10 @@ export const workflowRecoverSchema = z.object({
   targetStatus: z.string().min(1, 'وضعیت هدف الزامی است').max(50),
   reason: requiredText(500, 'دلیل بازیابی').min(3, 'دلیل بازیابی باید حداقل ۳ کاراکتر باشد'),
 })
+
+// ── external integrations (PHASE 13) ────────────────────────────────────────
+export const integrationSmokeSchema = z.object({
+  kind: z.enum([
+    'PAYMENT', 'SMS', 'EMAIL', 'MAPS', 'AI', 'STORAGE', 'SHIPPING', 'CRM', 'ANALYTICS',
+  ], { message: 'نوع Integration نامعتبر است' }),
+})

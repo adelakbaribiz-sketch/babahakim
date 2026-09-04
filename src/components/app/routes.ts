@@ -53,6 +53,9 @@ export const ROUTES: Record<string, RouteDef> = {
   questionnaireEditor: { permission: 'manage_questionnaire' },
   aiModels: { permission: 'manage_ai_models' },
   smsLog: { permission: 'view_sms_log' },
+  // PHASE 13: integration health console (ADMIN-area view; route gate maps
+  // to manage_users-equivalent admin surface, ADMIN passes via BR-RBAC-02)
+  integrations: { permission: 'view_audit_logs' },
 }
 
 /** Landing view per role (role defaults, single source — fixes F01/F24). */

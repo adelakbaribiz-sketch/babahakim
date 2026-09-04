@@ -936,3 +936,34 @@ model WorkflowState {
   @@unique([entityType, entityId])
   @@index([entityType, status, enteredAt])
 }
+
+// ── PHASE 13 · External Integration Architecture ───────────────────────────
+// ED-135: one audit/telemetry row per EXTERNAL call (attempt-level detail on
+// the final attempt; retries counted). Requests/responses are stored
+// REDACTED — secrets masked by the integration core before persistence.
+// Idempotency: unique(provider, operation, idempotencyKey) lets the
+// resilience layer replay a cached SUCCESS instead of re-charging a payment
+// or re-sending an SMS (BR-INT-03).
+model IntegrationCallLog {
+  id              String    @id @default(cuid())
+  kind            String // PAYMENT | SMS | EMAIL | MAPS | AI | STORAGE | SHIPPING | CRM | ANALYTICS
+  provider        String // zarinpal | kavenegar | nominatim | http-ai | local | mock-*
+  operation       String // e.g. payment.request, payment.verify, sms.send
+  idempotencyKey  String?
+  status          String // SUCCESS | FAILED | REPLAYED | SKIPPED_CIRCUIT
+  attempts        Int       @default(1)
+  latencyMs       Int?
+  httpStatus      Int?
+  errorCode       String? // TIMEOUT | NETWORK | RATE_LIMIT | AUTH | PROVIDER | CIRCUIT_OPEN | VALIDATION
+  errorMessage    String?
+  requestRedacted String? // JSON, secrets masked (ED-137)
+  responseRedacted String? // JSON, secrets masked
+  relatedType     String? // PAYMENT | NOTIFICATION | SHIPMENT | CASE ...
+  relatedId       String?
+  createdAt       DateTime  @default(now())
+
+  @@unique([provider, operation, idempotencyKey])
+  @@index([kind, createdAt])
+  @@index([kind, provider, status])
+  @@index([createdAt])
+}

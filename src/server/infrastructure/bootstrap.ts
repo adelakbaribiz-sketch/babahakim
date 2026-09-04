@@ -7,6 +7,8 @@
 import { subscribe, Events } from '@/server/infrastructure/events'
 import { registerJob, setDeadLetterHook, scheduleRecurring, enqueue } from '@/server/infrastructure/jobs'
 import { logger } from '@/server/core/logger'
+import { bindNotificationChannels } from '@/lib/notify'
+import { sms, email, emailChannelEnabled } from '@/server/integrations'
 
 // guard key is versioned: bumping it re-runs wiring after HMR when shared
 // singletons changed shape (e.g. cache backing store) — cheap and safe (idempotent)
@@ -14,7 +16,10 @@ import { logger } from '@/server/core/logger'
 // v5: PHASE 12 adds workflow governance runtime (SLA tick + drift reconcile)
 // v6: PHASE 12 hotfix — re-register job handlers so the recurring governance
 //      tick drops stale pre-TS_CAPS module references held through HMR
-const BOOTSTRAP_KEY = '__bhBootstrapped_v6'
+// v7: PHASE 13 adds integration wiring — HttpAI factory registration (when
+//      AI_SERVICE_URL is configured), integrations-monitor job (breaker
+//      state changes + degraded providers → admin notice), retention purge
+const BOOTSTRAP_KEY = '__bhBootstrapped_v7'
 const g = globalThis as unknown as { [BOOTSTRAP_KEY]?: boolean }
 
 /** no-op marker — importing the module runs the wiring below exactly once per version. */
@@ -36,8 +41,24 @@ async function notifyOperators(event: string, extraFa?: string) {
 if (!g[BOOTSTRAP_KEY]) {
   g[BOOTSTRAP_KEY] = true
 
+  // ── PHASE 13: bind notify channels SYNCHRONOUSLY (before any request is
+  // served). Dependency inversion (ED-137b): lib/notify lives in the SHARED
+  // client import graph and must never import @/server/* — so the adapters
+  // are injected HERE, on the server-only bootstrap path.
+  bindNotificationChannels(
+    { providerName: sms().name, send: (i) => sms().send(i) },
+    emailChannelEnabled() ? { send: (i) => email().send(i) } : undefined,
+  )
+
   // ── events → notifications (ED-99: services never call notify directly) ──
-  subscribe(Events.UserRegistered, (e) => notify(e.payload as string, 'REGISTERED', { sms: true }))
+  // PHASE 13: UserRegistered now supplies the phone — pre-13 the sms:true
+  // hint was useless without it, so the welcome SMS silently never sent.
+  subscribe(Events.UserRegistered, async (e) => {
+    const userId = e.payload as string
+    const { db } = await import('@/lib/db')
+    const u = await db.user.findUnique({ where: { id: userId }, select: { phone: true } })
+    await notify(userId, 'REGISTERED', { sms: true, phone: u?.phone ?? null })
+  })
   subscribe(Events.ImageUploaded, (e) => {
     const p = e.payload as { userId: string }
     return notify(p.userId, 'IMAGE_RECEIVED', { link: '/records' })
@@ -205,6 +226,55 @@ if (!g[BOOTSTRAP_KEY]) {
   })
   scheduleRecurring('workflow-governance', 2 * 60_000)
 
+  // ── PHASE 13: external integration wiring ─────────────────────────────
+  // Job-based (no top-level await — file discipline): registers the HttpAI
+  // provider factory into the PHASE 11 model registry when AI_SERVICE_URL is
+  // configured (flipping AIModel.provider='HttpAI' then routes inference
+  // through the full resilience stack without code changes, ED-146).
+  registerJob('integration-wiring', async () => {
+    const { aiServiceSettings } = await import('@/server/integrations')
+    if (aiServiceSettings().url) {
+      const { registerProviderFactory } = await import('@/server/infrastructure/ai/registry')
+      const { HttpAIProvider } = await import('@/server/integrations')
+      registerProviderFactory('HttpAI', () => new HttpAIProvider())
+      logger.info('HttpAI provider registered (AI_SERVICE_URL configured)')
+    }
+  })
+  enqueue('integration-wiring', {}, { maxAttempts: 3 })
+
+  // integrations-monitor (ED-139): every 5 min — breaker OPEN providers and
+  // success-rate < 80% (min 5 calls) notify admins (once per state change).
+  registerJob('integrations-monitor', async () => {
+    const { db } = await import('@/lib/db')
+    const { integrationStatus } = await import('@/server/integrations')
+    const rows = integrationStatus()
+    const g2 = globalThis as unknown as { __bhIntegrNotified?: Set<string> }
+    const notified = g2.__bhIntegrNotified ?? new Set<string>()
+    g2.__bhIntegrNotified = notified
+    for (const r of rows) {
+      if (r.mode !== 'live') continue
+      const bad = r.circuit.state === 'OPEN' || (r.stats.total >= 5 && r.stats.successRate < 0.8)
+      const k = `${r.kind}:${r.providerName}`
+      if (bad && !notified.has(k)) {
+        notified.add(k)
+        const extraFa = `INTEGRATION ${r.kind} (${r.providerName}) ${r.circuit.state === 'OPEN' ? 'CIRCUIT OPEN' : 'SUCCESS ' + Math.round(r.stats.successRate * 100) + '%'} — ${r.stats.lastError?.code ?? ''} ${r.stats.lastError?.message ?? ''}`.slice(0, 180)
+        const admins = await db.user.findMany({ where: { role: 'ADMIN', isActive: true }, select: { id: true } })
+        for (const a of admins) notify(a.id, 'WORKFLOW_ESCALATED', { extraFa })
+      } else if (!bad) {
+        notified.delete(k)
+      }
+    }
+  })
+  scheduleRecurring('integrations-monitor', 5 * 60_000)
+
+  // PHASE 13: IntegrationCallLog retention purge — 90-day window (mirrors
+  // the AIInferenceLog retention decision; keeps the table bounded).
+  registerJob('integrations-retention', async () => {
+    const { purgeIntegrationLogs } = await import('@/server/integrations')
+    await purgeIntegrationLogs(90)
+  })
+  scheduleRecurring('integrations-retention', 24 * 3600 * 1000)
+
   // dead-letter hook → audit log (system-visible operational trail)
   setDeadLetterHook(async (job, error) => {
     try {
@@ -229,5 +299,5 @@ if (!g[BOOTSTRAP_KEY]) {
     } catch { /* audit best-effort */ }
   })
 
-  logger.info('backend bootstrap complete', { subscribers: 16, jobs: 9 })
+  logger.info('backend bootstrap complete', { subscribers: 16, jobs: 12 })
 }

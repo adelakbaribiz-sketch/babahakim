@@ -33,6 +33,7 @@ const AdminAuditPage = dynamic(() => import('@/components/app/views/admin/AdminV
 const AdminQuestionnairePage = dynamic(() => import('@/components/app/views/admin/AdminViews2').then((m) => m.AdminQuestionnairePage), { ssr: false, loading: () => <LoadingRows rows={5} /> })
 const AdminAIModelsPage = dynamic(() => import('@/components/app/views/admin/AdminViews2').then((m) => m.AdminAIModelsPage), { ssr: false, loading: () => <LoadingRows rows={5} /> })
 const AdminSMSPage = dynamic(() => import('@/components/app/views/admin/AdminViews2').then((m) => m.AdminSMSPage), { ssr: false, loading: () => <LoadingRows rows={5} /> })
+const AdminIntegrationsPage = dynamic(() => import('@/components/app/views/admin/AdminViews3').then((m) => m.AdminIntegrationsPage), { ssr: false, loading: () => <LoadingRows rows={5} /> })
 
 function Router() {
   const { user, view, navigate, permissions, booted } = useApp()
@@ -84,6 +85,7 @@ function Router() {
   else if (page === 'questionnaireEditor') content = <AdminQuestionnairePage />
   else if (page === 'aiModels') content = <AdminAIModelsPage />
   else if (page === 'smsLog') content = <AdminSMSPage />
+  else if (page === 'integrations') content = <AdminIntegrationsPage />
   else content = <NotFoundView />
 
   return <AppShell>{content}</AppShell>
