@@ -85,8 +85,8 @@ adr_idx = ADR_README.read_text(encoding="utf-8") if ADR_README.exists() else ""
 for t in ["ADR-0014", "ADR-0015"]:
     if t not in adr_idx:
         errors.append(f"ADR README does not index {t}")
-if "ED-01..ED-92" not in rtm:
-    errors.append("RTM does not claim ED-01..92 range")
+if "ED-01..ED-105" not in rtm:
+    errors.append("RTM does not claim ED-01..105 range")
 
 # 5) test scripts wired
 pkg = PKG.read_text(encoding="utf-8") if PKG.exists() else ""
@@ -104,24 +104,24 @@ mw_src = MW.read_text(encoding="utf-8") if MW.exists() else ""
 for marker in ["x-csrf-token", "Origin", "zarinpal/callback", "ta_csrf"]:
     if marker not in mw_src:
         errors.append(f"middleware.ts missing marker: {marker}")
+def _src(*parts):
+    f = REPO.joinpath(*parts)
+    return f.read_text(encoding="utf-8") if f.exists() else ""
+
+# PHASE 08 layering: hardening markers live in route OR application service
 login = REPO / "src" / "app" / "api" / "v1" / "auth" / "login" / "route.ts"
-if login.exists():
-    ls = login.read_text(encoding="utf-8")
-    for marker in ["login:ip", "login:acct", "mfaRequired", "LOGIN_RATE_LIMITED"]:
-        if marker not in ls:
-            errors.append(f"login route missing hardening marker: {marker}")
-img = REPO / "src" / "app" / "api" / "v1" / "images" / "[id]" / "file" / "route.ts"
-if img.exists():
-    ims = img.read_text(encoding="utf-8")
-    for marker in ["view_images", "view_medical_files", "VIEW_MEDICAL_FILE", "DOWNLOAD_IMAGE", "MEDICAL_FILE_ACCESS_DENIED"]:
-        if marker not in ims:
-            errors.append(f"image route missing ED-66/audit marker: {marker}")
-up = REPO / "src" / "app" / "api" / "v1" / "images" / "upload" / "route.ts"
-if up.exists():
-    ups = up.read_text(encoding="utf-8")
-    for marker in ["sniffMime", "UPLOAD_RATE_LIMITED", "rateLimit"]:
-        if marker not in ups:
-            errors.append(f"upload route missing marker: {marker}")
+ls = _src("src", "app", "api", "v1", "auth", "login", "route.ts") + _src("src", "server", "application", "services", "authService.ts")
+for marker in ["login:ip", "login:acct", "mfaRequired", "LOGIN_RATE_LIMITED"]:
+    if marker not in ls:
+        errors.append(f"login route/service missing hardening marker: {marker}")
+ims = _src("src", "app", "api", "v1", "images", "[id]", "file", "route.ts") + _src("src", "server", "application", "services", "imageService.ts")
+for marker in ["view_images", "view_medical_files", "VIEW_MEDICAL_FILE", "DOWNLOAD_IMAGE", "MEDICAL_FILE_ACCESS_DENIED"]:
+    if marker not in ims:
+        errors.append(f"image route/service missing ED-66/audit marker: {marker}")
+ups = _src("src", "app", "api", "v1", "images", "upload", "route.ts") + _src("src", "server", "application", "services", "imageService.ts")
+for marker in ["sniffMime", "UPLOAD_RATE_LIMITED", "rateLimit"]:
+    if marker not in ups:
+        errors.append(f"upload route/service missing marker: {marker}")
 
 # 7) CJK + secret scan on new docs
 for name, text in [("SECURITY.md", sec), ("THREAT-MODEL.md", tm)]:

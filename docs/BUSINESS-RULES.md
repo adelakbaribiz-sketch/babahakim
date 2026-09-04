@@ -378,6 +378,20 @@
 | ED-91 | States چهارگانه؟ | کامپوننت‌های استاندارد atoms.tsx: EmptyState/LoadingRows/LoadingCard/LoadingSpinner/ErrorState/SuccessState/PageState + ConfirmDialog (SP-1..8) | §31 · §32 | DESIGN-SYSTEM §10 |
 | ED-92 | کلاس‌های تکراری؟ | idiomهای مشترک تک‌منبع در @layer components: page-title/meta-inline/footer-link/tile-row (رفع W1) | §27 | DESIGN-SYSTEM §8 |
 
+| ED-93 | معماری Backend؟ | چهارلایه API/Application/Domain/Infrastructure زیر src/server؛ src/lib = Shared Kernel منجمد؛ Controller فقط هماهنگی (guard→parse→service) | حذف منطق از Controller (فرمان فاز 08) | §4 §5 | BACKEND §2 |
+| ED-94 | مدیریت خطا؟ | سلسله‌مراتب AppError واحد (۸ کد) + Envelope واحد {error, code, requestId, details?} — «error» کلید اول برای سازگاری کلاینت v1 | قرارداد پایدار API | — | BACKEND §4 |
+| ED-95 | لاگ؟ | Logger JSON ساختاریافته با reqId/actor + redaction فیلدهای حساس + BH_LOG_LEVEL | مشاهده‌پذیری 12-factor | — | BACKEND §3 |
+| ED-96 | اعتبارسنجی؟ | zod = مرز واحد (dto.ts + parseBody)؛ پیام‌های فارسی v1 حفظ؛ بدنه خالی = {} | تایپ‌سیفتی + پیام یکدست | — | BACKEND §3 |
+| ED-97 | مجوزدهی Backend؟ | گاردهای requireRole/Permission/Ownership در مرز API (ADMIN bypass طبق BR-RBAC-02)؛ تصویر: مجوز درون-سرویس طبق ED-66 | تک‌منبع AuthZ | §4 | BACKEND §3 |
+| ED-98 | Cache؟ | CacheStore TTL درون‌حافظه‌ای + getOrSet ضد stampede + ابطال Event-driven + پشتیبان globalThis (HMR-safe) — port آماده Redis | قید C2 (بدون Redis فعلاً) | — | BACKEND §3 |
+| ED-99 | Event؟ | DomainEventBus درون‌پردازشی (۱۸ رویداد)؛ سرویس‌ها notify مستقیم نمی‌زنند؛ خطای subscriber ایزوله | جداسازی اثر جانبی | §7 ARCH | BACKEND §3 |
+| ED-100 | صفحه‌بندی/فیلتر/مرتب‌سازی؟ | قرارداد واحد ?page&limit&sort&order&q با whitelist مرتب‌سازی و clamp + Envelope {page,limit,total,pages} | استاندارد API | — | BACKEND §3 |
+| ED-101 | نسخه‌بندی API؟ | URL major (/api/v1) + X-API-Version روی همه پاسخ‌ها + سیاست deprecation (Sunset) مستند | چرخه حیات API | — | BACKEND §7 |
+| ED-102 | کارهای پس‌زمینه؟ | JobQueue درون‌پردازشی با retry/backoff/DLQ→AuditLog؛ تحلیل AI async؛ followup-scan تکرارشونده ۵ دقیقه؛ semantics سازگار BullMQ | خروج کار سنگیل از request | — | BACKEND §3 |
+| ED-103 | تراکنش؟ | withTransaction مرز اتمیک Application؛ Checkout/پروفایل/پرداخت/پرونده اتمیک (رفع باگ بحرانی A2) | یکپارچگی داده | — | BACKEND §3 |
+| ED-104 | موجودی منفی؟ | سیاست domain: assertStockAvailable قبل از نوشتن + re-check داخل tx | ضد race خرید همزمان | §11 | BACKEND §3 |
+| ED-105 | تضمین Controller نازک؟ | گیت CI scripts/backend-audit.mjs (E1..E8+W) exit 1؛ npm audit:backend | جلوگیری از بازگشت بدهی فنی | — | BACKEND §6 |
+
 ---
 
 ## تغییرات آتی این سند

@@ -43,6 +43,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   DOCTOR: ['view_patients', 'view_images', 'view_medical_files', 'view_queue', 'view_all_cases',
     'approve_prescription', 'view_ai_analyses'],
   OPERATOR: ['view_patients', 'view_medical_files', 'view_all_cases', 'verify_payment',
+    'create_invoice', // PHASE 08 audit A15: realign with ED-04/BR matrix (§2) — operator issues proformas
     'manage_orders', 'manage_shipments', 'manage_tickets', 'manage_followups', 'view_financials',
     'manage_products', 'manage_prices', 'view_reports', 'view_dashboard_stats', 'view_sms_log', 'claim_cases'],
   PATIENT: [],

@@ -1,11 +1,10 @@
-import { NextRequest } from 'next/server'
-import { db } from '@/lib/db'
-import { ok, fail } from '@/lib/api'
-import { getAuth } from '@/lib/auth'
+// API layer (thin controller) — business logic in @/server/application (ED-93).
+import { apiRoute } from '@/server/api/handler'
+import { requireAuth } from '@/server/api/guards'
+import { getHistory } from '@/server/application/services/questionnaireService'
 
-export async function GET(req: NextRequest) {
-  const auth = await getAuth()
-  if (!auth) return fail('احراز هویت لازم است', 401)
-  const history = await db.questionnaireResponse.findMany({ where: { userId: auth.user.id }, orderBy: { createdAt: 'desc' } })
-  return ok({ history })
-}
+// GET /api/v1/questionnaires/history — patient's own submissions (history kept)
+export const GET = apiRoute(async () => {
+  const auth = await requireAuth()
+  return getHistory(auth.user.id)
+})

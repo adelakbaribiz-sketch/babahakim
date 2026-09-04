@@ -1,14 +1,11 @@
-import { NextRequest } from 'next/server'
-import { db } from '@/lib/db'
-import { ok, fail } from '@/lib/api'
-import { getAuth, signImageUrl } from '@/lib/auth'
+// API layer (thin controller) — business logic in @/server/application (ED-93).
+import { apiRoute } from '@/server/api/handler'
+import { requireAuth } from '@/server/api/guards'
+import { getProductWithHistory } from '@/server/application/services/catalogService'
 
-export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const auth = await getAuth()
-  if (!auth) return fail('احراز هویت لازم است', 401)
-  const { id } = await ctx.params
-  const p = await db.product.findUnique({ where: { id } })
-  if (!p || p.deletedAt) return fail('محصول یافت نشد', 404)
-  const history = await db.productPriceHistory.findMany({ where: { productId: id }, orderBy: { createdAt: 'desc' }, take: 10 })
-  return ok({ product: { ...p, image: p.imagePath ? signImageUrl(p.id) : null }, priceHistory: history })
-}
+// GET /api/v1/products/[id] — detail + price history (10 latest, never destroyed)
+export const GET = apiRoute<{ id: string }>(async (req, route) => {
+  await requireAuth()
+  const { id } = await route.params
+  return getProductWithHistory(id)
+})

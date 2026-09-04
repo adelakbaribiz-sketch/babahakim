@@ -1,14 +1,6 @@
-import { NextRequest } from 'next/server'
-import { ok } from '@/lib/api'
-import { clearAuthCookies, revokeAllRefreshTokens, getAuth } from '@/lib/auth'
-import { audit } from '@/lib/api'
+// API layer (thin controller) — business logic in @/server/application (ED-93).
+import { apiRoute } from '@/server/api/handler'
+import { logoutCurrent } from '@/server/application/services/authService'
 
-export async function POST(req: NextRequest) {
-  const auth = await getAuth()
-  if (auth) {
-    await revokeAllRefreshTokens(auth.user.id)
-    await audit(req, auth.user.id, 'LOGOUT', 'User', auth.user.id)
-  }
-  await clearAuthCookies()
-  return ok()
-}
+// POST /api/v1/auth/logout — revoke family + clear cookies (no body by design)
+export const POST = apiRoute(async (req, _route, env) => logoutCurrent(env.ctx))

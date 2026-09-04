@@ -7,7 +7,8 @@ const globalForPrisma = globalThis as unknown as {
 export const db =
   globalForPrisma.prisma ??
   new PrismaClient({
-    log: ['query'],
+    // query logging is opt-in (BH_DB_LOG=1) — default noise-free (audit A14 fix)
+    log: process.env.BH_DB_LOG === '1' ? ['query', 'warn', 'error'] : ['warn', 'error'],
   })
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db

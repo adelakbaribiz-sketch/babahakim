@@ -25,6 +25,8 @@
 
 > ۱۴۰۵/۰۶/۱۴ (2026-09-04) — PHASE 07 (طبق فرمان محصول: «UI System»): **Design System مرکزی** — توکن‌های دو-منبعی CSS+TS با گیت همگام‌سازی (ED-81) · ۸ توکن وضعیت §9 جایگزین ۱۳۳ تخلف Hardcode (ED-82) · Tailwind v4 CSS-first مرجع (ED-83) · ابزارهای منطقی اجباری برای RTL (ED-84) · Style Guide زنده درون-برنامه‌ای (ED-85) · اصلاح WCAG برای muted-foreground (ED-86) · ۳۲ جفت کنتراست تحت گیت E7 · کامپوننت‌های States چهارگانه SP-1..8 (ED-91) · chartTheme توکنی (ED-88) · Toast جهت‌آگاه sonner (ED-89) · ممیزی یکپارچگی `bun run audit:ui` (ED-90) — خط پایه ۱۳۳→۰. اسناد: `docs/DESIGN-SYSTEM.md` + ED-81..ED-92. راستی‌آزمایی: `scripts/validate-phase07-docs.py` + ممیزی UI PASS + ۸۶/۸۶ تست رگرسیون.
 
+> ۱۴۰۵/۰۶/۱۴ (2026-09-04) — PHASE 08 (طبق فرمان محصول: «Backend Engineering»): **Backend لایه‌ای + استانداردسازی** — ممیزی ۱۶ یافته (A2 بحرانی: Checkout غیراتمیک؛ A15: عدم انطباق RBAC `create_invoice`) · معماری چهارلایه `API/Application/Domain/Infrastructure` زیر `src/server/` (ED-93) · ۱۲ استاندارد Cross-cutting: zod (ED-96)، سرویس‌سازی منطق (ED-93/105)، گاردهای AuthZ (ED-97)، تراکنش اتمیک `withTransaction` (ED-103/104)، Envelope خطای واحد (ED-94)، Logger ساختاریافته reqId (ED-95)، Cache TTL ابطال Event-driven (ED-98)، DomainEventBus (ED-99)، نسخه‌بندی + هدر (ED-101)، JobQueue با retry/DLQ و AI async (ED-102)، قرارداد صفحه‌بندی/فیلتر/مرتب‌سازی (ED-100) · ۴۱ مسیر → Controller نازک (گیت CI `bun run audit:backend` E1..E8 = ۰ تخلف، ED-105) · مستند `docs/BACKEND.md` · تست: ۳۵ Unit + ۱۹ Integration جدید + رگرسیون ۵۱+۳۵+۴۵ (جمع ۱۸۵ PASS).
+
 ## 1) ماتریس اصلی — Functional Requirements
 
 ### دامنه AUTH / PROF / MIZAJ
@@ -342,7 +344,7 @@
 | 94 | Local VSCode Validation | فاز 05 چک‌لیست | ⏳ فاز 05 |
 | 95 | Production Checklist | فاز 05 + PRD C1 | ⏳ فاز 05 |
 | 96 | ممنوعیت «باید پیاده شود» | RTM وضعیت صادقانه (I/P/R) | ✅ |
-| 97 | تصمیم‌گیری ابهام | ED-01..ED-92 (فاز 01: 01..30 · فاز 02: 31..34 · فاز 03: 35..46 · فاز 04: 47..58 · فاز 05: 59..70 · فاز 06: 71..80 · فاز 07: 81..92) | ✅ |
+| 97 | تصمیم‌گیری ابهام | ED-01..ED-105 (فاز 01: 01..30 · فاز 02: 31..34 · فاز 03: 35..46 · فاز 04: 47..58 · فاز 05: 59..70 · فاز 06: 71..80 · فاز 07: 81..92 · فاز 08: 93..105) | ✅ |
 | 98 | ۱۸ Milestone | PRD §12 | ✅ |
 | 99 | AI Model Strategy | ED-01/25 · FR-AI-01 | ✅ |
 | 100 | عدم جعل پزشکی | BR-MED-07 · ED-15 | ✅ |

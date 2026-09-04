@@ -1,25 +1,20 @@
-import { NextRequest } from 'next/server'
-import { db } from '@/lib/db'
-import { ok, fail } from '@/lib/api'
-import { getAuth } from '@/lib/auth'
+// API layer (thin controller) — business logic in @/server/application (ED-93).
+import { apiRoute, parseBody } from '@/server/api/handler'
+import { requireAuth } from '@/server/api/guards'
+import { parseListQuery } from '@/server/api/query'
+import { markReadSchema } from '@/server/application/dto'
+import { listNotifications, markNotificationsRead } from '@/server/application/services/supportService'
 
 // GET /api/v1/notifications
-export async function GET(req: NextRequest) {
-  const auth = await getAuth()
-  if (!auth) return fail('احراز هویت لازم است', 401)
-  const items = await db.notification.findMany({ where: { userId: auth.user.id }, orderBy: { createdAt: 'desc' }, take: 50 })
-  return ok({ notifications: items, unread: items.filter((n) => !n.read).length })
-}
+export const GET = apiRoute(async (req) => {
+  const auth = await requireAuth()
+  const query = parseListQuery(req.url, { defaultLimit: 50 })
+  return listNotifications(auth, query)
+})
 
 // PATCH /api/v1/notifications {id?} — mark one/all read
-export async function PATCH(req: NextRequest) {
-  const auth = await getAuth()
-  if (!auth) return fail('احراز هویت لازم است', 401)
-  const body = await req.json().catch(() => ({}))
-  if (body.id) {
-    await db.notification.updateMany({ where: { id: String(body.id), userId: auth.user.id }, data: { read: true } })
-  } else {
-    await db.notification.updateMany({ where: { userId: auth.user.id, read: false }, data: { read: true } })
-  }
-  return ok()
-}
+export const PATCH = apiRoute(async (req) => {
+  const auth = await requireAuth()
+  const input = await parseBody(req, markReadSchema)
+  return markNotificationsRead(auth, input)
+})

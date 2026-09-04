@@ -1,27 +1,20 @@
-import { NextRequest } from 'next/server'
-import { ok, fail, audit, getIP, getDevice } from '@/lib/api'
-import { requireAuth } from '@/lib/api'
-import { currentConsents, recordConsent, CONSENT_TYPES, CONSENT_DOC_VERSIONS, ConsentType } from '@/lib/security/privacy'
+// API layer (thin controller) — business logic in @/server/application (ED-93).
+import { z } from 'zod'
+import { apiRoute, parseBody } from '@/server/api/handler'
+import { requireAuth } from '@/server/api/guards'
+import { listConsents, grantConsent } from '@/server/application/services/imageService'
+
+const consentSchema = z.object({ consentType: z.string().min(1).max(40) })
 
 // GET /api/v1/privacy/consents — my consent ledger + current document versions
-export async function GET() {
+export const GET = apiRoute(async () => {
   const auth = await requireAuth()
-  if (!auth) return fail('احراز هویت لازم است', 401)
-  const state = await currentConsents(auth.user.id)
-  return ok({ consents: state, documentVersions: CONSENT_DOC_VERSIONS })
-}
+  return listConsents(auth.user.id)
+})
 
-// POST /api/v1/privacy/consents { consentType } — accept terms/privacy/...
-export async function POST(req: NextRequest) {
+// POST /api/v1/privacy/consents {consentType} — accept terms/privacy/...
+export const POST = apiRoute(async (req, _route, env) => {
   const auth = await requireAuth()
-  if (!auth) return fail('احراز هویت لازم است', 401)
-  const body = await req.json().catch(() => null)
-  const consentType = String(body?.consentType || '') as ConsentType
-  if (!CONSENT_TYPES.includes(consentType)) return fail('نوع رضایت نامعتبر است', 422)
-
-  const ip = await getIP(req)
-  const device = getDevice(req)
-  await recordConsent(auth.user.id, consentType, ip, device)
-  await audit(req, auth.user.id, 'CONSENT_GRANTED', 'ConsentRecord', auth.user.id, null, { consentType })
-  return ok({ consentType, granted: true })
-}
+  const input = await parseBody(req, consentSchema)
+  return grantConsent(auth, env.ctx, input.consentType)
+})

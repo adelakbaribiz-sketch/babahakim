@@ -620,7 +620,8 @@ Registration ─→ Questionnaire ─→ Image Upload ─→ AI Analysis ─→ 
 | **Phase 05** (انجام‌شده — M15 کامل طبق فرمان محصول) | M15 (Security + Audit): لایه امنیت سراسری + OTP/MFA + Privacy/Consent/Export/Deletion + THREAT-MODEL | `SECURITY.md` · `THREAT-MODEL.md` · ADR-0014/0015 · ED-59..70 · ۸۰/۸۰ تست |
 | **Phase 06** (انجام‌شده — طبق فرمان محصول، پیش از ساخت UI نهایی) | **UX Architecture**: User Journey ×۶ نقش · Sitemap · Screen Inventory (۷۳ صفحه، ۹ فیلد) · Flow Diagram ×۱۰ · State System | `UX.md` · `SCREEN-MAP.md` · ED-71..80 |
 | **Phase 07** (انجام‌شده — طبق فرمان محصول: «UI System») | **Design System مرکزی**: توکن‌های دو-منبعی CSS+TS · ۸ توکن وضعیت §9 · Typography/Spacing/Grid/Breakpoints/Radius/Shadow · کامپوننت‌های Forms/Tables/Cards/Dialogs/Navigation/Notifications/Charts/States/Icons · RTL/LTR + Dark Mode + A11y (۳۲ جفت کنتراست گیت‌شده) · Style Guide زنده · ممیزی یکپارچگی `audit:ui` (۱۳۳→۰ تخلف) | `DESIGN-SYSTEM.md` · ED-81..92 |
-| **Phase 08+** | M17 (Deployment) + M18 (Hardening) + توسعه محصول | UI Rebuild طبق SC-ID · Docker Production، Nginx/SSL، CI/CD، Monitoring (ADR-0012)، Backup/DR · Coupon مستقل، Email/Push، Export داده، MLOps واقعی، PWA |
+| **Phase 08** (انجام‌شده — طبق فرمان محصول: «Backend Engineering») | **Backend لایه‌ای + استانداردسازی**: ممیزی ۱۶ یافته (A2 بحرانی: Checkout بدون تراکنش؛ A15: RBAC mismatch) · معماری API/Application/Domain/Infrastructure · ۱۲ استاندارد (Validation/BusinessLogic/AuthZ/Tx/Error/Logging/Cache/Jobs/Events/Versioning/Pagination-Filtering-Sort) · ۴۱ مسیر refactor به Controller نازک · گیت CI `audit:backend` (E1..E8) · ۱۸۵ تست سبز | `BACKEND.md` · ED-93..105 |
+| **Phase 09+** | M17 (Deployment) + M18 (Hardening) + توسعه محصول | UI Rebuild طبق SC-ID · Docker Production، Nginx/SSL، CI/CD، Monitoring (ADR-0012)، Backup/DR · Coupon مستقل، Email/Push، Export داده، MLOps واقعی، PWA |
 
 > یادداشت توالی (فاز 03): شماره فازها در اجرای واقعی جلوتر از پیش‌بینی اولیه این نقشه حرکت کرده است (فاز ۰۲ = Workflow به‌جای M1). این جدول در پایان هر فاز با وضعیت واقعی هم‌تراز می‌شود؛ شماره Milestoneها (M1..M18) مرجع ثابت باقی می‌مانند.
 
@@ -663,6 +664,7 @@ Registration ─→ Questionnaire ─→ Image Upload ─→ AI Analysis ─→ 
 | `docs/SCREEN-MAP.md` | Screen Inventory — ۷۳ صفحه با ۹ فیلد | فاز ۰۶ |
 | `docs/BRANDING.md` | سیستم طراحی BabaHakim | فاز قبل |
 | `docs/DESIGN-SYSTEM.md` | مرجع کامل سیستم طراحی (توکن‌ها/کامپوننت‌ها/حالت‌ها/RTL/A11y/ممیزی) | فاز ۰۷ |
+| `docs/BACKEND.md` | معماری لایه‌ای Backend + ۱۲ استاندارد Cross-cutting + قرارداد API + گیت معماری | فاز ۰۸ |
 | Master Prompt | منبع نیازمندی (۱۰۴ بخش) | `upload/` |
 
 **پایان PRD — انشعاب فنی عمدی ندارد؛ این سند مبنای TRACING فازهای بعدی است.**
