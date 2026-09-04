@@ -1,0 +1,1505 @@
+MASTER UI/BRANDING PROMPT — BABАHAKIM
+‫از این لحظه نام رسمی و داخلی کل پروژه‬:
+
+
+babahakim
+
+
+‫است‬.
+
+
+‫تمام نامگذاریهای پروژه‬، Repository، Docker، Package، Database، Frontend، Backend، Documentation ‫ و‬UI ‫باید‬
+‫ تا حد امکان بر اساس‬babahakim ‫انجام شود‬.
+
+
+
+
+1. BRAND IDENTITY
+‫نام محصول‬:
+
+
+BabaHakim
+
+
+‫نام فنی پروژه‬:
+
+
+babahakim
+
+
+‫ در‬UI ‫انگلیسی از‬:
+
+
+BabaHakim
+
+
+‫ و در‬UI ‫فارسی از‬:
+
+
+‫باباحکیم‬
+
+
+‫استفاده کن‬.
+
+
+‫از نامهای موقت‬، Placeholder ‫و نامهای عمومی مانند‬:
+
+
+medical-app health-platform demo-app
+
+
+‫ در‬UI ‫ و‬Branding ‫استفاده نکن‬.
+
+
+
+
+2. PRIMARY COLOR PALETTE
+‫پالت رسمی برند دقیقا ً این چهار رنگ است‬:
+
+
+
+
+                                                    1
+Primary Dark
+
+  #173F76
+
+
+Primary Blue
+
+  #225BBE
+
+
+Sky Blue
+
+  #57AFE2
+
+
+Neutral Gray
+
+  #DEDBDB
+
+
+‫ این چهار رنگ باید‬Design Token‫های اصلی سیستم باشند‬.
+
+
+
+
+3. COLOR DESIGN TOKENS
+‫ یک سیستم‬Design Token ‫مرکزی ایجاد کن‬.
+
+
+ً ‫مثال‬:
+
+
+
+    --color-primary-dark: #173F76;
+    --color-primary: #225BBE;
+    --color-primary-light: #57AFE2;
+    --color-neutral: #DEDBDB;
+
+
+‫و در صورت نیاز طیفهای مشتقشده را فقط بر اساس همین چهار رنگ تولید کن‬.
+
+
+ً ‫مثال‬:
+
+
+          • hover
+          • active
+          • disabled
+          • border
+          • background
+          • subtle background
+          • focus
+          • selected
+
+‫از ایجاد رنگهای تصادفی و خارج از هویت برند خودداری کن‬.
+
+
+
+
+                                                         2
+4. COLOR USAGE
+‫ رنگ‬#173F76 :
+
+
+‫برای‬:
+
+
+        • Header
+        • Sidebar
+        • Footer
+        • ‫تیترهای مهم‬
+        • Navigation
+        • ‫عناصر برند‬
+        • ‫بخشهای مهم داشبورد‬
+
+‫استفاده شود‬.
+
+
+‫ رنگ‬#225BBE :
+
+
+‫برای‬:
+
+
+        • Primary Button
+        • CTA
+        • ‫لینکهای اصلی‬
+        • Tab ‫فعال‬
+        • ‫ عناصر‬Interactive
+
+‫استفاده شود‬.
+
+
+‫ رنگ‬#57AFE2 :
+
+
+‫برای‬:
+
+
+        • Secondary Accent
+        • Charts
+        • Highlight
+        • Information State
+        • ‫عناصر تصویری‬
+        • Progress
+        • Focus / Hover ‫ در برخی‬Components
+
+‫استفاده شود‬.
+
+
+‫ رنگ‬#DEDBDB :
+
+
+
+
+                                             3
+‫برای‬:
+
+
+        • Border
+        • Divider
+        • Background‫های خنثی‬
+        • Card Border
+        • Input Border
+        • ‫ مناطق‬Secondary UI
+
+‫استفاده شود‬.
+
+
+
+
+5. WHITE SPACE
+‫ رنگ سفید میتواند به عنوان‬Base Surface ‫ برای خوانایی‬UI ‫استفاده شود‬:
+
+
+#FFFFFF
+
+
+‫اما رنگ سفید نباید جایگزین هویت برند شود‬.
+
+
+‫سیستم باید از ترکیب‬:
+
+
+White + Brand Blue + Brand Dark + Neutral
+
+
+‫استفاده کند‬.
+
+
+
+
+6. UI STYLE
+‫طراحی باید‬:
+
+
+Modern
+
+
+Professional
+
+
+Medical
+
+
+Trustworthy
+
+
+Clean
+
+
+Minimal
+
+
+Premium
+
+
+
+
+                                                      4
+Responsive
+
+
+‫باشد‬.
+
+
+‫ از‬UI ‫ کارتهای بیش از حد‬،‫شلوغ‬، Gradient‫ های شدید و‬Shadow‫های سنگین خودداری کن‬.
+
+
+‫طراحی باید حس‬:
+
+
+‫ دقت‬+ ‫ تکنولوژی‬+ ‫ سالمت‬+ ‫اعتماد‬
+
+
+‫ایجاد کند‬.
+
+
+
+
+7. DASHBOARD
+Dashboard‫ های‬BabaHakim ‫ باید دارای‬Layout ‫حرفهای باشند‬.
+
+
+Desktop:
+
+
+Sidebar + Header + Main Content
+
+
+Mobile:
+
+
+Bottom Navigation ‫ یا‬Sidebar ‫قابل جمعشدن‬.
+
+
+Sidebar ‫اصلی با‬:
+
+
+ #173F76
+
+
+‫ و عناصر‬Active ‫با‬:
+
+
+ #225BBE
+
+
+‫طراحی شود‬.
+
+
+Accent‫های مهم‬:
+
+
+ #57AFE2
+
+
+‫ و‬Border:
+
+
+ #DEDBDB
+
+
+
+
+                                                   5
+8. BUTTON SYSTEM
+Primary Button:
+
+
+Background:
+
+
+#225BBE
+
+
+Hover:
+
+
+‫ نسخه تیرهتر مشتقشده از‬#225BBE
+
+
+Text:
+
+
+White
+
+
+Secondary Button:
+
+
+Background:
+
+
+White
+
+
+Border:
+
+
+#173F76
+
+
+Text:
+
+
+#173F76
+
+
+Accent Button:
+
+
+Background:
+
+
+#57AFE2
+
+
+Text:
+
+
+#173F76
+
+
+Disabled:
+
+
+‫ترکیب خنثی بر پایه‬:
+
+
+
+
+                                 6
+  ‫‪#DEDBDB‬‬
+
+
+
+
+‫‪9. STATUS SYSTEM‬‬
+‫‪.‬را با رنگهای واضح نمایش بده ‪ Workflow‬وضعیتهای‬
+
+
+‫‪.‬هماهنگ باشند ‪ Brand Palette‬اما رنگ وضعیتها باید با‬
+
+
+‫‪:‬مثال ً‬
+
+
+‫‪Pending:‬‬
+
+
+  ‫‪#57AFE2‬‬
+
+
+‫‪In Progress:‬‬
+
+
+  ‫‪#225BBE‬‬
+
+
+‫‪Completed:‬‬
+
+
+‫‪.‬رنگی مشتقشده و قابل تشخیص‪ ،‬بدون خروج از هویت بصری‬
+
+
+‫‪Overdue:‬‬
+
+
+‫‪ UI.‬یک رنگ هشدار استاندارد فقط در صورت نیاز‪ ،‬با حفظ هماهنگی با‬
+
+
+‫‪Error:‬‬
+
+
+‫‪.‬یک رنگ استاندارد برای خطا‬
+
+
+‫‪:‬توجه‬
+
+
+‫‪.‬برای کاربر اشتباه برداشت شود ‪ Warning‬یا ‪ Error‬نباید باعث شود وضعیت ‪ Brand‬رنگ‬
+
+
+
+
+‫‪10. LOGIN PAGE‬‬
+‫‪.‬باید از نظر بصری یکی از مهمترین صفحات برند باشد ‪ Login‬صفحه‬
+
+
+‫‪:‬طراحی‬
+
+
+          ‫‪ BabaHakim‬لوگوی •‬
+
+
+
+
+                                                      ‫‪7‬‬
+        ‫‪ BabaHakim‬نام •‬
+        ‫شعار در صورت وجود •‬
+        ‫ساده و حرفهای ‪• Background‬‬
+        ‫‪ Login‬فرم •‬
+        ‫‪• CTA‬‬
+
+‫‪:‬تم اصلی بر پایه‬
+
+
+ ‫‪#173F76‬‬
+
+
+‫‪:‬و‬
+
+
+ ‫‪#225BBE‬‬
+
+
+‫‪.‬باشد‬
+
+
+‫‪.‬شلوغ خودداری کن ‪ Login‬از صفحه‬
+
+
+
+
+‫‪11. REGISTER‬‬
+‫‪.‬را داشته باشد ‪ Design Language Login‬باید همان ‪ Registration‬صفحه‬
+
+
+‫‪:‬طراحی کن ‪ Step-by-Step‬را ‪ Registration‬فرآیند‬
+
+
+‫اطالعات اولیه ‪Step 1:‬‬
+
+
+‫اطالعات تماس ‪Step 2:‬‬
+
+
+‫مزاجشناسی ‪Step 3:‬‬
+
+
+‫تکمیل پرونده ‪Step 4:‬‬
+
+
+‫‪:‬با ‪Progress Bar‬‬
+
+
+ ‫‪#57AFE2‬‬
+
+
+‫‪.‬نمایش داده شود‬
+
+
+
+
+‫‪12. PATIENT DASHBOARD‬‬
+‫‪.‬داشبورد کاربر‪/‬بیمار باید ساده و قابل فهم باشد‬
+
+
+
+
+                                                     ‫‪8‬‬
+‫‪Cards:‬‬
+
+
+‫پرونده‬
+
+
+‫مزاجشناسی‬
+
+
+‫تصاویر‬
+
+
+‫تشخیص اولیه‬
+
+
+‫نسخه‬
+
+
+‫سفارش‬
+
+
+‫پرداخت‬
+
+
+‫ارسال‬
+
+
+‫پیگیری درمان‬
+
+
+‫‪.‬داشته باشد ‪ CTA‬عنوان‪ ،‬وضعیت و ‪ Icon،‬باید یک ‪ Card‬هر‬
+
+
+
+
+‫‪13. MEDICAL FILE UI‬‬
+‫‪.‬صفحه پرونده پزشکی از مهمترین صفحات سیستم است‬
+
+
+‫‪:‬طراحی‬
+
+
+‫‪Patient Summary‬‬
+
+
+‫‪AI Analysis‬‬
+
+
+‫‪Expert Review‬‬
+
+
+‫‪Prescription‬‬
+
+
+‫‪Doctor Review‬‬
+
+
+‫‪Treatment Timeline‬‬
+
+
+‫‪Follow-up‬‬
+
+
+‫‪.‬را به صورت منظم نمایش دهد‬
+
+
+
+
+                                                       ‫‪9‬‬
+‫‪.‬باید از رنگهای برند برای سلسلهمراتب بصری استفاده کند ‪Timeline‬‬
+
+
+
+
+‫‪14. AI ANALYSIS UI‬‬
+‫‪.‬عمومی طراحی شود ‪ Chatbot‬نباید شبیه یک ‪ AI‬بخش‬
+
+
+‫‪:‬باید حس‬
+
+
+‫‪Clinical AI Dashboard‬‬
+
+
+‫‪.‬داشته باشد‬
+
+
+‫‪:‬نمایش‬
+
+
+‫‪AI Analysis‬‬
+
+
+‫‪Confidence‬‬
+
+
+‫‪Possible Findings‬‬
+
+
+‫‪Image Quality‬‬
+
+
+‫‪Expert Review Required‬‬
+
+
+‫‪Model Version‬‬
+
+
+‫‪.‬را به صورت حرفهای نمایش بده‬
+
+
+‫‪:‬عبارت ‪ UI‬در‬
+
+
+‫‪AI-Assisted Analysis‬‬
+
+
+‫‪.‬در محل مناسب درج شود‬
+
+
+‫‪.‬نباید به شکل «تشخیص قطعی پزشکی» نمایش داده شود ‪ AI‬نتیجه‬
+
+
+
+
+‫‪15. IMAGE VIEWER‬‬
+‫‪:‬برای تصاویر زبان و چهره‬
+
+
+      ‫‪• Zoom‬‬
+
+
+
+
+                                                     ‫‪10‬‬
+        • Pan
+        • Fullscreen
+        • Before/After
+        • Original/Processed
+        • Image Quality
+        • Timestamp
+
+‫در نظر بگیر‬.
+
+
+Background Viewer ‫میتواند بر پایه‬:
+
+
+ #173F76
+
+
+‫باشد‬.
+
+
+
+
+16. EXPERT WORKSPACE
+Workspace ‫کارشناس باید بسیار سریع و حرفهای باشد‬.
+
+
+Layout:
+
+
+Left:
+
+
+Patient Information
+
+
+Center:
+
+
+Images + AI
+
+
+Right:
+
+
+Diagnosis / Prescription / Actions
+
+
+Bottom:
+
+
+Timeline + History
+
+
+Primary Actions:
+
+
+ #225BBE
+
+
+AI Highlights:
+
+
+ #57AFE2
+
+
+
+
+                                                   11
+17. DOCTOR PANEL
+Doctor Dashboard ‫باید رسمیتر و مینیمالتر باشد‬.
+
+
+‫ تمرکز‬UI ‫روی‬:
+
+
+Pending Reviews
+
+
+Patients
+
+
+Prescriptions
+
+
+Comments
+
+
+Approvals
+
+
+Tickets
+
+
+‫باشد‬.
+
+
+
+
+18. ADMIN PANEL
+Admin Panel ‫باید اطالعات زیادی را بدون شلوغی نمایش دهد‬.
+
+
+Cards ‫آماری با طراحی‬:
+
+
+White Surface
+
+
+Brand Borders
+
+
+Blue Accent
+
+
+‫استفاده شوند‬.
+
+
+ً ‫مثال‬:
+
+
+Patients Today
+
+
+New Cases
+
+
+Pending Reviews
+
+
+
+
+                                                    12
+Orders
+
+
+Revenue
+
+
+Payments
+
+
+Shipments
+
+
+Follow-ups
+
+
+
+
+19. TABLE DESIGN
+‫ تمام‬Table‫ها باید‬:
+
+
+         • ‫خوانا‬
+         • Responsive
+         • Sortable
+         • Filterable
+         • Searchable
+         • Pagination
+
+‫باشند‬.
+
+
+Header:
+
+
+ #173F76
+
+
+‫ یا‬White ‫ با‬Typography:
+
+
+ #173F76
+
+
+Row Hover:
+
+
+Tint ‫بسیار مالیم از‬:
+
+
+ #57AFE2
+
+
+Border:
+
+
+ #DEDBDB
+
+
+
+
+                          13
+20. FORM DESIGN
+Input‫ها‬:
+
+
+Background:
+
+
+White
+
+
+Border:
+
+
+#DEDBDB
+
+
+Focus:
+
+
+#225BBE
+
+
+Label:
+
+
+#173F76
+
+
+Helper Text:
+
+
+Neutral Gray
+
+
+Validation Error:
+
+
+‫ رنگ اختصاصی‬Error
+
+
+Validation Success:
+
+
+‫ رنگ اختصاصی‬Success
+
+
+
+
+21. CARD DESIGN
+Card‫ها‬:
+
+
+White
+
+
+Border:
+
+
+#DEDBDB
+
+
+
+
+                      14
+Border Radius:
+
+
+‫مدرن و متوسط‬
+
+
+Shadow:
+
+
+‫خیلی مالیم‬
+
+
+‫ از‬Card Nesting ‫زیاد جلوگیری کن‬.
+
+
+
+
+22. CHARTS
+Chart‫ها باید از پالت برند استفاده کنند‬.
+
+
+Primary:
+
+
+ #225BBE
+
+
+Secondary:
+
+
+ #57AFE2
+
+
+Dark:
+
+
+ #173F76
+
+
+Neutral:
+
+
+ #DEDBDB
+
+
+Chart‫ها باید‬:
+
+
+         • ‫خوانا‬
+         • Minimal
+         • Accessible
+         • Responsive
+
+‫باشند‬.
+
+
+
+
+23. TYPOGRAPHY
+‫برای فارسی‬:
+
+
+
+
+                                          15
+‫‪.‬فونت مدرن و خوانا انتخاب کن‬
+
+
+‫‪:‬پیشنهاد‬
+
+
+‫‪Vazirmatn‬‬
+
+
+‫‪.‬حرفهای مشابه ‪ Persian UI‬یا یک فونت‬
+
+
+‫‪ English:‬برای‬
+
+
+‫‪.‬مدرن و هماهنگ انتخاب کن ‪ Sans-serif‬یک فونت‬
+
+
+‫‪.‬کن ‪ Centralize‬را ‪Typography Scale‬‬
+
+
+
+
+‫‪24. RTL / LTR‬‬
+‫‪Persian:‬‬
+
+
+‫‪RTL‬‬
+
+
+‫‪English:‬‬
+
+
+‫‪LTR‬‬
+
+
+‫‪.‬تغییر کند ‪ Direction‬باید با ‪ Layout‬حتی‬
+
+
+‫‪.‬باشند ‪ RTL-aware‬ها نیز باید‪ Alignment‬ها و‪Icon‬‬
+
+
+
+
+‫‪25. BRAND LOGO‬‬
+‫‪:‬وجود ندارد ‪ Repository‬در ‪ Logo‬اگر فایل‬
+
+
+‫‪.‬حرفهای ایجاد کن که قابل تعویض باشد ‪ Logo Placeholder‬یک ‪ UI‬برای‬
+
+
+‫‪.‬کنند ‪ Hardcode‬را ‪ Logo‬تمام صفحات نباید‬
+
+
+‫‪:‬استفاده از‬
+
+
+ ‫>‪<Logo /‬‬
+
+
+‫‪Component‬‬
+
+
+
+
+                                                    ‫‪16‬‬
+26. COMPONENT LIBRARY
+‫ یک‬Design System ‫بساز‬.
+
+
+Component‫های مشترک‬:
+
+
+Button
+
+
+Input
+
+
+Select
+
+
+Modal
+
+
+Drawer
+
+
+Table
+
+
+Card
+
+
+Badge
+
+
+Tabs
+
+
+Timeline
+
+
+Dropdown
+
+
+Toast
+
+
+Alert
+
+
+Pagination
+
+
+FileUploader
+
+
+ImageViewer
+
+
+Stepper
+
+
+DatePicker
+
+
+Search
+
+
+
+
+                         17
+Filter
+
+
+StatsCard
+
+
+Chart
+
+
+Breadcrumb
+
+
+Navbar
+
+
+Sidebar
+
+
+Footer
+
+
+
+
+27. THEME SYSTEM
+‫ یک‬Theme ‫مرکزی پیادهسازی کن‬.
+
+
+ً ‫مثال‬:
+
+
+
+    colors: {
+      primaryDark: "#173F76",
+      primary: "#225BBE",
+      primaryLight: "#57AFE2",
+      neutral: "#DEDBDB"
+    }
+
+
+‫ هیچ‬Component ‫ نباید رنگ‬Brand ‫ را به صورت پراکنده و‬Hardcoded ‫تعریف کند‬.
+
+
+‫ همه از‬Theme ‫استفاده کنند‬.
+
+
+
+
+28. DARK MODE
+‫ در صورت فعال بودن‬Dark Mode ‫نیز هویت برند حفظ شود‬.
+
+
+‫ از این چهار رنگ به عنوان منبع اصلی‬Theme ‫استفاده کن‬.
+
+
+Dark Mode ‫ نباید صرفا ً با‬Invert Colors ‫ساخته شود‬.
+
+
+Contrast ‫ و‬Accessibility ‫حتما ً بررسی شود‬.
+
+
+
+
+                                                       18
+29. MOBILE
+BabaHakim ‫ باید‬Mobile First ‫ و‬Responsive ‫باشد‬.
+
+
+‫ در‬Mobile:
+
+
+        • Navigation ‫ساده‬
+        • CTA‫های بزرگ‬
+        • Upload ‫راحت تصاویر‬
+        • ‫نمایش مناسب پرونده‬
+        • Timeline ‫قابل اسکرول‬
+        • Tables ‫ تبدیلشده به‬Cards
+
+‫باشد‬.
+
+
+
+
+30. MEDICAL IMAGE UPLOAD UX
+‫ برای‬Upload ‫تصویر زبان‬:
+
+
+‫ یک‬Dropzone ‫حرفهای‬:
+
+
+Upload Tongue Image
+
+
+Take Photo
+
+
+Choose From Gallery
+
+
+‫نمایش دهد‬.
+
+
+‫بعد از انتخاب‬:
+
+
+Preview
+
+
+Quality Check
+
+
+Compression
+
+
+Upload Progress
+
+
+Upload Complete
+
+
+‫را نمایش بده‬.
+
+
+
+
+                                                 19
+31. EMPTY STATES
+‫ برای بخشهای خالی از‬Empty State ‫حرفهای استفاده کن‬.
+
+
+ً ‫مثال‬:
+
+
+No Previous Prescriptions
+
+
+No Tickets
+
+
+No Pending Orders
+
+
+No Follow-up
+
+
+‫پیامها فارسی و انگلیسی باشند‬.
+
+
+
+
+32. LOADING STATES
+‫به جای صفحه سفید‬:
+
+
+Skeleton
+
+
+Progress
+
+
+Spinner
+
+
+‫ یا‬Loading State ‫مناسب استفاده کن‬.
+
+
+
+
+33. MICRO INTERACTIONS
+‫حرکتها بسیار ظریف باشند‬:
+
+
+Button Hover
+
+
+Card Hover
+
+
+Page Transition
+
+
+Modal
+
+
+Toast
+
+
+
+                                                     20
+Progress
+
+
+‫ از‬Animation ‫سنگین جلوگیری کن‬.
+
+
+
+
+34. ACCESSIBILITY
+Contrast Ratio ‫را بررسی کن‬.
+
+
+‫رنگ‬:
+
+
+#DEDBDB
+
+
+‫نباید برای متن کوچک استفاده شود‬.
+
+
+Text ‫ باید‬Contrast ‫مناسب داشته باشد‬.
+
+
+Keyboard Navigation
+
+
+Focus State
+
+
+ARIA
+
+
+Screen Reader
+
+
+‫تا حد امکان رعایت شود‬.
+
+
+
+
+35. BRAND CONSISTENCY
+‫ هیچ صفحهای خارج از این‬Design System ‫ساخته نشود‬.
+
+
+Login
+
+
+Register
+
+
+Patient
+
+
+Expert
+
+
+Operator
+
+
+Doctor
+
+
+
+
+                                                   21
+Admin
+
+
+Store
+
+
+Payment
+
+
+Order
+
+
+Shipping
+
+
+Reports
+
+
+‫همه باید یک هویت بصری داشته باشند‬.
+
+
+
+
+36. FINAL VISUAL OBJECTIVE
+‫ ظاهر‬BabaHakim ‫باید ترکیبی از‬:
+
+
+Medical Trust + AI Technology + Persian Identity + Professional SaaS
+
+
+‫باشد‬.
+
+
+‫نباید شبیه‬:
+
+
+        • ‫فروشگاه دارویی ساده‬
+        • ‫سایت بیمارستان قدیمی‬
+        • ‫ داشبورد‬Bootstrap ‫خام‬
+        • Template ‫آماده بدون هویت‬
+
+‫باشد‬.
+
+
+
+
+37. FINAL IMPLEMENTATION RULE
+‫قبل از ساخت صفحات‬:
+
+
+        1. Design Tokens
+        2. Theme
+        3. Typography
+        4. Spacing System
+        5. Components
+        6. Layout
+        7. Responsive Rules
+
+
+
+
+                                                 22
+‫‪.‬را ایجاد کن‬
+
+
+‫‪.‬بساز ‪ Design System‬سپس صفحات مختلف را بر اساس همین‬
+
+
+
+
+‫‪38. QA VISUAL CHECK‬‬
+‫‪:‬ها را بررسی کن‪ Role‬قبل از پایان پروژه‪ ،‬تمام‬
+
+
+‫‪Admin‬‬
+
+
+‫‪Expert 1‬‬
+
+
+‫‪Operator‬‬
+
+
+‫‪Expert 2‬‬
+
+
+‫‪Doctor‬‬
+
+
+‫‪User‬‬
+
+
+‫‪:‬و مطمئن شو‬
+
+
+       ‫رنگها یکپارچهاند •‬
+       ‫صحیح است ‪• RTL‬‬
+       ‫صحیح است ‪• Mobile‬‬
+       ‫یکساناند ‪• Buttons‬‬
+       ‫یکساناند ‪• Forms‬‬
+       ‫یکساناند ‪• Tables‬‬
+       ‫ها خوانا هستند‪• Status‬‬
+       ‫هستند ‪ Consistent‬ها‪• Dashboard‬‬
+       ‫صحیح است ‪ Brand Name‬و ‪• Logo‬‬
+
+
+
+
+‫‪39. NON-NEGOTIABLE BRAND RULE‬‬
+‫‪ BabaHakim:‬پالت رسمی‬
+
+
+‫‪#173F76 #225BBE #57AFE2 #DEDBDB‬‬
+
+
+‫‪.‬است‬
+
+
+‫‪.‬باشد ‪ UI‬این پالت باید هسته اصلی‬
+
+
+
+
+                                               ‫‪23‬‬
+‫‪.‬از رنگهای تصادفی استفاده نکن‬
+
+
+‫‪.‬استفاده کن ‪ Design Tokens‬از ‪ UI‬در تمام‬
+
+
+‫‪:‬نام برند‬
+
+
+‫‪BabaHakim‬‬
+
+
+‫‪:‬نام فارسی‬
+
+
+‫باباحکیم‬
+
+
+‫‪:‬نام فنی‬
+
+
+‫‪babahakim‬‬
+
+
+‫‪.‬باشد‬
+
+
+‫‪.‬در تمام پروژه استفاده کن ‪ Design System‬از همین‬
+
+
+
+
+                                                  ‫‪24‬‬
+
