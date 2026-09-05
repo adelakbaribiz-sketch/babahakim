@@ -1,0 +1,260 @@
+{
+  "tag": "after",
+  "db": "/home/z/my-project/db/custom.db",
+  "generatedAt": "2026-09-05T22:41:23",
+  "pragmas": {
+    "journal_mode": "wal",
+    "synchronous": 2,
+    "cache_size": -2000,
+    "page_size": 4096,
+    "foreign_keys": 0,
+    "wal_autocheckpoint": 1000
+  },
+  "rowCounts": {
+    "User": 313,
+    "MedicalCase": 75,
+    "Order": 110,
+    "AuditLog": 4042,
+    "Notification": 1990,
+    "CaseEvent": 812,
+    "AIAnalysis": 111,
+    "Payment": 102,
+    "FinancialTransaction": 103,
+    "Ticket": 14,
+    "TicketMessage": 14,
+    "MedicalImage": 94,
+    "FollowUp": 35,
+    "SMSLog": 618,
+    "ServiceLog": 391,
+    "MetricPoint": 65,
+    "IntegrationCallLog": 972,
+    "Product": 45,
+    "OrderItem": 111,
+    "Invoice": 110,
+    "Prescription": 71,
+    "Diagnosis": 72,
+    "RefreshToken": 967
+  },
+  "namedIndexCount": 84,
+  "queries": [
+    {
+      "id": "auth.getAuth",
+      "desc": "per-request user lookup (PK)",
+      "plan": "SEARCH User USING INDEX sqlite_autoindex_User_1 (id=?)",
+      "fullScan": false,
+      "ms": 0.0028
+    },
+    {
+      "id": "dash.patient.cases",
+      "desc": "patient dashboard — my cases",
+      "plan": "SEARCH MedicalCase USING INDEX MedicalCase_patientId_createdAt_idx (patientId=?)",
+      "fullScan": false,
+      "ms": 0.0128
+    },
+    {
+      "id": "dash.patient.cases.count",
+      "desc": "patient dashboard — case count",
+      "plan": "SEARCH MedicalCase USING COVERING INDEX MedicalCase_patientId_createdAt_idx (patientId=?)",
+      "fullScan": false,
+      "ms": 0.0025
+    },
+    {
+      "id": "dash.patient.orders",
+      "desc": "patient dashboard — my orders",
+      "plan": "SEARCH Order USING INDEX Order_userId_createdAt_idx (userId=?)",
+      "fullScan": false,
+      "ms": 0.0061
+    },
+    {
+      "id": "dash.patient.tickets",
+      "desc": "patient dashboard — my tickets",
+      "plan": "SEARCH Ticket USING INDEX Ticket_userId_updatedAt_idx (userId=?)",
+      "fullScan": false,
+      "ms": 0.0024
+    },
+    {
+      "id": "dash.patient.notifications",
+      "desc": "patient dashboard — unread notifications",
+      "plan": "SEARCH Notification USING INDEX Notification_userId_read_createdAt_idx (userId=? AND read=?)",
+      "fullScan": false,
+      "ms": 0.0102
+    },
+    {
+      "id": "dash.staff.case_count_status",
+      "desc": "staff dashboard — case count by status",
+      "plan": "SEARCH MedicalCase USING COVERING INDEX MedicalCase_status_createdAt_idx (status=?)",
+      "fullScan": false,
+      "ms": 0.002
+    },
+    {
+      "id": "dash.staff.order_count_status",
+      "desc": "staff dashboard — order count by status",
+      "plan": "SEARCH Order USING COVERING INDEX Order_status_createdAt_idx (status=?)",
+      "fullScan": false,
+      "ms": 0.0051
+    },
+    {
+      "id": "dash.staff.followup",
+      "desc": "staff dashboard — follow-ups pending",
+      "plan": "SEARCH FollowUp USING COVERING INDEX FollowUp_status_idx (status=?)",
+      "fullScan": false,
+      "ms": 0.0032
+    },
+    {
+      "id": "dash.staff.recent_events",
+      "desc": "staff dashboard — recent case events feed",
+      "plan": "SCAN CaseEvent USING INDEX CaseEvent_createdAt_idx",
+      "fullScan": false,
+      "ms": 0.0184
+    },
+    {
+      "id": "case.list",
+      "desc": "admin case list ordered by createdAt",
+      "plan": "SCAN MedicalCase USING INDEX MedicalCase_createdAt_idx",
+      "fullScan": false,
+      "ms": 0.0511
+    },
+    {
+      "id": "case.detail.events",
+      "desc": "case detail — timeline events",
+      "plan": "SEARCH CaseEvent USING INDEX CaseEvent_caseId_createdAt_idx (caseId=?)",
+      "fullScan": false,
+      "ms": 0.0222
+    },
+    {
+      "id": "case.detail.analyses",
+      "desc": "case detail — AI analyses",
+      "plan": "SEARCH AIAnalysis USING INDEX AIAnalysis_caseId_idx (caseId=?)",
+      "fullScan": false,
+      "ms": 0.0073
+    },
+    {
+      "id": "case.detail.images",
+      "desc": "case detail — images",
+      "plan": "SEARCH MedicalImage USING INDEX MedicalImage_caseId_createdAt_idx (caseId=?)",
+      "fullScan": false,
+      "ms": 0.0058
+    },
+    {
+      "id": "ticket.thread",
+      "desc": "ticket thread messages",
+      "plan": "SEARCH TicketMessage USING INDEX TicketMessage_ticketId_createdAt_idx (ticketId=?)",
+      "fullScan": false,
+      "ms": 0.0033
+    },
+    {
+      "id": "order.items",
+      "desc": "order detail — items",
+      "plan": "SEARCH OrderItem USING INDEX OrderItem_orderId_idx (orderId=?)",
+      "fullScan": false,
+      "ms": 0.0036
+    },
+    {
+      "id": "order.invoice",
+      "desc": "order detail — invoice",
+      "plan": "SEARCH Invoice USING INDEX Invoice_orderId_idx (orderId=?)",
+      "fullScan": false,
+      "ms": 0.0047
+    },
+    {
+      "id": "payments.by_order",
+      "desc": "payment lookup by order",
+      "plan": "SEARCH Payment USING INDEX Payment_orderId_idx (orderId=?)",
+      "fullScan": false,
+      "ms": 0.0058
+    },
+    {
+      "id": "report.revenue",
+      "desc": "financial report — income aggregate",
+      "plan": "SEARCH FinancialTransaction USING INDEX FinancialTransaction_type_createdAt_idx (type=?)",
+      "fullScan": false,
+      "ms": 0.0096
+    },
+    {
+      "id": "report.payments_window",
+      "desc": "financial report — payments in window",
+      "plan": "SEARCH Payment USING INDEX Payment_status_createdAt_idx (status=?)",
+      "fullScan": false,
+      "ms": 0.0019
+    },
+    {
+      "id": "search.case.code",
+      "desc": "search — case code LIKE",
+      "plan": "SCAN MedicalCase",
+      "fullScan": true,
+      "ms": 0.0487
+    },
+    {
+      "id": "search.user.phone_name",
+      "desc": "search — user phone/name LIKE",
+      "plan": "SCAN User",
+      "fullScan": true,
+      "ms": 0.063
+    },
+    {
+      "id": "audit.list",
+      "desc": "admin audit trail — latest page",
+      "plan": "SCAN AuditLog USING INDEX AuditLog_createdAt_idx",
+      "fullScan": false,
+      "ms": 0.0289
+    },
+    {
+      "id": "audit.by_user",
+      "desc": "admin audit trail — filter by user",
+      "plan": "SEARCH AuditLog USING INDEX AuditLog_userId_createdAt_idx (userId=?)",
+      "fullScan": false,
+      "ms": 0.0292
+    },
+    {
+      "id": "notif.unread_count",
+      "desc": "notification badge count",
+      "plan": "SEARCH Notification USING COVERING INDEX Notification_userId_read_createdAt_idx (userId=? AND read=?)",
+      "fullScan": false,
+      "ms": 0.003
+    },
+    {
+      "id": "smslog.list",
+      "desc": "admin sms log — latest page",
+      "plan": "ERROR: no such column: createdAt",
+      "fullScan": null,
+      "ms": null
+    },
+    {
+      "id": "calllog.list",
+      "desc": "admin integration call log — latest page",
+      "plan": "SCAN IntegrationCallLog USING INDEX IntegrationCallLog_createdAt_idx",
+      "fullScan": false,
+      "ms": 0.0366
+    }
+  ],
+  "fullScanCount": 2,
+  "syntheticScale": [
+    {
+      "shape": "filter by patientId (ORDER createdAt DESC LIMIT 5)",
+      "rows": 50000,
+      "beforeIndexMs": 2.7242,
+      "afterIndexMs": 0.0067,
+      "speedup": 406.3
+    },
+    {
+      "shape": "filter by status",
+      "rows": 50000,
+      "beforeIndexMs": 2.8135,
+      "afterIndexMs": 0.6157,
+      "speedup": 4.6
+    },
+    {
+      "shape": "filter by patientId+status",
+      "rows": 50000,
+      "beforeIndexMs": 2.7811,
+      "afterIndexMs": 4.165,
+      "speedup": 0.7
+    }
+  ],
+  "journalBench": {
+    "inserts": 300,
+    "deleteJournalMsPerInsert": 0.0941,
+    "walMsPerInsert": 0.0117,
+    "speedup": 8.04
+  }
+}

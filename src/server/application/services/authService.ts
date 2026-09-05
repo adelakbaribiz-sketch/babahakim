@@ -5,7 +5,7 @@ import { db } from '@/lib/db'
 import type { AuthContext } from '@/lib/auth'
 import {
   verifyPassword, hashPassword, signAccessToken, issueRefreshToken, setAuthCookies,
-  clearAuthCookies, revokeAllRefreshTokens, rotateRefreshToken,
+  clearAuthCookies, revokeAllRefreshTokens, rotateRefreshToken, invalidateUserIdentity,
 } from '@/lib/auth'
 import { cookies } from 'next/headers'
 import { rateLimit, LIMITS, resetRateLimit } from '@/lib/security/rate-limit'
@@ -76,6 +76,7 @@ export async function login(ctx: RequestContext, input: z.infer<typeof loginSche
   }
 
   await db.user.update({ where: { id: user.id }, data: { failedLogins: 0, lockedUntil: null, lastLoginAt: new Date() } })
+  invalidateUserIdentity(user.id) // ED-183: role/status may have changed since the cached entry
   resetRateLimit(`login:acct:${user.id}`)
   const access = await signAccessToken({ id: user.id, phone: user.phone, role: user.role, firstName: user.firstName, lastName: user.lastName })
   const refresh = await issueRefreshToken(user.id)
@@ -153,6 +154,7 @@ export async function me(auth: AuthContext) {
 export async function logout(auth: AuthContext | null, ctx: RequestContext) {
   if (auth) {
     await revokeAllRefreshTokens(auth.user.id)
+    invalidateUserIdentity(auth.user.id) // ED-183: identity cache dies with the session
     await writeAudit(ctx, { userId: auth.user.id, action: 'LOGOUT', entity: 'User', entityId: auth.user.id })
   }
   await clearAuthCookies()

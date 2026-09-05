@@ -222,6 +222,7 @@ model QuestionnaireResponse {
   user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id])
   createdAt       DateTime     @default(now())
+  @@index([userId, createdAt])
 }
 
 // ─────────────────────────────── IMAGES ───────────────────────────────
@@ -253,6 +254,7 @@ model MedicalImage {
   aiAnalyses     AIAnalysis[]
   receiptPayment Payment?      @relation("ReceiptImage")
   proofShipment  Shipment?     @relation("ProofImage")
+  @@index([caseId, createdAt])
 }
 
 // ─────────────────────────────── CASES & WORKFLOW ───────────────────────────────
@@ -291,6 +293,9 @@ model MedicalCase {
   expert1        User?           @relation("Expert1", fields: [assignedExpert1Id], references: [id])
   expert2        User?           @relation("Expert2", fields: [assignedExpert2Id], references: [id])
   doctor         User?           @relation("CaseDoctor", fields: [assignedDoctorId], references: [id])
+  @@index([patientId, createdAt])
+  @@index([status, createdAt])
+  @@index([createdAt])
 }
 
 model CaseEvent {
@@ -305,6 +310,8 @@ model CaseEvent {
   createdAt  DateTime @default(now())
   case       MedicalCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
   actor      User?       @relation(fields: [actorId], references: [id])
+  @@index([caseId, createdAt])
+  @@index([createdAt])
 }
 
 // ─────────────────────────────── AI ───────────────────────────────
@@ -356,6 +363,7 @@ model AIAnalysis {
   model        AIModel?     @relation(fields: [modelId], references: [id])
   inferenceLogs AIInferenceLog[]
   datasetItems AIDatasetItem[]
+  @@index([caseId])
 }
 
 // ── PHASE 11 · AI/ML ENGINEERING ─────────────────────────────────────────
@@ -516,6 +524,7 @@ model Diagnosis {
   case        MedicalCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
   disease     Disease?    @relation(fields: [diseaseId], references: [id])
   expert      User        @relation(fields: [expertId], references: [id])
+  @@index([caseId])
 }
 
 model Prescription {
@@ -536,6 +545,7 @@ model Prescription {
   createdBy     User        @relation("PrescriptionCreator", fields: [createdById], references: [id])
   approvedBy    User?       @relation("PrescriptionApprover", fields: [approvedById], references: [id])
   orders        Order[]
+  @@index([caseId, createdAt])
 }
 
 model PrescriptionItem {
@@ -637,6 +647,9 @@ model Order {
   payments        Payment[]
   shipment        Shipment?
   verifiedBy      User?          @relation("OrderVerifier", fields: [verifiedById], references: [id])
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([createdAt])
 }
 
 model OrderItem {
@@ -651,6 +664,7 @@ model OrderItem {
   available    Boolean @default(true)
   order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product      Product? @relation(fields: [productId], references: [id])
+  @@index([orderId])
 }
 
 model Invoice {
@@ -671,6 +685,7 @@ model Invoice {
   order       Order   @relation(fields: [orderId], references: [id])
   case        MedicalCase? @relation(fields: [caseId], references: [id])
   payments    Payment[]
+  @@index([orderId])
 }
 
 model Payment {
@@ -698,6 +713,8 @@ model Payment {
   user          User    @relation(fields: [userId], references: [id])
   receiptImage  MedicalImage? @relation("ReceiptImage", fields: [receiptImageId], references: [id])
   verifiedBy    User?   @relation("PaymentVerifier", fields: [verifiedById], references: [id])
+  @@index([status, createdAt])
+  @@index([orderId])
 }
 
 model Shipment {
@@ -736,6 +753,8 @@ model Ticket {
   updatedAt   DateTime @updatedAt
   user        User            @relation(fields: [userId], references: [id])
   messages    TicketMessage[]
+  @@index([userId, updatedAt])
+  @@index([status, updatedAt])
 }
 
 model TicketMessage {
@@ -747,6 +766,7 @@ model TicketMessage {
   createdAt  DateTime @default(now())
   ticket     Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   sender     User   @relation(fields: [senderId], references: [id])
+  @@index([ticketId, createdAt])
 }
 
 model Notification {
@@ -761,6 +781,7 @@ model Notification {
   read     Boolean  @default(false)
   createdAt DateTime @default(now())
   user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, read, createdAt])
 }
 
 model SMSLog {
@@ -775,6 +796,7 @@ model SMSLog {
   error     String?
   sentAt    DateTime @default(now())
   user      User?    @relation(fields: [userId], references: [id])
+  @@index([sentAt])
 }
 
 model Referral {
@@ -804,6 +826,8 @@ model FollowUp {
   case        MedicalCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
   patient     User        @relation("FollowUpPatient", fields: [patientId], references: [id])
   completedBy User?       @relation("FollowUpCompleter", fields: [completedById], references: [id])
+  @@index([status])
+  @@index([patientId, dueDate])
 }
 
 // ─────────────────────────────── AUDIT & FINANCE ───────────────────────────────
@@ -821,6 +845,9 @@ model AuditLog {
   sensitive Boolean  @default(false)
   createdAt DateTime @default(now())
   user      User?    @relation(fields: [userId], references: [id])
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
 }
 
 model FinancialTransaction {
@@ -835,6 +862,7 @@ model FinancialTransaction {
   createdAt   DateTime @default(now())
   user        User?  @relation("FinTxnUser", fields: [userId], references: [id])
   createdBy   User?  @relation("FinTxnCreator", fields: [createdById], references: [id])
+  @@index([type, createdAt])
 }
 
 // ─────────────────────── FILE & MEDIA ENGINE (PHASE 10, ED-106..118) ───────────────────────

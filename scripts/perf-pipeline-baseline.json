@@ -1,0 +1,135 @@
+{
+  "tag": "baseline",
+  "base": "http://localhost:3000",
+  "generatedAt": "2026-09-05T22:23:22.087Z",
+  "fileProcessing": [
+    {
+      "acceptedMs": 33,
+      "status": 202,
+      "imageId": "cmtoy8rno007po34qbli2kwzs",
+      "pipelineMs": 32707,
+      "finalState": "VALIDATED"
+    },
+    {
+      "acceptedMs": 311,
+      "status": 202,
+      "imageId": "cmtoy9h4o008no34qkuormaiy",
+      "pipelineMs": 32311,
+      "finalState": "VALIDATED"
+    },
+    {
+      "acceptedMs": 53,
+      "status": 202,
+      "imageId": "cmtoya63w0097o34q65z9crj3",
+      "pipelineMs": 32475,
+      "finalState": "VALIDATED"
+    }
+  ],
+  "aiProcessing": {
+    "caseId": "cmtmv5er2004gnsjsz9uar5qc",
+    "attempts": [
+      {
+        "acceptedMs": 168,
+        "status": 200,
+        "pipelineMs": 562,
+        "done": true,
+        "lastStatus": "WAITING_FOR_EXPERT_2"
+      },
+      {
+        "acceptedMs": 125,
+        "status": 200,
+        "pipelineMs": 585,
+        "done": true,
+        "lastStatus": "WAITING_FOR_EXPERT_2"
+      }
+    ]
+  },
+  "queueJobs": {
+    "queue_jobs_total|status=enqueued,type=metrics-sampler": 24,
+    "queue_jobs_total|status=enqueued,type=alert-evaluator": 12,
+    "queue_jobs_total|status=enqueued,type=business-today": 12,
+    "queue_jobs_total|status=enqueued,type=observability-retention": 1,
+    "queue_jobs_total|status=enqueued,type=media-lifecycle": 3,
+    "queue_jobs_total|status=enqueued,type=ai-monitor": 3,
+    "queue_jobs_total|status=enqueued,type=ai-prompt-seed": 1,
+    "queue_jobs_total|status=enqueued,type=followup-scan": 3,
+    "queue_jobs_total|status=enqueued,type=workflow-governance": 6,
+    "queue_jobs_total|status=enqueued,type=integration-wiring": 1,
+    "queue_jobs_total|status=enqueued,type=integrations-retention": 1,
+    "queue_jobs_total|status=done,type=integration-wiring": 1,
+    "queue_jobs_total|status=done,type=metrics-sampler": 24,
+    "queue_jobs_total|status=done,type=business-today": 12,
+    "queue_jobs_total|status=done,type=integrations-retention": 1,
+    "queue_jobs_total|status=done,type=ai-prompt-seed": 1,
+    "queue_jobs_total|status=done,type=observability-retention": 1,
+    "queue_jobs_total|status=done,type=followup-scan": 3,
+    "queue_jobs_total|status=done,type=alert-evaluator": 12,
+    "queue_jobs_total|status=done,type=media-lifecycle": 3,
+    "queue_jobs_total|status=done,type=ai-monitor": 3,
+    "queue_jobs_total|status=enqueued,type=media-process": 12,
+    "queue_jobs_total|status=done,type=workflow-governance": 6,
+    "queue_jobs_total|status=done,type=media-process": 12
+  },
+  "jobDurationMs": {
+    "job_duration_ms|type=integration-wiring": {
+      "p50": 10,
+      "p95": 10,
+      "count": 1
+    },
+    "job_duration_ms|type=metrics-sampler": {
+      "p50": 5,
+      "p95": 26,
+      "count": 24
+    },
+    "job_duration_ms|type=business-today": {
+      "p50": 8,
+      "p95": 30,
+      "count": 12
+    },
+    "job_duration_ms|type=integrations-retention": {
+      "p50": 22,
+      "p95": 22,
+      "count": 1
+    },
+    "job_duration_ms|type=ai-prompt-seed": {
+      "p50": 35,
+      "p95": 35,
+      "count": 1
+    },
+    "job_duration_ms|type=observability-retention": {
+      "p50": 40,
+      "p95": 40,
+      "count": 1
+    },
+    "job_duration_ms|type=followup-scan": {
+      "p50": 12,
+      "p95": 37,
+      "count": 3
+    },
+    "job_duration_ms|type=alert-evaluator": {
+      "p50": 13,
+      "p95": 42,
+      "count": 12
+    },
+    "job_duration_ms|type=media-lifecycle": {
+      "p50": 15,
+      "p95": 51,
+      "count": 3
+    },
+    "job_duration_ms|type=ai-monitor": {
+      "p50": 20,
+      "p95": 56,
+      "count": 3
+    },
+    "job_duration_ms|type=workflow-governance": {
+      "p50": 99,
+      "p95": 206,
+      "count": 6
+    },
+    "job_duration_ms|type=media-process": {
+      "p50": 144,
+      "p95": 178,
+      "count": 12
+    }
+  }
+}

@@ -1,0 +1,260 @@
+{
+  "tag": "baseline",
+  "db": "/home/z/my-project/db/custom.db",
+  "generatedAt": "2026-09-05T21:58:59",
+  "pragmas": {
+    "journal_mode": "delete",
+    "synchronous": 2,
+    "cache_size": -2000,
+    "page_size": 4096,
+    "foreign_keys": 0,
+    "wal_autocheckpoint": 1000
+  },
+  "rowCounts": {
+    "User": 292,
+    "MedicalCase": 68,
+    "Order": 102,
+    "AuditLog": 3646,
+    "Notification": 1816,
+    "CaseEvent": 741,
+    "AIAnalysis": 95,
+    "Payment": 94,
+    "FinancialTransaction": 96,
+    "Ticket": 14,
+    "TicketMessage": 14,
+    "MedicalImage": 75,
+    "FollowUp": 32,
+    "SMSLog": 549,
+    "ServiceLog": 201,
+    "MetricPoint": 27,
+    "IntegrationCallLog": 825,
+    "Product": 42,
+    "OrderItem": 103,
+    "Invoice": 102,
+    "Prescription": 65,
+    "Diagnosis": 66,
+    "RefreshToken": 878
+  },
+  "namedIndexCount": 56,
+  "queries": [
+    {
+      "id": "auth.getAuth",
+      "desc": "per-request user lookup (PK)",
+      "plan": "SEARCH User USING INDEX sqlite_autoindex_User_1 (id=?)",
+      "fullScan": false,
+      "ms": 0.0049
+    },
+    {
+      "id": "dash.patient.cases",
+      "desc": "patient dashboard — my cases",
+      "plan": "SCAN MedicalCase | USE TEMP B-TREE FOR ORDER BY",
+      "fullScan": true,
+      "ms": 0.0185
+    },
+    {
+      "id": "dash.patient.cases.count",
+      "desc": "patient dashboard — case count",
+      "plan": "SCAN MedicalCase",
+      "fullScan": true,
+      "ms": 0.0077
+    },
+    {
+      "id": "dash.patient.orders",
+      "desc": "patient dashboard — my orders",
+      "plan": "SCAN Order | USE TEMP B-TREE FOR ORDER BY",
+      "fullScan": true,
+      "ms": 0.0145
+    },
+    {
+      "id": "dash.patient.tickets",
+      "desc": "patient dashboard — my tickets",
+      "plan": "SCAN Ticket | USE TEMP B-TREE FOR ORDER BY",
+      "fullScan": true,
+      "ms": 0.0061
+    },
+    {
+      "id": "dash.patient.notifications",
+      "desc": "patient dashboard — unread notifications",
+      "plan": "SCAN Notification | USE TEMP B-TREE FOR ORDER BY",
+      "fullScan": true,
+      "ms": 0.122
+    },
+    {
+      "id": "dash.staff.case_count_status",
+      "desc": "staff dashboard — case count by status",
+      "plan": "SCAN MedicalCase",
+      "fullScan": true,
+      "ms": 0.0074
+    },
+    {
+      "id": "dash.staff.order_count_status",
+      "desc": "staff dashboard — order count by status",
+      "plan": "SCAN Order",
+      "fullScan": true,
+      "ms": 0.0096
+    },
+    {
+      "id": "dash.staff.followup",
+      "desc": "staff dashboard — follow-ups pending",
+      "plan": "SCAN FollowUp",
+      "fullScan": true,
+      "ms": 0.0081
+    },
+    {
+      "id": "dash.staff.recent_events",
+      "desc": "staff dashboard — recent case events feed",
+      "plan": "SCAN CaseEvent | USE TEMP B-TREE FOR ORDER BY",
+      "fullScan": true,
+      "ms": 0.2476
+    },
+    {
+      "id": "case.list",
+      "desc": "admin case list ordered by createdAt",
+      "plan": "SCAN MedicalCase | USE TEMP B-TREE FOR ORDER BY",
+      "fullScan": true,
+      "ms": 0.1109
+    },
+    {
+      "id": "case.detail.events",
+      "desc": "case detail — timeline events",
+      "plan": "SCAN CaseEvent | USE TEMP B-TREE FOR ORDER BY",
+      "fullScan": true,
+      "ms": 0.0629
+    },
+    {
+      "id": "case.detail.analyses",
+      "desc": "case detail — AI analyses",
+      "plan": "SCAN AIAnalysis",
+      "fullScan": true,
+      "ms": 0.0179
+    },
+    {
+      "id": "case.detail.images",
+      "desc": "case detail — images",
+      "plan": "SCAN MedicalImage",
+      "fullScan": true,
+      "ms": 0.012
+    },
+    {
+      "id": "ticket.thread",
+      "desc": "ticket thread messages",
+      "plan": "SCAN TicketMessage | USE TEMP B-TREE FOR ORDER BY",
+      "fullScan": true,
+      "ms": 0.0056
+    },
+    {
+      "id": "order.items",
+      "desc": "order detail — items",
+      "plan": "SCAN OrderItem",
+      "fullScan": true,
+      "ms": 0.0106
+    },
+    {
+      "id": "order.invoice",
+      "desc": "order detail — invoice",
+      "plan": "SCAN Invoice",
+      "fullScan": true,
+      "ms": 0.0117
+    },
+    {
+      "id": "payments.by_order",
+      "desc": "payment lookup by order",
+      "plan": "SCAN Payment",
+      "fullScan": true,
+      "ms": 0.0118
+    },
+    {
+      "id": "report.revenue",
+      "desc": "financial report — income aggregate",
+      "plan": "SCAN FinancialTransaction",
+      "fullScan": true,
+      "ms": 0.0111
+    },
+    {
+      "id": "report.payments_window",
+      "desc": "financial report — payments in window",
+      "plan": "SCAN Payment",
+      "fullScan": true,
+      "ms": 0.0092
+    },
+    {
+      "id": "search.case.code",
+      "desc": "search — case code LIKE",
+      "plan": "SCAN MedicalCase",
+      "fullScan": true,
+      "ms": 0.051
+    },
+    {
+      "id": "search.user.phone_name",
+      "desc": "search — user phone/name LIKE",
+      "plan": "SCAN User",
+      "fullScan": true,
+      "ms": 0.0455
+    },
+    {
+      "id": "audit.list",
+      "desc": "admin audit trail — latest page",
+      "plan": "SCAN AuditLog | USE TEMP B-TREE FOR ORDER BY",
+      "fullScan": true,
+      "ms": 1.7916
+    },
+    {
+      "id": "audit.by_user",
+      "desc": "admin audit trail — filter by user",
+      "plan": "SCAN AuditLog | USE TEMP B-TREE FOR ORDER BY",
+      "fullScan": true,
+      "ms": 0.3599
+    },
+    {
+      "id": "notif.unread_count",
+      "desc": "notification badge count",
+      "plan": "SCAN Notification",
+      "fullScan": true,
+      "ms": 0.0985
+    },
+    {
+      "id": "smslog.list",
+      "desc": "admin sms log — latest page",
+      "plan": "ERROR: no such column: createdAt",
+      "fullScan": null,
+      "ms": null
+    },
+    {
+      "id": "calllog.list",
+      "desc": "admin integration call log — latest page",
+      "plan": "SCAN IntegrationCallLog USING INDEX IntegrationCallLog_createdAt_idx",
+      "fullScan": false,
+      "ms": 0.0355
+    }
+  ],
+  "fullScanCount": 24,
+  "syntheticScale": [
+    {
+      "shape": "filter by patientId (ORDER createdAt DESC LIMIT 5)",
+      "rows": 50000,
+      "beforeIndexMs": 2.6647,
+      "afterIndexMs": 0.0049,
+      "speedup": 542.5
+    },
+    {
+      "shape": "filter by status",
+      "rows": 50000,
+      "beforeIndexMs": 2.7217,
+      "afterIndexMs": 0.5849,
+      "speedup": 4.7
+    },
+    {
+      "shape": "filter by patientId+status",
+      "rows": 50000,
+      "beforeIndexMs": 2.5841,
+      "afterIndexMs": 3.7579,
+      "speedup": 0.7
+    }
+  ],
+  "journalBench": {
+    "inserts": 300,
+    "deleteJournalMsPerInsert": 0.0784,
+    "walMsPerInsert": 0.0105,
+    "speedup": 7.47
+  }
+}

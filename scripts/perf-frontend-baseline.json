@@ -1,0 +1,176 @@
+{
+  "tag": "baseline",
+  "base": "http://localhost:3100",
+  "generatedAt": "2026-09-05T22:12:04.753Z",
+  "html": {
+    "bytes": 10405,
+    "kb": 10.2,
+    "ms": 41,
+    "gzipBytes": 0
+  },
+  "firstLoad": {
+    "assetCount": 19,
+    "identityKb": 1434.3,
+    "gzipKb": 455.4,
+    "compressionRatio": 68.3,
+    "files": [
+      {
+        "file": "/_next/static/chunks/154f7b96c5dfba38.js",
+        "kb": 269.2
+      },
+      {
+        "file": "/_next/static/chunks/2e9c5333df59f348.js",
+        "kb": 219.5
+      },
+      {
+        "file": "/_next/static/chunks/9c7894562170e93d.js",
+        "kb": 137.3
+      },
+      {
+        "file": "/_next/static/chunks/6dd07e6596697f41.css",
+        "kb": 132.1
+      },
+      {
+        "file": "/_next/static/chunks/8f7733a2c146ff66.js",
+        "kb": 117.3
+      },
+      {
+        "file": "/_next/static/chunks/814d88e37c988143.js",
+        "kb": 110.5
+      },
+      {
+        "file": "/_next/static/chunks/a6dad97d9634a72d.js",
+        "kb": 110
+      },
+      {
+        "file": "/_next/static/chunks/b36e2f401bed4a0d.js",
+        "kb": 53.5
+      },
+      {
+        "file": "/_next/static/chunks/9463c7e51ff12910.js",
+        "kb": 47.6
+      },
+      {
+        "file": "/_next/static/media/f1d25eabcf1db66d-s.p.c041a43b.woff2",
+        "kb": 45.2
+      },
+      {
+        "file": "/_next/static/chunks/c4a6290310b078ce.js",
+        "kb": 38
+      },
+      {
+        "file": "/_next/static/chunks/02498d958faaec01.js",
+        "kb": 37.6
+      },
+      {
+        "file": "/_next/static/media/ec8f59eafded4799-s.p.bd0c2d26.woff2",
+        "kb": 33.6
+      },
+      {
+        "file": "/_next/static/chunks/73e3194f06db260e.js",
+        "kb": 30.1
+      },
+      {
+        "file": "/_next/static/chunks/c47c467d8bdc0cc0.js",
+        "kb": 24.4
+      },
+      {
+        "file": "/_next/static/chunks/4a175fef8d7763c3.js",
+        "kb": 16.5
+      },
+      {
+        "file": "/_next/static/chunks/turbopack-aebf51a1016d0316.js",
+        "kb": 10
+      },
+      {
+        "file": "/_next/static/chunks/e9e8d6b140c23ef2.css",
+        "kb": 1.7
+      },
+      {
+        "file": "/_next/static/chunks/d96012bcfc98706a.js",
+        "kb": 0.3
+      }
+    ]
+  },
+  "static": {
+    "totalKb": 2606.7,
+    "jsChunkCount": 28,
+    "topChunks": [
+      {
+        "file": "94f00077d222e75a.js",
+        "kb": 389.7
+      },
+      {
+        "file": "f7410060e97abf78.js",
+        "kb": 389.7
+      },
+      {
+        "file": "154f7b96c5dfba38.js",
+        "kb": 269.2
+      },
+      {
+        "file": "2e9c5333df59f348.js",
+        "kb": 219.5
+      },
+      {
+        "file": "9c7894562170e93d.js",
+        "kb": 137.3
+      },
+      {
+        "file": "8f7733a2c146ff66.js",
+        "kb": 117.3
+      },
+      {
+        "file": "814d88e37c988143.js",
+        "kb": 110.5
+      },
+      {
+        "file": "a6dad97d9634a72d.js",
+        "kb": 110
+      },
+      {
+        "file": "36b8f34bee8b5608.js",
+        "kb": 68.3
+      },
+      {
+        "file": "b36e2f401bed4a0d.js",
+        "kb": 53.5
+      },
+      {
+        "file": "9463c7e51ff12910.js",
+        "kb": 47.6
+      },
+      {
+        "file": "6bb069169fae4420.js",
+        "kb": 43.2
+      },
+      {
+        "file": "c4a6290310b078ce.js",
+        "kb": 38
+      },
+      {
+        "file": "02498d958faaec01.js",
+        "kb": 37.6
+      },
+      {
+        "file": "1bd17f9992c2c4c0.js",
+        "kb": 32.5
+      }
+    ]
+  },
+  "headers": {
+    "cacheControlStatic": "public, max-age=31536000, immutable",
+    "contentEncoding": "gzip"
+  },
+  "apiSpot": {
+    "/api/v1/products": {
+      "ms": 33.47,
+      "status": 200
+    },
+    "/liveness": {
+      "ms": 9.45,
+      "status": 200
+    }
+  },
+  "prerendered": "HIT"
+}

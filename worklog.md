@@ -476,3 +476,33 @@ Stage Summary:
 - Verification: ۴۳۵/۴۳۵ · OBS PASSED · pentest 45/45 · browser fa/en صفر خطا · alert-engine دو باگ واقعی پروژه را کشف کرد (خودِ سیستم، شاهد زندهٔ ارزش فاز)
 - Remaining (honest): D-15-1 Prometheus exposition · D-15-2 OTel export · D-15-3 متریک خارج-پردازش برای multi-instance · D-15-4 routing کانال ops · D-15-5 Loki/Elastic · فاز ۰۹ remediation همچنان باز
 - Git: این commit (فاز ۱۵ کامل)
+
+---
+Task ID: 17
+Agent: Main agent (Super Z)
+Task: PHASE 16 — Performance Engineering (ممیزی کارایی + اندازه‌گیری Frontend Load/API Latency/Database/Queries/Cache/Queue/File Processing/AI Processing + یافتن Bottleneckها + اعمال Caching/Indexing/Async/Batching/Pagination/Lazy Loading/CDN/Compression فقط با Measurement)
+
+Work Log:
+- تحلیل وضعیت: PHASE 15 در commits be036a1+274d293 کامل بود → شروع PHASE 16 طبق فرمان: «Optimization بدون Measurement انجام نده»
+- پنج هارنس اندازه‌گیری tagدار: scripts/perf-bench.mjs (۱۲ endpoint × N=30 با warmup — p50/p95/p99 کلاینتی + db/req سمت سرور از رجیستری متریک فاز ۱۵ با کسر هزینهٔ خود observability + الگوی Cold پس از TTL) · perf-db-plan.py (EXPLAIN QUERY PLAN×۲۷ کوئری داغ + PRAGMAها + تست مقیاس ۵۰k سطر + بنچمارک journal فایل‌محور) · perf-frontend.mjs (سرور production standalone واقعی روی :3100 + perf-lib-wire.mjs با http خام — کشف و رفع خطای اندازه‌گیری: fetch خودکار decompress می‌کند و عدد ۰٪ جعلی می‌داد) · perf-pipeline.mjs (آپلود ۲۰۲ + poll + job durations) · perf-ai-flow.mjs (سناریوی کامل بیمار: upload→validate→case→ai-analysis)
+- Baseline ثبت‌شده (JSON مصنوعات): ۲۴/۲۷ کوئری داغ full-scan (FKهای SQLite بدون ایندکس) · journal_mode=delete+sync=FULL (بنچمارک fsync واقعی: WAL ×۷٫۵–۸٫۶) · AuditLog ۳٬۶۴۶ سطری بدون هیچ ایندکس (۱٫۷۸ms full-scan) · getAuth=۱ کوئری User به‌ازای هر درخواست (حتی روی endpointهای کاملاً کش‌شده) · داشبورد staff cold=۲۱ کوئری (۱۷ count+2 agg+2 list) با کش per-user برای آمار role-global · تست مقیاس: WHERE patientId با ایندکس ×۵۰۷ · Frontend: first-load ۱۴۳۴٫۳KB identity → ۴۵۵٫۴KB wire (gzip ۶۸٫۳٪ فعال) + lazy chunks سالم + immutable cache · File: ۲۰۲ در ۲۹–۸۹ms + media-process p50=۱۲۲–۱۴۷ms · AI: ai-analysis job p50=۵۸–۸۳ms · یافته: rerun-ai همگام در مسیر درخواست (mock ۱۱۴–۳۱۳ms؛ خطر ۳۰s با provider زنده) → بدهی D-16-1 نه تغییر قرارداد (UI آن را صدا نمی‌زند، تست integration به ۲۰۰ وابسته)
+- ED-181: ۲۸ ایندکس مرکب فقط از EXPLAIN داده‌شده (schema.prisma منبع واحد + migration دستی 20260906140000 + db push؛ ایندکس‌ها ۵۶→۸۴) — full-scan ۲۴→۲ (فقط LIKEهای غیرقابل‌ایندکس جستجو = طراحی فاز ۱۴ ED-152؛ رفع با tsvector/Postgres = D-16-2)
+- ED-182: WAL+synchronous=NORMAL+busy_timeout=5000 — boot idempotent+fail-safe در db.ts (شکست PRAGMA هرگز بوت را نمی‌بندد) + اعمال فوری + گیت PERF1
+- ED-183: کش هویت getAuth (TTL 10s، سقف ۲۵۶ با evict، globalThis/HMR-safe) + قرارداد امنیتی: ابطال صریح در ۵ مسیر تغییر (login/logout/EDIT_USER/patchDeletionRequest-COMPLETE/EDIT_PATIENT) — تست integration: غیرفعال‌سازی ادمین → درخواست بعدی همان لحظه ۴۰۱
+- ED-184: Batching داشبورد — ۹ count وضعیتی → ۲ groupBy(status)؛ آمار staff-wide یک کش per-process (dash:staff:shared) + صف per-role + فقط ۱ count unreadSelf به‌ازای کاربر؛ cold staff: ۲۱→۹+۱ کوئری؛ تست معادل‌سازی اعداد (staff ۶ سنجه + patient ۳ سنجه == count مستقیم)
+- ED-185/186: CDN seam (assetPrefix از NEXT_PUBLIC_CDN_BASE، no-op محلی + مستندسازی الزام CSP هنگام فعال‌سازی) + compress:true صریح
+- رفع نقض I8 گیت integrations که از فاز ۱۵ مانده بود (db.ts → import مستقیم @/server/core/metrics): تزریق وابستگی معکوس با setDbMetricsSink در globalThis (الگوی ED-137b/ED-137) + wire در bootstrap
+- After اندازه‌گیری مجدد: p95 auth/me ۴۲٫۶→۱۴٫۸ms (−۶۵٪) · db/req: auth/me ۲→۱ · dashboard/patient warm ۱→۰ · cases/orders/audit/notifications/search همه −۱..−۲ · dashboard cold ۳۵٫۸→۲۴٫۴ms (−۳۲٪) · journal ×۷٫۵ · پرت‌های p95 در dev (compile hiccup) صادقانه در سند ثبت شد؛ عدد قطعی کارایی production = D-16-5
+- کشف محیطی: مرگ مکرر dev-server در طول suite = **OOM kill کرنل** (dmesg: next-server RSS 2٫۷GB در ظرف ۴GB) — مستند در D-16-6؛ توضیح‌دهندهٔ «مرگ پروسه» فازهای ۱۳/۱۵
+- چرخهٔ Fix واقعی در طول فاز: خطای wire-size جعلی fetch-gzip → http خام؛ بنچمارک in-memory بدون fsync → فایل‌محور؛ دو باگ در اسکریپت درج ایندکس (offset) → منطق خط‌محور؛ تست اولیه /me probe اشتباه (me() خودش کوئری دارد) → probe به notifications؛ UID readonly در bash؛ آرتیفکت ANSI خروجی rg که [m می‌خورد و «خرابی schema» جعل می‌کرد → راستی‌آزمایی با python repr
+- گیت CI scripts/perf-audit.mjs PERF1..PERF10 (WAL · ۲۸ ایندکس در DB · parity schema↔DB · PRAGMAهای boot · قرارداد کامل کش هویت · groupBy+حذف count-ladder · compress+CDN · lazy≥10 · حضور ۵ هارنس+۶ مصنوع · عدم‌رگرسیون PHASE14) + npm run audit:perf
+- تست: ۶ integration جدید (tests/integration/performance.test.ts) + smoke-phase16.sh (WAL، EXPLAIN ایندکسی، cold<warm، قرارداد ۴۰۱ فوری، گیت)
+- مستندات: PERFORMANCE.md (۱۰ بخش: روش‌شناسی، baseline، bottleneckها، بهینه‌سازی‌ها، after، فرمان‌های «در صورت نیاز» تک‌تک، بدهی‌های D-16-*، تست، کاتالوگ ED، اجرای مجدد) · ADR-0020 + رجیستری · BUSINESS-RULES §11 BR-PERF-01..10 · PRD §12 ردیف فاز ۱۶ · RTM یادداشت فاز ۱۶
+- چرخه منشور: bun test ۴۴۱/۴۴۱ (۴۳۵+۶) · lint ۰ خطا (۴ هشدار پیش‌موجود e2e) · ۸/۸ گیت CI (backend/frontend/media/ai/integrations/reporting/observability/**perf** — رفع I8) · pentest 45/45 · smoke-phase16 کامل · مرورگر fa+en: داشبورد batch شده زنده (۸۰ پرونده/۳۲۵ بیمار/درآمد ۲۳٬۶۷۳٬۰۰۰ با ارقام فارسی) + observatory با تایلهای زنده + صفر خطای console · اسکرین‌شات verify-p16-observatory-fa/dashboard-en.png · WAL checkpoint قبل از commit
+
+Stage Summary:
+- فرمان «Optimization بدون Measurement انجام نده» ساختاری شد: ۵ هارنس tagدار + ۶ مصنوع JSON before/after + گیت PERF9 (بدون مصنوع، بهینه‌سازی ممنوع) + BR-PERF-01
+- بهبودهای اندازه‌گیری‌شده: full-scan ۲۴→۲/۲۷ · ایندکس ۵۶→۸۴ · WAL (نوشتن ×۷٫۵) · p95 auth/me −۶۵٪ · db/req همه‌جا کمتر · داشبورد cold −۳۲٪ با ۹+۱ کوئری به‌جای ۲۱ · gzip ۶۸٫۳٪ مستند
+- رفع نقض I8 واقعی از فاز ۱۵ (db→metrics) با الگوی تزریق
+- کشف OOM محیط dev (توضیح مرگ‌های مکرر سرور در فازهای گذشته) + مستندسازی Horizontal Scaling §58
+- Remaining (honest): D-16-1 rerun-ai sync · D-16-2 tsvector · D-16-3 brotli · D-16-4 sync=NORMAL per-connection · D-16-5 بنچ production · D-16-6 OOM dev · فاز ۰۹ remediation همچنان باز

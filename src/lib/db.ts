@@ -6,10 +6,18 @@
 // client type is preserved for all existing call sites (cast at the seam).
 // HMR: globalThis guard keeps ONE client (and therefore one extension) alive.
 import { PrismaClient } from '@prisma/client'
-import { METRIC_NAMES, inc, observe } from '@/server/core/metrics'
 
+// PHASE 16 (I8 fix, ED-137b pattern): lib/* must stay free of @/server/*
+// imports (browser-bundle graph) — the metrics sink is INJECTED by bootstrap
+// instead of imported (same seam discipline as setLogSink in PHASE 15).
+export type DbMetricsSink = (labels: { op: string; entity: string }, ms: number, ok: boolean) => void
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient
+  __bhDbMetricsSink?: DbMetricsSink
+}
+/** Injected once by bootstrap — keeps this module in the client-safe graph. */
+export function setDbMetricsSink(fn: DbMetricsSink): void {
+  globalForPrisma.__bhDbMetricsSink = fn // globalThis: survives HMR reloads
 }
 
 function instrumented(base: PrismaClient): PrismaClient {
@@ -23,16 +31,14 @@ function instrumented(base: PrismaClient): PrismaClient {
           args: unknown
         }) => {
           const labels = { op: operation, entity: model ?? 'raw' }
+          const sink = globalForPrisma.__bhDbMetricsSink
           const start = performance.now()
           try {
             const result = await query(args)
-            inc(METRIC_NAMES.dbQueries, labels)
-            observe(METRIC_NAMES.dbLatency, labels, performance.now() - start)
+            sink?.(labels, performance.now() - start, true)
             return result
           } catch (e) {
-            inc(METRIC_NAMES.dbQueries, labels)
-            inc(METRIC_NAMES.dbErrors, { op: operation })
-            observe(METRIC_NAMES.dbLatency, labels, performance.now() - start)
+            sink?.(labels, performance.now() - start, false)
             throw e
           }
         },
@@ -47,6 +53,26 @@ function instrumented(base: PrismaClient): PrismaClient {
   }
 }
 
+// ── PHASE 16 (ED-182): SQLite write-path tuning — WAL + NORMAL sync ────────
+// Measured (perf-db-baseline.json): DELETE journal + synchronous=FULL costs
+// ×7.47 per write and blocks readers during every write transaction. WAL is
+// persistent in the DB file (the boot call is an idempotent re-assert so
+// fresh/reset databases get it too); synchronous=NORMAL and busy_timeout are
+// per-connection best-effort on the pooled connection we own. A failure here
+// MUST degrade silently — tuning can never block boot.
+let tuned = false
+async function tuneSqlite(client: PrismaClient): Promise<void> {
+  if (tuned) return
+  tuned = true
+  try {
+    await client.$queryRaw`PRAGMA journal_mode=WAL`
+    await client.$queryRaw`PRAGMA synchronous=NORMAL`
+    await client.$queryRaw`PRAGMA busy_timeout=5000`
+  } catch {
+    // non-SQLite/managed environments — silently degrade (metrics stay honest)
+  }
+}
+
 export const db =
   globalForPrisma.prisma ??
   instrumented(
@@ -55,6 +81,9 @@ export const db =
       log: process.env.BH_DB_LOG === '1' ? ['query', 'warn', 'error'] : ['warn', 'error'],
     }),
   )
+
+// fire-and-forget: WAL re-assert races nothing (idempotent, guarded, ED-182)
+void tuneSqlite(db)
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
 

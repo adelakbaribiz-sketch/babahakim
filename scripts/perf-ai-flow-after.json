@@ -1,0 +1,37 @@
+{
+  "tag": "after",
+  "generatedAt": "2026-09-05T22:46:02.849Z",
+  "upload": {
+    "acceptedMs": 87,
+    "imageId": "cmtoz1xo500loo3a28z3ons0e"
+  },
+  "mediaValidate": {
+    "ms": 1421,
+    "state": "VALIDATED"
+  },
+  "createCase": {
+    "ms": 44,
+    "caseId": "cmtoz1ysp00m3o3a25zsiyl7d",
+    "status": 200
+  },
+  "aiAnalysis": {
+    "ms": 30390,
+    "done": false,
+    "caseState": {
+      "status": "WAITING_FOR_EXPERT_1",
+      "analyses": 0
+    }
+  },
+  "jobDurationMs": {
+    "job_duration_ms|type=media-process": {
+      "p50": 222,
+      "p95": 432,
+      "count": 8
+    },
+    "job_duration_ms|type=ai-analysis": {
+      "p50": 83,
+      "p95": 150,
+      "count": 3
+    }
+  }
+}

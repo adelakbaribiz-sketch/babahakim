@@ -135,18 +135,73 @@ export interface AuthContext {
   permissions: string[]
 }
 
+// ── PHASE 16 (ED-183): request-path identity cache ─────────────────────────
+// Measured (perf-http-baseline.json): EVERY authenticated request paid a
+// user.findUnique — even fully-cached endpoints (dashboard warm = 1 db/req,
+// products warm = the getAuth lookup itself). A 10s bounded cache removes
+// that roundtrip. Security contract: explicit invalidation on logout, admin
+// user edits, profile edits and deletion-request completion — the residual
+// staleness window (≤10s) only covers direct-DB edits, which already bypass
+// every application-level guarantee.
+const IDENTITY_TTL_MS = 10_000
+const IDENTITY_MAX = 256
+
+interface IdentityEntry {
+  id: string
+  phone: string
+  role: string
+  firstName: string
+  lastName: string
+  isActive: boolean
+  isDeleted: boolean
+  expiresAt: number
+}
+
+const gIdentity = globalThis as unknown as { __bhIdentityCache?: Map<string, IdentityEntry> }
+const identityCache: Map<string, IdentityEntry> = gIdentity.__bhIdentityCache ?? new Map()
+gIdentity.__bhIdentityCache = identityCache // HMR: one map across module generations
+
+export function invalidateUserIdentity(userId: string): void {
+  identityCache.delete(userId)
+}
+
+async function loadIdentity(id: string): Promise<IdentityEntry | null> {
+  const hit = identityCache.get(id)
+  if (hit && hit.expiresAt > Date.now()) return hit
+  const dbUser = await db.user.findUnique({
+    where: { id },
+    select: { id: true, phone: true, role: true, firstName: true, lastName: true, isActive: true, deletedAt: true },
+  })
+  if (!dbUser) return null
+  const entry: IdentityEntry = {
+    id: dbUser.id, phone: dbUser.phone, role: dbUser.role,
+    firstName: dbUser.firstName, lastName: dbUser.lastName,
+    isActive: dbUser.isActive, isDeleted: dbUser.deletedAt != null,
+    expiresAt: Date.now() + IDENTITY_TTL_MS,
+  }
+  // bound memory: Map preserves insertion order — evict the oldest entry
+  if (identityCache.size >= IDENTITY_MAX) {
+    const oldest = identityCache.keys().next().value
+    if (oldest !== undefined) identityCache.delete(oldest)
+  }
+  identityCache.set(id, entry)
+  return entry
+}
+
 export async function getAuth(): Promise<AuthContext | null> {
   const store = await cookies()
   const token = store.get('ta_access')?.value
   if (!token) return null
   const payload = await verifyAccessToken(token)
   if (!payload) return null
-  const dbUser = await db.user.findUnique({ where: { id: payload.id } })
-  if (!dbUser || !dbUser.isActive || dbUser.deletedAt) return null
-  const role = dbUser.role as keyof typeof import('@/lib/constants').ROLE_PERMISSIONS
+  const identity = await loadIdentity(payload.id)
+  if (!identity || !identity.isActive || identity.isDeleted) return null
   const { ROLE_PERMISSIONS } = await import('@/lib/constants')
-  const permissions = ROLE_PERMISSIONS[role] || []
-  return { user: { id: dbUser.id, phone: dbUser.phone, role: dbUser.role, firstName: dbUser.firstName, lastName: dbUser.lastName }, permissions: permissions as string[] }
+  const permissions = ROLE_PERMISSIONS[identity.role as keyof typeof ROLE_PERMISSIONS] || []
+  return {
+    user: { id: identity.id, phone: identity.phone, role: identity.role, firstName: identity.firstName, lastName: identity.lastName },
+    permissions: permissions as string[],
+  }
 }
 
 // ── Signed image URLs (expiring, HMAC, timing-safe) ────────────────────

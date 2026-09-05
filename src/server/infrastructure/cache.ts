@@ -87,6 +87,10 @@ export const cacheKeys = {
   products: (suffix: string) => `catalog:products:${suffix}`,
   dashboard: (role: string, userId: string) => `dash:${role}:${userId}`,
   questionnaire: () => 'questionnaire:active',
+  /** PHASE 16 (ED-184): staff-shared dashboard block — one build per process,
+   * not one per user (measured: the 17 stats are role-global). */
+  dashShared: () => 'dash:staff:shared',
+  dashQueue: (role: string) => `dash:staff:queue:${role}`,
 }
 
 export const cacheTtl = {

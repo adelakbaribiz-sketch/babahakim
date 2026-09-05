@@ -36,6 +36,17 @@ const nextConfig: NextConfig = {
   // its runtime font-data reads (js/data/*.afm resolve against a fake /ROOT).
   serverExternalPackages: ['pdfkit'],
   output: "standalone",
+  // PHASE 16 (ED-186): gzip transfer compression ON explicitly (measured:
+  // first-load 1434 KB identity → 455 KB wire, −68.3%). Brotli needs an edge
+  // proxy (tracked as debt D-16-3 — Next standalone serves gzip only).
+  compress: true,
+  // PHASE 16 (ED-185): CDN seam — set NEXT_PUBLIC_CDN_BASE in deployment to
+  // move static chunk delivery to a CDN. No-op locally (single node). When
+  // activated, CSP default-src/script-src/style-src must list the CDN origin
+  // (see PERFORMANCE.md §CDN — the headers above stay the single source).
+  ...(process.env.NEXT_PUBLIC_CDN_BASE
+    ? { assetPrefix: process.env.NEXT_PUBLIC_CDN_BASE.replace(/\/$/, '') }
+    : {}),
   typescript: {
     ignoreBuildErrors: true,
   },

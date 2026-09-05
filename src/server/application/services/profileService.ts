@@ -2,6 +2,7 @@
 // The update use case is now atomic (user + profile upsert together, ED-103).
 import { db } from '@/lib/db'
 import type { AuthContext } from '@/lib/auth'
+import { invalidateUserIdentity } from '@/lib/auth'
 import { NotFoundError } from '@/server/core/errors'
 import { writeAudit } from '@/server/infrastructure/audit'
 import { withTransaction } from '@/server/infrastructure/uow'
@@ -58,6 +59,7 @@ export async function updateProfile(
   })
 
   await publish(Events.ProfileUpdated, auth.user.id, ctx.reqId)
+  invalidateUserIdentity(auth.user.id) // ED-183: name changes feed the identity/JWT payload
   await writeAudit(ctx, { userId: auth.user.id, action: 'EDIT_PATIENT', entity: 'PatientProfile', entityId: auth.user.id, newValues: profileData })
   return { ok: true }
 }

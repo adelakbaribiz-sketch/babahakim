@@ -4,6 +4,7 @@
 // events (ED-98).
 import { db } from '@/lib/db'
 import type { AuthContext } from '@/lib/auth'
+import { invalidateUserIdentity } from '@/lib/auth'
 import { normalizeFa, parseJSON } from '@/lib/api'
 import { applyQ } from '@/server/infrastructure/search/query-build'
 import { AppError, ConflictError, NotFoundError, ValidationError, PayloadTooLargeError, UnsupportedMediaTypeError } from '@/server/core/errors'
@@ -66,6 +67,7 @@ export async function patchAdminUser(
   if (input.role) data.role = input.role
   if (input.deleted) data.deletedAt = new Date()
   await db.user.update({ where: { id: user.id }, data })
+  invalidateUserIdentity(user.id) // ED-183: role/isActive changes must land on the next request
   await writeAudit(ctx, { userId: auth.user.id, action: 'EDIT_USER', entity: 'User', entityId: user.id, oldValues: { role: user.role, isActive: user.isActive }, newValues: data })
   return { ok: true }
 }
@@ -501,6 +503,8 @@ export async function patchDeletionRequest(
     req: toAuditReq(ctx),
   })
   if (!res.ok) throw new AppError(mapEngineCode(res.code), res.error, res.httpStatus, res.details)
+  // ED-183: COMPLETE anonymizes the user — the identity cache entry must die now
+  if (input.action !== 'REJECT') invalidateUserIdentity(rec.userId)
   return { status: res.ok ? res.entity.status : '' }
 }
 

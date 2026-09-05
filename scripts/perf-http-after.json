@@ -1,0 +1,552 @@
+{
+  "tag": "after",
+  "base": "http://localhost:3000",
+  "n": 30,
+  "generatedAt": "2026-09-05T22:46:02.310Z",
+  "obsSelfDbQueries": 5,
+  "results": {
+    "auth/me": {
+      "name": "auth/me",
+      "path": "/api/v1/auth/me",
+      "n": 30,
+      "p50": 11.6,
+      "p95": 14.78,
+      "p99": 17.57,
+      "mean": 11.95,
+      "dbQueriesPerReq": 1,
+      "dbDelta": {
+        "db_queries_total|entity=User,op=findUnique": 30,
+        "db_queries_total|entity=ServiceLog,op=createMany": 1
+      },
+      "statuses": {
+        "200": 30
+      }
+    },
+    "products": {
+      "name": "products (warm)",
+      "path": "/api/v1/products",
+      "n": 30,
+      "p50": 8.83,
+      "p95": 18.39,
+      "p99": 20.18,
+      "mean": 9.7,
+      "dbQueriesPerReq": 0,
+      "dbDelta": {},
+      "statuses": {
+        "200": 30
+      }
+    },
+    "dashboard/admin": {
+      "name": "dashboard/admin (warm)",
+      "path": "/api/v1/dashboard",
+      "n": 30,
+      "p50": 11.48,
+      "p95": 15.03,
+      "p99": 22.39,
+      "mean": 11.92,
+      "dbQueriesPerReq": 1,
+      "dbDelta": {
+        "db_queries_total|entity=Notification,op=count": 30
+      },
+      "statuses": {
+        "200": 30
+      }
+    },
+    "dashboard/patient": {
+      "name": "dashboard/patient (warm)",
+      "path": "/api/v1/dashboard",
+      "n": 30,
+      "p50": 10.88,
+      "p95": 14.15,
+      "p99": 33.78,
+      "mean": 11.68,
+      "dbQueriesPerReq": 0,
+      "dbDelta": {},
+      "statuses": {
+        "200": 30
+      }
+    },
+    "cases/admin": {
+      "name": "cases/admin",
+      "path": "/api/v1/cases?limit=20",
+      "n": 30,
+      "p50": 15.01,
+      "p95": 83.29,
+      "p99": 376.49,
+      "mean": 33.36,
+      "dbQueriesPerReq": 2,
+      "dbDelta": {
+        "db_queries_total|entity=MedicalCase,op=findMany": 30,
+        "db_queries_total|entity=MedicalCase,op=count": 30
+      },
+      "statuses": {
+        "200": 30
+      }
+    },
+    "cases/patient": {
+      "name": "cases/patient",
+      "path": "/api/v1/cases?limit=20",
+      "n": 30,
+      "p50": 13.38,
+      "p95": 29.54,
+      "p99": 45.37,
+      "mean": 15.31,
+      "dbQueriesPerReq": 2,
+      "dbDelta": {
+        "db_queries_total|entity=MedicalCase,op=findMany": 30,
+        "db_queries_total|entity=MedicalCase,op=count": 30
+      },
+      "statuses": {
+        "200": 30
+      }
+    },
+    "orders/patient": {
+      "name": "orders/patient",
+      "path": "/api/v1/orders?limit=20",
+      "n": 30,
+      "p50": 12.45,
+      "p95": 15.3,
+      "p99": 34.09,
+      "mean": 13.28,
+      "dbQueriesPerReq": 2,
+      "dbDelta": {
+        "db_queries_total|entity=Order,op=count": 30,
+        "db_queries_total|entity=Order,op=findMany": 30
+      },
+      "statuses": {
+        "200": 30
+      }
+    },
+    "notifications/patient": {
+      "name": "notifications",
+      "path": "/api/v1/notifications?limit=20",
+      "n": 30,
+      "p50": 12.16,
+      "p95": 13.87,
+      "p99": 15.11,
+      "mean": 12.13,
+      "dbQueriesPerReq": 1,
+      "dbDelta": {
+        "db_queries_total|entity=Notification,op=findMany": 30
+      },
+      "statuses": {
+        "200": 30
+      }
+    },
+    "audit-logs/admin": {
+      "name": "audit-logs/admin",
+      "path": "/api/v1/admin/audit-logs?limit=20",
+      "n": 30,
+      "p50": 13.33,
+      "p95": 38.23,
+      "p99": 63.73,
+      "mean": 16.99,
+      "dbQueriesPerReq": 2,
+      "dbDelta": {
+        "db_queries_total|entity=AuditLog,op=findMany": 30,
+        "db_queries_total|entity=AuditLog,op=count": 30
+      },
+      "statuses": {
+        "200": 30
+      }
+    },
+    "search": {
+      "name": "search q=سارا",
+      "path": "/api/v1/search?q=%D8%B3%D8%A7%D8%B1%D8%A7",
+      "n": 30,
+      "p50": 18.35,
+      "p95": 93.66,
+      "p99": 149.87,
+      "mean": 27.67,
+      "dbQueriesPerReq": 6,
+      "dbDelta": {
+        "db_queries_total|entity=MedicalCase,op=findMany": 30,
+        "db_queries_total|entity=Product,op=findMany": 30,
+        "db_queries_total|entity=User,op=findMany": 30,
+        "db_queries_total|entity=Order,op=findMany": 30,
+        "db_queries_total|entity=Ticket,op=findMany": 30,
+        "db_queries_total|entity=Disease,op=findMany": 30
+      },
+      "statuses": {
+        "200": 30
+      }
+    },
+    "report": {
+      "name": "report case-status",
+      "path": "/api/v1/reports/operational.case-status",
+      "n": 30,
+      "p50": 14.99,
+      "p95": 42.95,
+      "p99": 75.91,
+      "mean": 19.43,
+      "dbQueriesPerReq": 0,
+      "dbDelta": {},
+      "statuses": {
+        "200": 27,
+        "429": 3
+      }
+    },
+    "_cold": {
+      "dashboardAdmin": [
+        {
+          "ms": 24.41,
+          "status": 200
+        },
+        {
+          "ms": 19.43,
+          "status": 200
+        }
+      ],
+      "dashboardPatient": [
+        {
+          "ms": 19.33,
+          "status": 200
+        },
+        {
+          "ms": 20.22,
+          "status": 200
+        }
+      ],
+      "products": [
+        {
+          "ms": 18.77,
+          "status": 200
+        }
+      ],
+      "report": [
+        {
+          "ms": 70.9,
+          "status": 200
+        }
+      ]
+    },
+    "auth/login": {
+      "samples": [
+        79.15,
+        95.41,
+        115.9
+      ],
+      "mean": 96.82
+    }
+  },
+  "routeLatencyServer": {
+    "api_latency_ms|route=/api/v1/auth/me": {
+      "p50": 4,
+      "p95": 8,
+      "p99": 29,
+      "count": 88
+    },
+    "api_latency_ms|route=/api/v1/notifications": {
+      "p50": 4,
+      "p95": 7,
+      "p99": 14,
+      "count": 75
+    },
+    "api_latency_ms|route=/api/v1/dashboard": {
+      "p50": 3,
+      "p95": 11,
+      "p99": 18,
+      "count": 147
+    },
+    "api_latency_ms|route=/api/v1/products": {
+      "p50": 1,
+      "p95": 5,
+      "p99": 20,
+      "count": 122
+    },
+    "api_latency_ms|route=/api/v1/auth/login": {
+      "p50": 51,
+      "p95": 113,
+      "p99": 195,
+      "count": 35
+    },
+    "api_latency_ms|route=/api/v1/reports": {
+      "p50": 4,
+      "p95": 6,
+      "p99": 6,
+      "count": 4
+    },
+    "api_latency_ms|route=/api/v1/reports/financial.revenue-summary": {
+      "p50": 6,
+      "p95": 9,
+      "p99": 9,
+      "count": 3
+    },
+    "api_latency_ms|route=/api/v1/reports/nope.nope": {
+      "p50": 13,
+      "p95": 13,
+      "p99": 13,
+      "count": 1
+    },
+    "api_latency_ms|route=/api/v1/reports/financial.expenses/export": {
+      "p50": 5,
+      "p95": 8,
+      "p99": 8,
+      "count": 2
+    },
+    "api_latency_ms|route=/api/v1/reports/business.top-products/export": {
+      "p50": 10,
+      "p95": 10,
+      "p99": 10,
+      "count": 1
+    },
+    "api_latency_ms|route=/api/v1/reports/financial.revenue-summary/export": {
+      "p50": 345,
+      "p95": 345,
+      "p99": 345,
+      "count": 1
+    },
+    "api_latency_ms|route=/api/v1/reports/financial.payments/export": {
+      "p50": 5,
+      "p95": 6,
+      "p99": 6,
+      "count": 3
+    },
+    "api_latency_ms|route=/api/v1/reports/exports": {
+      "p50": 7,
+      "p95": 7,
+      "p99": 7,
+      "count": 1
+    },
+    "api_latency_ms|route=/api/v1/reports/exports/:id": {
+      "p50": 33,
+      "p95": 39,
+      "p99": 39,
+      "count": 2
+    },
+    "api_latency_ms|route=/api/v1/search": {
+      "p50": 10,
+      "p95": 34,
+      "p99": 60,
+      "count": 70
+    },
+    "api_latency_ms|route=/api/v1/cases": {
+      "p50": 5,
+      "p95": 14,
+      "p99": 53,
+      "count": 137
+    },
+    "api_latency_ms|route=/api/v1/admin/reports": {
+      "p50": 2,
+      "p95": 11,
+      "p99": 11,
+      "count": 2
+    },
+    "api_latency_ms|route=/api/v1/auth/register": {
+      "p50": 131,
+      "p95": 224,
+      "p99": 224,
+      "count": 7
+    },
+    "api_latency_ms|route=/api/v1/files": {
+      "p50": 7,
+      "p95": 58,
+      "p99": 58,
+      "count": 9
+    },
+    "api_latency_ms|route=/api/v1/files/:id": {
+      "p50": 11,
+      "p95": 51,
+      "p99": 51,
+      "count": 14
+    },
+    "api_latency_ms|route=/api/v1/files/:id/content": {
+      "p50": 9,
+      "p95": 34,
+      "p99": 34,
+      "count": 12
+    },
+    "api_latency_ms|route=/api/v1/files/:id/signed-url": {
+      "p50": 13,
+      "p95": 46,
+      "p99": 46,
+      "count": 4
+    },
+    "api_latency_ms|route=/api/v1/files/:id/versions": {
+      "p50": 43,
+      "p95": 152,
+      "p99": 152,
+      "count": 2
+    },
+    "api_latency_ms|route=/api/v1/admin/products": {
+      "p50": 112,
+      "p95": 112,
+      "p99": 112,
+      "count": 1
+    },
+    "api_latency_ms|route=/api/v1/admin/media/lifecycle": {
+      "p50": 17,
+      "p95": 17,
+      "p99": 17,
+      "count": 1
+    },
+    "api_latency_ms|route=/api/v1/admin/media/stats": {
+      "p50": 18,
+      "p95": 18,
+      "p99": 18,
+      "count": 1
+    },
+    "api_latency_ms|route=/api/v1/admin/observability": {
+      "p50": 14,
+      "p95": 40,
+      "p99": 82,
+      "count": 60
+    },
+    "api_latency_ms|route=/api/v1/admin/logs": {
+      "p50": 4,
+      "p95": 5,
+      "p99": 5,
+      "count": 7
+    },
+    "api_latency_ms|route=/api/v1/admin/alerts": {
+      "p50": 4,
+      "p95": 4,
+      "p99": 4,
+      "count": 4
+    },
+    "api_latency_ms|route=/api/v1/questionnaires/active": {
+      "p50": 10,
+      "p95": 11,
+      "p99": 11,
+      "count": 2
+    },
+    "api_latency_ms|route=/api/v1/questionnaires/submit": {
+      "p50": 11,
+      "p95": 12,
+      "p99": 12,
+      "count": 2
+    },
+    "api_latency_ms|route=/api/v1/images/upload": {
+      "p50": 21,
+      "p95": 45,
+      "p99": 45,
+      "count": 2
+    },
+    "api_latency_ms|route=/api/v1/images/:id": {
+      "p50": 5,
+      "p95": 14,
+      "p99": 14,
+      "count": 2
+    },
+    "api_latency_ms|route=/api/v1/cases/:id": {
+      "p50": 17,
+      "p95": 71,
+      "p99": 71,
+      "count": 8
+    },
+    "api_latency_ms|route=/api/v1/admin/ai/overview": {
+      "p50": 18,
+      "p95": 47,
+      "p99": 47,
+      "count": 4
+    },
+    "api_latency_ms|route=/api/v1/admin/ai/prompts": {
+      "p50": 6,
+      "p95": 6,
+      "p99": 6,
+      "count": 1
+    },
+    "api_latency_ms|route=/api/v1/cases/:id/action": {
+      "p50": 52,
+      "p95": 98,
+      "p99": 98,
+      "count": 19
+    },
+    "api_latency_ms|route=/api/v1/admin/ai/datasets": {
+      "p50": 11,
+      "p95": 50,
+      "p99": 50,
+      "count": 6
+    },
+    "api_latency_ms|route=/api/v1/admin/ai/evaluate": {
+      "p50": 4,
+      "p95": 13,
+      "p99": 13,
+      "count": 2
+    },
+    "api_latency_ms|route=/api/v1/cases/:id/rerun-ai": {
+      "p50": 3,
+      "p95": 123,
+      "p99": 123,
+      "count": 2
+    },
+    "api_latency_ms|route=/api/v1/cart": {
+      "p50": 19,
+      "p95": 33,
+      "p99": 33,
+      "count": 3
+    },
+    "api_latency_ms|route=/api/v1/orders": {
+      "p50": 5,
+      "p95": 18,
+      "p99": 104,
+      "count": 68
+    },
+    "api_latency_ms|route=/api/v1/payments": {
+      "p50": 71,
+      "p95": 87,
+      "p99": 87,
+      "count": 3
+    },
+    "api_latency_ms|route=/api/v1/payments/zarinpal/callback": {
+      "p50": 9,
+      "p95": 50,
+      "p99": 50,
+      "count": 4
+    },
+    "api_latency_ms|route=/api/v1/admin/integrations": {
+      "p50": 4,
+      "p95": 14,
+      "p99": 14,
+      "count": 4
+    },
+    "api_latency_ms|route=/api/v1/admin/sms-log": {
+      "p50": 11,
+      "p95": 11,
+      "p99": 11,
+      "count": 1
+    },
+    "api_latency_ms|route=/api/v1/admin/integrations/test": {
+      "p50": 6,
+      "p95": 59,
+      "p99": 59,
+      "count": 6
+    },
+    "api_latency_ms|route=/api/v1/admin/audit-logs": {
+      "p50": 5,
+      "p95": 18,
+      "p99": 32,
+      "count": 67
+    },
+    "api_latency_ms|route=/api/v1/payments/:id/receipt": {
+      "p50": 27,
+      "p95": 27,
+      "p99": 27,
+      "count": 1
+    },
+    "api_latency_ms|route=/api/v1/payments/:id/verify": {
+      "p50": 32,
+      "p95": 44,
+      "p99": 44,
+      "count": 2
+    },
+    "api_latency_ms|route=/api/v1/admin/users": {
+      "p50": 7,
+      "p95": 11,
+      "p99": 11,
+      "count": 7
+    },
+    "api_latency_ms|route=/api/v1/reports/operational.case-status": {
+      "p50": 2,
+      "p95": 6,
+      "p99": 28,
+      "count": 66
+    },
+    "api_latency_ms|route=/api/v1/reports/custom.dataset": {
+      "p50": 10,
+      "p95": 13,
+      "p99": 13,
+      "count": 2
+    }
+  }
+}

@@ -50,6 +50,17 @@ if (!g[BOOTSTRAP_KEY]) {
   // ── PHASE 15: observability wiring (ED-165/166/179) ──────────────────────
   // trace provider → logger (correlation ids on every line, import-cycle-free)
   setTraceProvider(() => currentTrace())
+  // PHASE 16 (I8 fix, ED-137b pattern): db metrics sink injected here so
+  // src/lib/db.ts stays free of @/server imports (client-safe graph).
+  void Promise.all([import('@/lib/db'), import('@/server/core/metrics')]).then(
+    ([{ setDbMetricsSink }, { METRIC_NAMES, inc, observe }]) => {
+      setDbMetricsSink((labels, ms, ok) => {
+        inc(METRIC_NAMES.dbQueries, labels)
+        observe(METRIC_NAMES.dbLatency, labels, ms)
+        if (!ok) inc(METRIC_NAMES.dbErrors, { op: labels.op })
+      })
+    },
+  )
   // durable ServiceLog sink (batched, fire-and-forget, PII-guarded)
   void import('@/server/infrastructure/observability/logPersist').then(({ serviceLogSink }) => {
     setLogSink(serviceLogSink)
