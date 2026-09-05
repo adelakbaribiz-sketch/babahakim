@@ -43,6 +43,7 @@ type EventCode =
   | 'FILE_QUARANTINED' // PHASE 10: media engine quarantine notice (ED-116)
   // PHASE 12: workflow governance notices (SLA ladders + recovery)
   | 'WORKFLOW_REMINDER' | 'WORKFLOW_ESCALATED' | 'WORKFLOW_RECOVERED' | 'DELETION_REJECTED'
+  | 'REPORT_EXPORT_READY' // PHASE 14: async report export artifact ready (ED-156)
 
 const TEMPLATES: Record<EventCode, { titleFa: string; titleEn: string; bodyFa: string; bodyEn: string; smsFa: string }> = {
   REGISTERED: { titleFa: 'خوش آمدید', titleEn: 'Welcome', bodyFa: 'حساب شما با موفقیت ایجاد شد. کد معرف شما آماده است.', bodyEn: 'Your account was created successfully.', smsFa: 'TongueAI: ثبت‌نام شما با موفقیت انجام شد.' },
@@ -80,6 +81,11 @@ const TEMPLATES: Record<EventCode, { titleFa: string; titleEn: string; bodyFa: s
   WORKFLOW_ESCALATED: { titleFa: 'تشدید گردش کار', titleEn: 'Workflow Escalated', bodyFa: 'یک مورد گردش کار از مهلت مقرر گذشته و به مدیریت تشدید شد.', bodyEn: 'A workflow item breached its SLA and was escalated.', smsFa: 'TongueAI: موردی از مهلت گردش کار گذشته است.' },
   WORKFLOW_RECOVERED: { titleFa: 'بازگردانی گردش کار', titleEn: 'Workflow Recovered', bodyFa: 'وضعیت مورد شما توسط مدیر سیستم به‌صورت اضطراری اصلاح شد.', bodyEn: 'Your item was corrected by an emergency admin recovery.', smsFa: 'TongueAI: وضعیت مورد شما اصلاح شد.' },
   DELETION_REJECTED: { titleFa: 'درخواست حذف رد شد', titleEn: 'Deletion Request Rejected', bodyFa: 'درخواست حذف داده‌های شما بررسی و متأسفانه رد شد.', bodyEn: 'Your data-deletion request was reviewed and rejected.', smsFa: 'TongueAI: درخواست حذف داده شما رد شد.' },
+  REPORT_EXPORT_READY: {
+    titleFa: 'خروجی گزارش آماده است', titleEn: 'Report export ready',
+    bodyFa: 'فایل خروجی گزارش شما تولید شد و تا ۲۴ ساعت قابل دریافت است.', bodyEn: 'Your report export was generated and stays downloadable for 24 hours.',
+    smsFa: '',
+  },
 }
 
 export async function notify(

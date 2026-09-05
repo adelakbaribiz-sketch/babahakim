@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-04T11:34:01.439Z",
+  "generatedAt": "2026-09-05T20:39:41.184Z",
   "phase": "PHASE 07 — UI System consistency audit",
-  "filesScanned": 227,
+  "filesScanned": 290,
   "errors": 0,
   "warnings": 6,
   "contrast": {
@@ -38,7 +38,7 @@
       },
       {
         "rule": "W1 duplicated className literal",
-        "count": 3,
+        "count": 4,
         "match": "text-xs text-muted-foreground leading-relaxed"
       }
     ]

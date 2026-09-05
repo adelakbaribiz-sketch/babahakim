@@ -80,3 +80,26 @@ export async function apiLogout(): Promise<void> {
     headers: { 'x-csrf-token': csrfToken() },
   }).catch(() => {})
 }
+
+/**
+ * PHASE 14 (ED-156): binary file download through the same session pipeline.
+ * Handles the ED-94 error envelope (binary endpoints still error in JSON)
+ * and retries once via /auth/refresh on 401. Returns a Blob for
+ * URL.createObjectURL — callers trigger the save themselves.
+ */
+export async function apiDownload(path: string): Promise<{ blob: Blob; filename: string }> {
+  const doFetch = () => fetch(path, { credentials: 'same-origin' })
+  let res = await doFetch()
+  if (res.status === 401) {
+    const refreshed = await fetch('/api/v1/auth/refresh', { method: 'POST', headers: { 'x-csrf-token': csrfToken() } })
+    if (refreshed.ok) res = await doFetch()
+  }
+  if (!res.ok) {
+    let data: Record<string, unknown> = {}
+    try { data = await res.json() } catch { /* binary error */ }
+    throw new ApiError(String(data.error || `HTTP ${res.status}`), { status: res.status, code: data.code as string | undefined, requestId: data.requestId as string | undefined })
+  }
+  const cd = res.headers.get('content-disposition') || ''
+  const m = cd.match(/filename\*=UTF-8''([^;]+)/) || cd.match(/filename="([^"]+)"/)
+  return { blob: await res.blob(), filename: m ? decodeURIComponent(m[1]) : 'export' }
+}

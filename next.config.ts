@@ -32,6 +32,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // PHASE 14 (ED-156): pdfkit must stay external — Turbopack bundling breaks
+  // its runtime font-data reads (js/data/*.afm resolve against a fake /ROOT).
+  serverExternalPackages: ['pdfkit'],
   output: "standalone",
   typescript: {
     ignoreBuildErrors: true,

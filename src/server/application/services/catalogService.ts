@@ -4,10 +4,10 @@
 // are stock-guarded.
 import { db } from '@/lib/db'
 import type { AuthContext } from '@/lib/auth'
-import { textMatches } from '@/lib/api'
 import { NotFoundError, ValidationError } from '@/server/core/errors'
 import { cached, cacheKeys, cacheTtl } from '@/server/infrastructure/cache'
 import { listMeta } from '@/server/api/envelope'
+import { applyQ } from '@/server/infrastructure/search/query-build'
 import { computeTotals } from '@/server/domain/policies' // PHASE 09 (S2): server-side cart totals
 import type { ListQuery } from '@/server/api/query'
 import type { cartAddSchema, cartPatchSchema } from '@/server/application/dto'
@@ -21,37 +21,63 @@ function productImageUrl(imageFileId: string | null): string | null {
   return `/api/v1/files/${imageFileId}/content?variant=compressed`
 }
 
-// ── PRODUCT LIST (cached + paginated) ─────────────────────────────────────
+// ── PRODUCT LIST (SQL-side search/filter/pagination, ED-151) ──────────────
+// PHASE 14 fixes S-1/S-4: `q`, OTC and pagination are pushed INTO the SQL
+// query (no load-then-filter); facets (categories/brands) come from a tiny
+// cached projection. Cache keys include every dimension so pages stay hot.
+const PRODUCT_Q_FIELDS = ['nameFa', 'nameEn', 'brand', 'category', 'sku', 'descriptionFa', 'descriptionEn'] as const
+
 export async function listProducts(query: ListQuery, category: string, otc: string, brand: string) {
   const otcFilter = otc === 'true' ? 'otc' : otc === 'false' ? 'rx' : 'all'
-  const cacheKey = cacheKeys.products(`cat:${category || 'all'}|brand:${brand || 'all'}|otc:${otcFilter}|sort:${query.sort}:${query.order}`)
+  const { where: qWhere } = applyQ(query.q, PRODUCT_Q_FIELDS)
+  const where = {
+    active: true, deletedAt: null,
+    ...(category ? { category } : {}),
+    ...(brand ? { brand } : {}),
+    ...(otcFilter === 'otc' ? { requiresPrescription: false } : {}),
+    ...(otcFilter === 'rx' ? { requiresPrescription: true } : {}),
+    ...(qWhere ? (qWhere as Record<string, unknown>) : {}),
+  }
+
+  const cacheKey = cacheKeys.products(
+    `p${query.page}:${query.limit}|cat:${category || 'all'}|brand:${brand || 'all'}|otc:${otcFilter}`
+    + `|q:${query.q ? query.q.toLowerCase() : '-'}|sort:${query.sort}:${query.order}`,
+  )
 
   const data = await cached(cacheKey, cacheTtl.catalog, async () => {
-    const products = await db.product.findMany({
-      where: { active: true, deletedAt: null, ...(category ? { category } : {}), ...(brand ? { brand } : {}) },
-      orderBy: { [query.sort === 'nameFa' ? 'nameFa' : 'createdAt']: query.order },
-    })
-    return products
+    const [rows, total] = await Promise.all([
+      db.product.findMany({
+        where,
+        orderBy: { [query.sort === 'nameFa' ? 'nameFa' : query.sort === 'sku' ? 'sku' : 'createdAt']: query.order },
+        skip: query.offset,
+        take: query.limit,
+      }),
+      db.product.count({ where }),
+    ])
+    return { rows, total }
   })
 
-  let filtered = data
-  if (query.q) filtered = filtered.filter((p) => textMatches(query.q, p.nameFa, p.nameEn, p.brand, p.category, p.sku))
-  if (otcFilter === 'otc') filtered = filtered.filter((p) => !p.requiresPrescription)
-  if (otcFilter === 'rx') filtered = filtered.filter((p) => p.requiresPrescription)
-
-  const pageRows = filtered.slice(query.offset, query.offset + query.limit)
-  const categories = [...new Set(data.map((p) => p.category).filter(Boolean))]
-  const brands = [...new Set(data.map((p) => p.brand).filter(Boolean))]
+  // facets: distinct-ish projection of two short columns only (bounded)
+  const facets = await cached(cacheKeys.products('facets'), cacheTtl.catalog, async () => {
+    const all = await db.product.findMany({
+      where: { active: true, deletedAt: null },
+      select: { category: true, brand: true },
+    })
+    return {
+      categories: [...new Set(all.map((p) => p.category).filter(Boolean))],
+      brands: [...new Set(all.map((p) => p.brand).filter(Boolean))],
+    }
+  })
 
   return {
-    products: pageRows.map((p) => ({
+    products: data.rows.map((p) => ({
       id: p.id, sku: p.sku, nameFa: p.nameFa, nameEn: p.nameEn, brand: p.brand, category: p.category,
       descriptionFa: p.descriptionFa, descriptionEn: p.descriptionEn,
       price: p.currentPrice, stock: p.stock, requiresPrescription: p.requiresPrescription,
       usageFa: p.usageFa, image: productImageUrl(p.imageFileId),
     })),
-    categories, brands,
-    ...listMeta(query.page, query.limit, filtered.length),
+    categories: facets.categories, brands: facets.brands,
+    ...listMeta(query.page, query.limit, data.total),
   }
 }
 

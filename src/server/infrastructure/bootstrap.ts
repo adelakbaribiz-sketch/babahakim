@@ -299,5 +299,24 @@ if (!g[BOOTSTRAP_KEY]) {
     } catch { /* audit best-effort */ }
   })
 
-  logger.info('backend bootstrap complete', { subscribers: 16, jobs: 12 })
+  // ── PHASE 14: search/reporting engine wiring (ED-156/158) ─────────────
+  // async report exports: job → bounded engine run → StoredFile (TEMPORARY,
+  // 24h TTL) → REPORT_EXPORT_READY notification
+  registerJob('report-export', async (payload) => {
+    const { runExportJob } = await import('@/server/infrastructure/reporting/export/exportService')
+    await runExportJob(payload)
+  })
+
+  // report cache invalidation (ED-158): money/catalog/walk events flush the
+  // report:* prefix so dashboards never show stale aggregates
+  const clearReports = async () => {
+    const map = (globalThis as unknown as { __bhCacheMap?: Map<string, unknown> }).__bhCacheMap
+    if (!map) return
+    for (const k of [...map.keys()]) if (k.startsWith('report:')) map.delete(k)
+  }
+  for (const evt of [Events.PaymentVerified, Events.OrderPaid, Events.OrderCreated, Events.PriceChanged, Events.ProductCatalogChanged, Events.CaseCreated, Events.CaseTransitioned, Events.UserRegistered]) {
+    subscribe(evt, clearReports)
+  }
+
+  logger.info('backend bootstrap complete', { subscribers: 24, jobs: 13 })
 }

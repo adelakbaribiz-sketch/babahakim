@@ -3,7 +3,8 @@
 // only; every rule, write, notification and audit lives here or below.
 import { db } from '@/lib/db'
 import type { AuthContext } from '@/lib/auth'
-import { parseJSON, textMatches } from '@/lib/api'
+import { parseJSON } from '@/lib/api'
+import { applyQ } from '@/server/infrastructure/search/query-build'
 import { STATUS_META } from '@/lib/constants'
 import { buildTimeline } from '@/lib/caseService'
 import { signImageUrl } from '@/lib/auth'
@@ -26,12 +27,21 @@ export async function listCases(auth: AuthContext, query: ListQuery, statusFilte
   if (statusFilter) where.status = statusFilter
   if (auth.user.role === 'PATIENT') where.patientId = auth.user.id
 
-  const [rows, totalRaw] = await Promise.all([
+  // PHASE 14 (ED-151, fixes S-1): full-text needles are pushed INTO the SQL
+  // where — code/status on the case row + patient identity via one relation
+  // hop. No over-fetch, no post-filter: pagination counts stay exact.
+  const { where: qWhere } = applyQ(query.q, [
+    'code', 'status',
+    'patient.firstName', 'patient.lastName', 'patient.phone',
+  ])
+  if (qWhere) where.AND = [...(where.AND as unknown[] ?? []), qWhere]
+
+  const [rows, total] = await Promise.all([
     db.medicalCase.findMany({
       where,
       orderBy: { [query.sort]: query.order },
       skip: query.offset,
-      take: query.limit + 200, // over-fetch for post-filter search, then clamp to page
+      take: query.limit,
       include: {
         patient: { select: { id: true, firstName: true, lastName: true, phone: true } },
         expert1: { select: { firstName: true, lastName: true } },
@@ -44,16 +54,8 @@ export async function listCases(auth: AuthContext, query: ListQuery, statusFilte
     db.medicalCase.count({ where }),
   ])
 
-  // Persian-normalized full-text search (matches code/patient/status)
-  const filtered = query.q
-    ? rows.filter((c) => textMatches(query.q, c.code, c.patient.firstName, c.patient.lastName, c.patient.phone, c.status))
-    : rows
-
-  const pageRows = filtered.slice(0, query.limit)
-  const total = query.q ? filtered.length + Math.max(0, totalRaw - rows.length) : totalRaw
-
   return {
-    cases: pageRows.map((c) => ({
+    cases: rows.map((c) => ({
       ...c,
       mizajSnapshot: parseJSON(c.mizajSnapshot, null),
       waitingHours: Math.round((Date.now() - c.createdAt.getTime()) / 36e5),

@@ -416,6 +416,19 @@
 | ED-127 | ارزیابی؟ | مجموعهٔ متریک کامل (accuracy/precision/recall/F1 macro+per-class/confusion/sensitivity/specificity/calibration/imbalance)؛ AIModel.metrics فقط محاسبه‌شده از AIEvaluationReport — هرگز دستی | spec §60 | — | AI-ML §1 §6 |
 | ED-128 | هزینه AI؟ | واحد نرمال per-inference (CPU-ms یا token-ready)؛ سقف AI_MONTHLY_BUDGET_UNITS + هشدار ۸۰٪ (AiBudgetAlert) | فرمان AI Cost | — | AI-ML §6 |
 | ED-129 | امنیت خروجی AI؟ | zod کامل + allowlist شاخص + clamp confidence + فینیت ویژگی + disclaimer قراردادی — رد پیش از persist؛ گارد ورودی + replay + گیت آموزش (FROZEN فقط) | فرمان AI Security | — | AI-ML §7 |
+| ED-151 | جستجوی Normalized باید SQL-side باشد (ماتریس Needle: توکن × واریانت) — post-filter صفحه‌بندی‌شده ممنوع | جستجو | SEARCH-REPORTING §2 |
+| ED-152 | فیلترهای URL فقط از DSL Whitelist (f_\<field\>[_\<op\>]) با enum/range/cardinality — فیلد ناشناس رد | امنیت ورودی | SEARCH-REPORTING §2.3 |
+| ED-153 | قرارداد سخت Unbounded-Prevention: window≤400d · rows≤200/2000/20000 · timeout 15s · offset≤10k · budgets نرخ | عملکرد/پایداری | SEARCH-REPORTING §2.4 |
+| ED-154 | گزارش = ReportDef در رجیستری واحد + کاتالوگ Permission-aware (+ مجوز دیتاست برای Custom) | گزارش | SEARCH-REPORTING §3 |
+| ED-155 | Aggregation گزارش در SQL (GROUP BY/SUM) — load-then-reduce ممنوع | عملکرد | SEARCH-REPORTING §3.1 |
+| ED-156 | Export سه‌قالبه؛ sync تا سقف، فراتر اجباری async (job→StoredFile TEMPORARY 24h→اعلان)؛ دانلود owner-only | خروجی | SEARCH-REPORTING §4 |
+| ED-157 | Row-scoping مجوزمحور: جستجوی سراسری مالکیت‌محور (ED-77) + artifacts فقط مالک/ADMIN + بدون PII تلفنی | حریم خصوصی | SEARCH-REPORTING §3.3 |
+| ED-158 | کش گزارش TTL دسته‌ای + ابطال رویدادی (پیشوند report:) | کش | SEARCH-REPORTING §3.1 |
+| ED-159 | Legacy /admin/reports = adapter با شکل v1 روی موتور bounded — پارامتر from/to حالا واقعی است | سازگاری | SEARCH-REPORTING §5 |
+| ED-160 | سقف offset 10k با خطای typed؛ عمق بیشتر → فیلتر دقیق‌تر یا (v2) keyset | صفحه‌بندی | SEARCH-REPORTING §2.4 |
+| ED-161 | قرارداد raw-SQL روی Prisma SQLite: پارامتر تاریخ = epoch-ms INTEGER + strftime(col/1000,'unixepoch') | دیتابیس | SEARCH-REPORTING §3.1 |
+| ED-162 | Runbook مسیرهای گم‌شده: هر route.ts جدید باید همان session commit شود؛ بازگردانی از HEAD/سرویس | فرآیند | SEARCH-REPORTING §1 |
+| ED-163 | رنگ‌های خنثی PDF (docPalette) در tokens.ts + آینهٔ globals.css — انطباق E6 | دیزاین سیستم | SEARCH-REPORTING §9 |
 | ED-130 | تله‌متری استنتاج؟ | هر استنتاج یک AIInferenceLog با provenance کامل (model/dataset/prompt/preproc/timestamp/confidence/threshold) — منبع پایش و هزینه | spec §61 | — | AI-ML §2 |
 | ED-131 | وضعیت ماشین AI_REVIEW؟ | MachineDef.statusKey='reviewStatus' — موتور از یک کلید می‌خواند/می‌نویسد؛ رفع باگ B-11-1 (انتقال‌ها از فاز ۰۲ بی‌صدا شکست می‌خورد) | یافته ممیزی فاز 11 | — | AI-ML §1 |
 | ED-132 | ground truth ارزیابی؟ | فقط جفت‌های دارای اصلاح per-indicator یا برچسب نهایی؛ لیبل توافق = fallback صادقانه (متریک پایین گزارش می‌شود، نه جعل) | صداقت ارزیابی | — | AI-ML §3 |
@@ -481,3 +494,25 @@
 - هر BR/ED جدید فقط با Append و شماره جدید؛ حذف ممنوع (هم‌راستا با P4).
 - بازنگری ED فقط با ED جدید که به ED قبلی ارجاع می‌دهد.
 - نگاشت‌های اجرایی این قوانین در REQUIREMENTS-TRACEABILITY-MATRIX.md قابل ردیابی است.
+
+---
+
+## §9 — قوانین جستجو و گزارش فاز ۱۴ (BR-SRCH / BR-RPT)
+
+| قانون | شرح | دامنه | مرجع |
+|---|---|---|---|
+| BR-SRCH-01 | جستجوی فارسی باید Normalization کامل (ی/ي/ى، ك/ک، ارقام، نیم‌فاصله، اعراب، کشیده) + توکن‌سازی داشته باشد — §25 | جستجو | normalize.ts ED-151 |
+| BR-SRCH-02 | جستجو قبل از صفحه‌بندی در SQL اعمال می‌شود؛ total و صفحه دقیق می‌مانند | یکپارچگی لیست | ED-151 |
+| BR-SRCH-03 | فیلدهای Sort/Filter فقط از Whitelist مسیر؛ مقدار خارج از enum/range رد می‌شود (نه 500) | امنیت | ED-152 |
+| BR-SRCH-04 | جستجوی سراسری برای PATIENT فقط دادهٔ خودش + کاتالوگ عمومی را برمی‌گرداند (IDOR بسته) | حریم خصوصی | ED-157 |
+| BR-SRCH-05 | کوئری جستجو ≥۲ نویسه و ≤۵ توکن؛ توکن اضافه honestly گزارش می‌شود | حدود | ED-153 |
+| BR-RPT-01 | هر گزارش در رجیستری با permission ثبت شده و کاتالوگ نقش‌محور فیلتر می‌شود — PATIENT هیچ گزارشی نمی‌بیند | RBAC | ED-154 |
+| BR-RPT-02 | هر Query گزارشی window-bound است؛ پنجرهٔ >400 روز یا آینده 422 می‌گیرد (silent truncation ممنوع) | Unbounded | ED-153 |
+| BR-RPT-03 | خروجی همزمان ≤2000 ردیف؛ بزرگ‌تر فقط از مسیر async (شغل + فایل TEMPORARY 24h + اعلان) | خروجی | ED-156 |
+| BR-RPT-04 | artifact خروجی فقط برای مالک (یا ADMIN) قابل دانلود است؛ هر دانلود Audit می‌گیرد | حریم خصوصی | ED-156/157 |
+| BR-RPT-05 | گزارش‌های PII-دار (USER) تلفن/ایمیل خروجی نمی‌دهند — نام و شمارنده کافی است | حریم خصوصی | ED-157 |
+| BR-RPT-06 | Custom dataset فقط از دیتاست‌های Whitelist با فیلترهای مجاز — SQL خام از کاربر پذیرفته نمی‌شود | امنیت | ED-154 |
+| BR-RPT-07 | قرارداد HTTP خطاها: WINDOW_TOO_WIDE/PAGINATION_TOO_DEEP=422 · PAYLOAD_TOO_LARGE=413 · REPORT_TIMEOUT=504 | قرارداد | ED-153 |
+| BR-RPT-08 | پاسخ legacy /admin/reports شکل v1 را حفظ می‌کند اما از موتور bounded تغذیه می‌شود | سازگاری | ED-159 |
+
+کاتالوگ کامل ED-151..163 در `SEARCH-REPORTING.md §9` و ADR-0018 ثبت شده است.

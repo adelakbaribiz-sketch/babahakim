@@ -18,11 +18,12 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { ROLE_LABELS } from '@/lib/constants'
 import { Logo } from '@/components/app/shared/Logo'
+import { GlobalSearchDialog } from '@/components/app/shared/GlobalSearchDialog'
 import { canViewRoute } from '@/components/app/routes'
 import {
   LayoutDashboard, User, ClipboardList, ImagePlus, FolderOpen, ShoppingBag, ShoppingCart, Package,
   Ticket, CalendarClock, Stethoscope, Users2, Pill, Tags, BarChart3, ShieldCheck, Bot, MessageSquareText,
-  ListChecks, LogOut, Bell, Menu, Languages, Heart, CreditCard, Truck, FileText, Moon, Sun, Plug,
+  ListChecks, LogOut, Bell, Menu, Languages, Heart, CreditCard, Truck, FileText, Moon, Sun, Plug, Search,
 } from 'lucide-react'
 
 export interface NavItem { page: string; label: string; icon: React.ReactNode }
@@ -131,6 +132,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {t('appDesc')}
         </div>
         <div className="ms-auto flex items-center gap-1.5">
+          <div className="hidden md:block me-1"><GlobalSearchDialog /></div>
           <ThemeToggle />
           <Button variant="ghost" size="sm" onClick={() => setLang(lang === 'fa' ? 'en' : 'fa')} className="gap-1.5" aria-label={t('switchLang')}>
             <Languages size={16} /> {lang === 'fa' ? 'EN' : 'فا'}

@@ -48,6 +48,13 @@
   --bh-status-info-text: #1D6BB5;    /* darker sky for text on white (5.5:1) */
   --bh-status-success-text: #157347;
   --bh-status-warning-text: #B45309;
+
+  /* PHASE 14 (ED-156): PDF document neutrals — mirrored in tokens.ts
+     docPalette (E6 two-source sync). Used by the report PDF renderer. */
+  --bh-doc-text-strong: #222222;
+  --bh-doc-text-meta: #444444;
+  --bh-doc-text-faint: #888888;
+  --bh-doc-zebra-row: #F1F6FC;
   --bh-status-danger-text: #B91C1C;
 }
 

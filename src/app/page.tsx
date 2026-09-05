@@ -28,7 +28,8 @@ const AdminUsersPage = dynamic(() => import('@/components/app/views/admin/AdminV
 const AdminDiseasesPage = dynamic(() => import('@/components/app/views/admin/AdminViews').then((m) => m.AdminDiseasesPage), { loading: () => <LoadingRows rows={5} /> })
 const AdminProductsPage = dynamic(() => import('@/components/app/views/admin/AdminViews').then((m) => m.AdminProductsPage), { loading: () => <LoadingRows rows={5} /> })
 const AdminPricesPage = dynamic(() => import('@/components/app/views/admin/AdminViews2').then((m) => m.AdminPricesPage), { ssr: false, loading: () => <LoadingRows rows={5} /> })
-const AdminReportsPage = dynamic(() => import('@/components/app/views/admin/AdminViews2').then((m) => m.AdminReportsPage), { ssr: false, loading: () => <LoadingRows rows={5} /> })
+// PHASE 14: permission-aware Reports Center (replaces the legacy charts page)
+const ReportsCenter = dynamic(() => import('@/components/app/views/admin/ReportsCenter').then((m) => m.ReportsCenter), { ssr: false, loading: () => <LoadingRows rows={5} /> })
 const AdminAuditPage = dynamic(() => import('@/components/app/views/admin/AdminViews2').then((m) => m.AdminAuditPage), { ssr: false, loading: () => <LoadingRows rows={5} /> })
 const AdminQuestionnairePage = dynamic(() => import('@/components/app/views/admin/AdminViews2').then((m) => m.AdminQuestionnairePage), { ssr: false, loading: () => <LoadingRows rows={5} /> })
 const AdminAIModelsPage = dynamic(() => import('@/components/app/views/admin/AdminViews2').then((m) => m.AdminAIModelsPage), { ssr: false, loading: () => <LoadingRows rows={5} /> })
@@ -80,7 +81,7 @@ function Router() {
   else if (page === 'diseases') content = <AdminDiseasesPage />
   else if (page === 'products') content = <AdminProductsPage />
   else if (page === 'prices') content = <AdminPricesPage />
-  else if (page === 'reports') content = <AdminReportsPage />
+  else if (page === 'reports') content = <ReportsCenter />
   else if (page === 'auditLogs') content = <AdminAuditPage />
   else if (page === 'questionnaireEditor') content = <AdminQuestionnairePage />
   else if (page === 'aiModels') content = <AdminAIModelsPage />

@@ -5,6 +5,7 @@
 // invalid values fall back to defaults (never 500). Endpoints add their own
 // domain filters on top of this parsed base.
 import { z } from 'zod'
+import { SEARCH_BOUNDS, OffsetTooDeepError } from '@/server/infrastructure/search/bounds'
 
 export interface ListQuery {
   page: number
@@ -40,6 +41,9 @@ export function parseListQuery(
   }
   const page = num('page', 1, 1, 10_000)
   const limit = num('limit', defaultLimit, 1, maxLimit)
+  // PHASE 14 (ED-160): deep offset pagination is an unbounded query — hard
+  // 422 beyond 10k scanned rows instead of silently degrading the engine.
+  if ((page - 1) * limit >= SEARCH_BOUNDS.maxOffset) throw new OffsetTooDeepError(SEARCH_BOUNDS.maxOffset)
 
   let sort = raw.get('sort') || opts.defaultSort || 'createdAt'
   if (!sortable.includes(sort)) sort = opts.defaultSort || 'createdAt'

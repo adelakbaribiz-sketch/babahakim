@@ -101,12 +101,13 @@ export async function integrationSmokeTest(
   auth: AuthContext, ctx: RequestContext, input: z.infer<typeof integrationSmokeSchema>,
 ) {
   // ADMIN-only (guard at route) + rate-limit: a smoke test may hit a LIVE
-  // provider — 3/minute is generous and safe.
-  const rl = rateLimit(`integr-test:${auth.user.id}`, 3, 60_000)
-  if (!rl.allowed) throw new RateLimitError(undefined, { retryAfterSec: rl.retryAfterSec })
-
+  // provider — 3/minute is generous and safe. Validation runs FIRST so a
+  // malformed kind never burns the quota (PHASE 14 fix: 400 ≠ 429).
   const kind = (input.kind || '').toUpperCase() as IntegrationKind
   if (!INTEGRATION_KINDS.includes(kind)) throw new ValidationError('نوع Integration نامعتبر است')
+
+  const rl = rateLimit(`integr-test:${auth.user.id}`, 3, 60_000)
+  if (!rl.allowed) throw new RateLimitError(undefined, { retryAfterSec: rl.retryAfterSec })
 
   // reset the breaker so a smoke test probes a provider even if it is OPEN
   const status = integrationStatus().find((r) => r.kind === kind)

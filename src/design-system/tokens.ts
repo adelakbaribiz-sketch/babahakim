@@ -24,6 +24,19 @@ export const brand = {
 
 export type BrandColor = keyof typeof brand
 
+/**
+ * PHASE 14 (ED-156): document neutrals for the PDF export renderer.
+ * pdfkit needs literal RGB hex (CSS vars are impossible inside a PDF), so the
+ * non-brand grays live HERE — a token source — instead of the renderer file
+ * (ui-audit E3 gate stays meaningful).
+ */
+export const docPalette = {
+  textStrong: '#222222',
+  textMeta: '#444444',
+  textFaint: '#888888',
+  zebraRow: '#F1F6FC',
+} as const
+
 // ─── §3 Derived shades (ONLY derived from the 4 brand colors) ─────────────
 export const brandDerived = {
   primaryHover: '#1D4FA6',

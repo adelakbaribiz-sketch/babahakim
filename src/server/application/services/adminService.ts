@@ -4,7 +4,8 @@
 // events (ED-98).
 import { db } from '@/lib/db'
 import type { AuthContext } from '@/lib/auth'
-import { normalizeFa, textMatches, parseJSON } from '@/lib/api'
+import { normalizeFa, parseJSON } from '@/lib/api'
+import { applyQ } from '@/server/infrastructure/search/query-build'
 import { AppError, ConflictError, NotFoundError, ValidationError, PayloadTooLargeError, UnsupportedMediaTypeError } from '@/server/core/errors'
 import { writeAudit, toAuditReq } from '@/server/infrastructure/audit'
 import { withTransaction } from '@/server/infrastructure/uow'
@@ -19,24 +20,39 @@ import { acceptUpload, MediaValidationError, sanitizeFileName } from '@/server/i
 
 // ════════════════════════════ USERS ════════════════════════════════════════
 
+// PHASE 14 (ED-151, fixes S-1): SQL-side search + real pagination — the old
+// implementation fetched EVERY user row then filtered/sliced in JS.
+const USER_Q_FIELDS = ['firstName', 'lastName', 'phone', 'email', 'role', 'referralCode'] as const
+
 export async function listAdminUsers(query: ListQuery, role: string) {
-  const users = await db.user.findMany({
-    where: { deletedAt: null, ...(role ? { role } : {}) },
-    include: { profile: true, referralsReceived: { include: { referrer: { select: { firstName: true, lastName: true, referralCode: true } } } } },
-    orderBy: { createdAt: 'desc' },
-  })
-  const filtered = query.q
-    ? users.filter((u) => textMatches(query.q, u.firstName, u.lastName, u.phone, u.email, u.role))
-    : users
+  const { where: qWhere } = applyQ(query.q, USER_Q_FIELDS)
+  const where = {
+    deletedAt: null,
+    ...(role ? { role } : {}),
+    ...(qWhere ? (qWhere as Record<string, unknown>) : {}),
+  }
+  const [rows, total] = await Promise.all([
+    db.user.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: query.offset,
+      take: query.limit,
+      include: {
+        profile: true,
+        referralsReceived: { take: 1, include: { referrer: { select: { firstName: true, lastName: true, referralCode: true } } } },
+      },
+    }),
+    db.user.count({ where }),
+  ])
   return {
-    users: filtered.map((u) => ({
+    users: rows.map((u) => ({
       id: u.id, firstName: u.firstName, lastName: u.lastName, phone: u.phone, email: u.email, role: u.role,
       isActive: u.isActive, referralCode: u.referralCode, createdAt: u.createdAt, lastLoginAt: u.lastLoginAt,
       profileComplete: u.profileComplete, profile: u.profile,
       referredBy: u.referralsReceived[0]?.referrer || null,
       caseCount: 0,
     })),
-    ...listMeta(query.page, query.limit, filtered.length),
+    ...listMeta(query.page, query.limit, total),
   }
 }
 
@@ -424,16 +440,28 @@ export async function listAiModels() {
 
 // ════════════════════════════ AUDIT LOG / SMS LOG ══════════════════════════
 
+// PHASE 14 (ED-151): audit-log search is SQL-side now (bounded take, exact
+// page window, relation-hop needles on the acting user).
+const AUDIT_Q_FIELDS = ['action', 'entity', 'entityId', 'ip', 'user.firstName', 'user.lastName'] as const
+
 export async function listAuditLogs(query: ListQuery, action: string) {
+  const { where: qWhere } = applyQ(query.q, AUDIT_Q_FIELDS)
+  const where = {
+    ...(action ? { action } : {}),
+    ...(qWhere ? (qWhere as Record<string, unknown>) : {}),
+  }
   const logs = await db.auditLog.findMany({
-    where: { ...(action ? { action } : {}) },
-    orderBy: { createdAt: 'desc' }, take: 300,
+    where,
+    orderBy: { createdAt: 'desc' },
+    skip: query.offset,
+    take: Math.min(query.limit, 100),
     include: { user: { select: { firstName: true, lastName: true, role: true, phone: true } } },
   })
-  const filtered = query.q
-    ? logs.filter((l) => textMatches(query.q, l.action, l.entity, l.entityId, l.user?.firstName, l.user?.lastName, l.ip))
-    : logs
-  return { logs: filtered.map((l) => ({ ...l, oldValues: parseJSON(l.oldValues, null), newValues: parseJSON(l.newValues, null) })) }
+  const total = await db.auditLog.count({ where })
+  return {
+    logs: logs.map((l) => ({ ...l, oldValues: parseJSON(l.oldValues, null), newValues: parseJSON(l.newValues, null) })),
+    ...listMeta(query.page, query.limit, total),
+  }
 }
 
 export async function listSmsLog() {

@@ -10,6 +10,8 @@
 export type ErrorCode =
   | 'VALIDATION' | 'AUTH_REQUIRED' | 'FORBIDDEN' | 'NOT_FOUND' | 'CONFLICT'
   | 'BUSINESS_RULE' | 'RATE_LIMITED' | 'PAYLOAD_TOO_LARGE' | 'UNSUPPORTED_MEDIA_TYPE' | 'INTERNAL'
+  // PHASE 14 (ED-153): unbounded-query guards
+  | 'PAGINATION_TOO_DEEP' | 'WINDOW_TOO_WIDE' | 'REPORT_TIMEOUT' | 'GATEWAY_TIMEOUT'
 
 export class AppError extends Error {
   readonly code: ErrorCode
@@ -26,6 +28,8 @@ export class AppError extends Error {
 }
 
 /** Input failed schema/business validation → 400 (v1 client parity). */
+// PHASE 14 error classes live in infrastructure/search/bounds.ts (co-located
+// with the guard logic they belong to; same AppError base, envelope-compatible).
 export class ValidationError extends AppError {
   constructor(message = 'درخواست نامعتبر است', details?: unknown) {
     super('VALIDATION', message, 400, details)
