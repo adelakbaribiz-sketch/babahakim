@@ -31,6 +31,7 @@
 | [ADR-0016](./ADR-0016-workflow-governance-layer.md) | لایه حاکمیت گردش کار: سیاست‌های اعلانی SLA/Retry/Failure + WorkflowState + Runtime Drift/Recovery | Accepted | ED-121..129 | ۱۱ ماشین، انقضای خودکار درگاه، فرار اضطراری ADMIN |
 | [ADR-0017](./ADR-0017-external-integration-layer.md) | لایه Integrations خارجی: ۹ دامنه در Adapter/Provider + هستهٔ Resilience (Timeout/Retry/Idempotency/Breaker) + Credential fail-safe + Mock استراتژیک | Accepted | ED-135..150 | رفع جعل تحویل SMS، Zarinpal زنده، کنسول /admin/integrations |
 | [ADR-0018](./ADR-0018-search-reporting-bounded-engine.md) | موتور جستجو و گزارش Bounded + Permission-Aware: Needle SQL-side · رجیستری ۱۹ گزارش × ۶ دسته · Export CSV/XLSX/PDF + async | Accepted | ED-151..163 | سقف‌های Unbounded-Prevention، ED-161 epoch-ms، legacy adapter |
+| [ADR-0019](./ADR-0019-observability-stack.md) | Observability: Trace-first (ALS + W3C traceparent) · Logger v2 دو-لایه · متریک مقید · Health k8s · موتور هشدار واحد | Accepted | ED-164..180 | OBS1..OBS10 گیت، آستانههای جدول واحد، PII-guard سخت |
 
 ## ساختار هر ADR
 

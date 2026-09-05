@@ -56,6 +56,8 @@ export const ROUTES: Record<string, RouteDef> = {
   // PHASE 13: integration health console (ADMIN-area view; route gate maps
   // to manage_users-equivalent admin surface, ADMIN passes via BR-RBAC-02)
   integrations: { permission: 'view_audit_logs' },
+  // PHASE 15: observability console (health/metrics/alerts/logs — ADMIN)
+  observatory: { permission: 'view_audit_logs' },
 }
 
 /** Landing view per role (role defaults, single source — fixes F01/F24). */

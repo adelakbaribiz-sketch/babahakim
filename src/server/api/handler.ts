@@ -1,8 +1,11 @@
-// ── BabaHakim Backend · Route Handler (PHASE 08, ED-93/94) ────────────────
+// ── BabaHakim Backend · Route Handler (PHASE 08 ED-93/94 → PHASE 15 ED-165)
 // `apiRoute()` is the ONLY way route files expose handlers. It provides:
-//   1. request-id generation + propagation (header + logs + error envelope)
-//   2. API version header (X-API-Version: v1) on every response (ED-101)
-//   3. structured request logging with duration (ED-95)
+//   1. request-id + correlation + trace context (ALS — every log line,
+//      metric, ServiceLog row and enqueued job inherits it, ED-164)
+//   2. API version + correlation + traceparent headers on every response
+//   3. structured request logging with duration (ED-95) + API metrics
+//      (requests/errors/latency per ROUTE PATTERN, ED-167) — dynamic id
+//      segments are folded to :id so labelsets stay bounded (ED-168)
 //   4. uniform error mapping: AppError/Zod/Prisma/unknown → envelope
 //   5. body parsing + Zod validation in one step (ED-96)
 //
@@ -11,9 +14,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { toAppError, ValidationError } from '@/server/core/errors'
 import { genRequestId } from '@/server/core/ids'
-import { childLogger } from '@/server/core/logger'
+import { childLogger, setTraceProvider } from '@/server/core/logger'
 import { buildRequestContext, RequestContext } from '@/server/core/context'
 import { errorBody, withMetaHeaders } from '@/server/api/envelope'
+import { currentTrace, enterTrace, startRequestTrace, type TraceContext } from '@/server/core/trace'
+import { inc, observe, METRIC_NAMES } from '@/server/core/metrics'
 import '@/server/infrastructure/bootstrap'
 
 export interface RouteCtx<P> {
@@ -25,46 +30,71 @@ export interface RouteEnv {
   reqId: string
   ctx: RequestContext
   log: ReturnType<typeof childLogger>
+  trace: TraceContext
 }
 
 type Handler<P> = (req: NextRequest, route: RouteCtx<P>, env: RouteEnv) => Promise<unknown>
 
+// trace provider wired once per module generation (idempotent, cheap)
+setTraceProvider(() => currentTrace())
+
+/** Fold dynamic path segments into :id — /api/v1/cases/cmtl…147 →
+ *  /api/v1/cases/:id. Keeps metric labelsets bounded (ED-168). */
+export function routePattern(pathname: string): string {
+  return pathname
+    .split('/')
+    .map((seg) => (seg.length >= 6 && /^(?:[a-z]+[_-])?[0-9a-z]{8,}$/i.test(seg) && /\d/.test(seg) ? ':id' : seg))
+    .join('/')
+    .slice(0, 120)
+}
+
 export function apiRoute<P = Record<string, never>>(handler: Handler<P>) {
   return async (req: NextRequest, route?: RouteCtx<P>): Promise<NextResponse> => {
     const reqId = genRequestId()
-    const log = childLogger({ reqId, route: new URL(req.url).pathname })
+    const pathname = new URL(req.url).pathname
+    const pattern = routePattern(pathname)
+    const trace = startRequestTrace(reqId, req.headers)
+    const log = childLogger({ reqId, route: pattern })
     const start = Date.now()
     let status = 500
-    try {
-      const safeRoute: RouteCtx<P> = route ?? ({ params: Promise.resolve({} as P) } as RouteCtx<P>)
-      const ctx = buildRequestContext(req, reqId)
-      const data = await handler(req, safeRoute, { reqId, ctx, log })
-      const res = data instanceof NextResponse ? data : NextResponse.json(data === undefined ? { ok: true } : data)
-      status = res.status
-      return withMetaHeaders(res, reqId)
-    } catch (e) {
-      const err = toAppError(e)
-      status = err.httpStatus
-      if (err.code === 'INTERNAL') {
-        log.error('unhandled route error', { method: req.method, details: err.details })
-      } else {
-        log.warn('request rejected', { method: req.method, code: err.code, error: err.message })
+    let ctx: RequestContext | null = null
+    // enterTrace wraps the WHOLE lifecycle (handler + catch + finally) so
+    // warn/error request logs and the ServiceLog sink rows carry corrId/traceId
+    return enterTrace(trace, async () => {
+      try {
+        const safeRoute: RouteCtx<P> = route ?? ({ params: Promise.resolve({} as P) } as RouteCtx<P>)
+        ctx = buildRequestContext(req, reqId)
+        const data = await handler(req, safeRoute, { reqId, ctx: ctx!, log, trace })
+        const res = data instanceof NextResponse ? data : NextResponse.json(data === undefined ? { ok: true } : data)
+        status = res.status
+        return withMetaHeaders(res, trace)
+      } catch (e) {
+        const err = toAppError(e)
+        status = err.httpStatus
+        inc(METRIC_NAMES.apiErrors, { code: err.code })
+        if (err.code === 'INTERNAL') {
+          log.error('unhandled route error', { method: req.method, details: err.details })
+        } else {
+          log.warn('request rejected', { method: req.method, code: err.code, error: err.message })
+        }
+        const res = NextResponse.json(errorBody(err, reqId), { status: err.httpStatus })
+        if (err.code === 'RATE_LIMITED') {
+          const ra = (err.details as { retryAfterSec?: number } | undefined)?.retryAfterSec
+          if (ra) res.headers.set('Retry-After', String(ra))
+        }
+        return withMetaHeaders(res, trace)
+      } finally {
+        inc(METRIC_NAMES.apiRequests, { route: pattern, method: req.method, status: String(status) })
+        observe(METRIC_NAMES.apiLatency, { route: pattern }, Date.now() - start)
+        log.info('request', {
+          method: req.method,
+          path: pathname,
+          status,
+          ms: Date.now() - start,
+          ip: (ctx ?? buildRequestContext(req, reqId)).ip,
+        })
       }
-      const res = NextResponse.json(errorBody(err, reqId), { status: err.httpStatus })
-      if (err.code === 'RATE_LIMITED') {
-        const ra = (err.details as { retryAfterSec?: number } | undefined)?.retryAfterSec
-        if (ra) res.headers.set('Retry-After', String(ra))
-      }
-      return withMetaHeaders(res, reqId)
-    } finally {
-      log.info('request', {
-        method: req.method,
-        path: new URL(req.url).pathname,
-        status,
-        ms: Date.now() - start,
-        ip: buildRequestContext(req, reqId).ip,
-      })
-    }
+    })
   }
 }
 

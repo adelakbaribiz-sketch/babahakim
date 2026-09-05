@@ -6,6 +6,7 @@
 // `error` stays the first key for backward compatibility with v1 clients.
 import { NextResponse } from 'next/server'
 import { AppError } from '@/server/core/errors'
+import { buildTraceparent, CORRELATION_HEADER, TRACEPARENT_HEADER, type TraceContext } from '@/server/core/trace'
 
 export const API_VERSION = 'v1'
 export const VERSION_HEADER = 'X-API-Version'
@@ -17,9 +18,16 @@ export function errorBody(err: AppError, requestId: string) {
   return body
 }
 
-export function withMetaHeaders(res: NextResponse, requestId: string): NextResponse {
+/** PHASE 15 (ED-165): metadata headers now carry the correlation id and an
+ *  outbound traceparent (child span of the request) — callers/gateways can
+ *  join our lines into their distributed trace. */
+export function withMetaHeaders(res: NextResponse, trace: TraceContext | string): NextResponse {
   res.headers.set(VERSION_HEADER, API_VERSION)
-  res.headers.set(REQUEST_ID_HEADER, requestId)
+  res.headers.set(REQUEST_ID_HEADER, typeof trace === 'string' ? trace : trace.reqId)
+  if (typeof trace !== 'string') {
+    res.headers.set(CORRELATION_HEADER, trace.corrId)
+    res.headers.set(TRACEPARENT_HEADER, buildTraceparent(trace.traceId, trace.spanId))
+  }
   return res
 }
 

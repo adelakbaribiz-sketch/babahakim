@@ -516,3 +516,20 @@
 | BR-RPT-08 | پاسخ legacy /admin/reports شکل v1 را حفظ می‌کند اما از موتور bounded تغذیه می‌شود | سازگاری | ED-159 |
 
 کاتالوگ کامل ED-151..163 در `SEARCH-REPORTING.md §9` و ADR-0018 ثبت شده است.
+
+## §10 — قوانین رصد و پایش فاز ۱۵ (BR-OBS)
+
+| قانون | شرح | دامنه | مرجع |
+|---|---|---|---|
+| BR-OBS-01 | هر خط لاگ ساخت‌یافته JSON است و corrId/traceId را از ALS تزریق می‌کند — بدون تردیدن پارامتر | لاگ | ED-164/166 |
+| BR-OBS-02 | اطلاعات حساس (رمز/توکن/OTP/کدملی/موبایل/JWT/base64) هرگز در لاگ نمی‌نشیند — Redaction کلید + مقدار + گارد sink | حریم خصوصی | ED-166/173 |
+| BR-OBS-03 | IP در ردیف مانا فقط hash می‌شود (sha256[:12])؛ حلقهٔ RAM کامل می‌ماند | حریم خصوصی | ED-173 |
+| BR-OBS-04 | liveness هرگز DB را probe نمی‌کند (شکست DB نباید pod را بکشد)؛ readiness بدون DB/bootstrap آماده نیست | سلامت | ED-175 |
+| BR-OBS-05 | پروبهای عمومی فقط status/boolean برمی‌گردانند — توپولوژی/نسخه/latency فقط پشت ADMIN | افشا | ED-173 |
+| BR-OBS-06 | متریکها مقیدند: سقف labelset ۲۵۶ + routePattern + سقف نمونه/سری + blob < 200KB | Unbounded | ED-168 |
+| BR-OBS-07 | `api_errors_total` فقط 5xx است؛ 4xx در `api_rejected_total` دیده می‌شود ولی alarm نمی‌سازد | هشدار | ED-167 |
+| BR-OBS-08 | هشدارها یک موتور واحد با آستانههای جدول واحد دارند؛ re-fire فقط بعد از cooldown ۱۵min؛ سالم‌شدن قاعده → RESOLVED خودکار | هشدار | ED-177/178 |
+| BR-OBS-09 | SMS فقط برای CRITICAL؛ اعلان in-app ADMIN همیشه | هشدار | ED-177 |
+| BR-OBS-10 | جدولهای ops (ServiceLog/MetricPoint/AlertEvent) فقط-الحاقی با hard-purge 3d/7d/90d — هیچ جدول پزشکی/تجاری دست نمی‌خورد | دادهٔ عملیاتی | ED-171/172 |
+
+کاتالوگ کامل ED-164..180 در `OBSERVABILITY.md §13` و ADR-0019 ثبت شده است.

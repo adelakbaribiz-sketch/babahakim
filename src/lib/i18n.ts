@@ -30,6 +30,7 @@ const D: Dict = {
   aiModels: ['مدل‌های AI', 'AI Models'],
   smsLog: ['پیامک‌ها', 'SMS Log'],
   integrations: ['Integrations', 'Integrations'],
+  observatory: ['رصد و پایش', 'Observability'],
   // ── PHASE 14: search & reporting ──
   search: ['جستجو', 'Search'],
   searchPlaceholder: ['جستجو در کل پلتفرم…', 'Search the platform…'],

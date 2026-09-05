@@ -25,7 +25,8 @@
     "audit:media": "node scripts/media-audit.mjs",
     "audit:ai": "node scripts/ai-audit.mjs",
     "audit:integrations": "node scripts/integrations-audit.mjs",
-    "audit:reporting": "node scripts/search-reporting-audit.mjs"
+    "audit:reporting": "node scripts/search-reporting-audit.mjs",
+    "audit:observability": "node scripts/observability-audit.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -6,9 +6,11 @@
 //   jobs   → AI analysis (async, out of the request path) + follow-up scan
 import { subscribe, Events } from '@/server/infrastructure/events'
 import { registerJob, setDeadLetterHook, scheduleRecurring, enqueue } from '@/server/infrastructure/jobs'
-import { logger } from '@/server/core/logger'
+import { logger, setLogSink, setTraceProvider } from '@/server/core/logger'
 import { bindNotificationChannels } from '@/lib/notify'
 import { sms, email, emailChannelEnabled } from '@/server/integrations'
+import { currentTrace } from '@/server/core/trace'
+import { markBootstrapped } from '@/server/infrastructure/observability/health'
 
 // guard key is versioned: bumping it re-runs wiring after HMR when shared
 // singletons changed shape (e.g. cache backing store) — cheap and safe (idempotent)
@@ -19,7 +21,11 @@ import { sms, email, emailChannelEnabled } from '@/server/integrations'
 // v7: PHASE 13 adds integration wiring — HttpAI factory registration (when
 //      AI_SERVICE_URL is configured), integrations-monitor job (breaker
 //      state changes + degraded providers → admin notice), retention purge
-const BOOTSTRAP_KEY = '__bhBootstrapped_v7'
+// v8: PHASE 15 adds observability — trace provider + ServiceLog sink,
+//      metrics sampler (30s), alert evaluator (60s, subsumes the old
+//      integrations-monitor notify path — ED-179), business counters,
+//      today tiles, observability retention purge
+const BOOTSTRAP_KEY = '__bhBootstrapped_v8'
 const g = globalThis as unknown as { [BOOTSTRAP_KEY]?: boolean }
 
 /** no-op marker — importing the module runs the wiring below exactly once per version. */
@@ -40,6 +46,43 @@ async function notifyOperators(event: string, extraFa?: string) {
 
 if (!g[BOOTSTRAP_KEY]) {
   g[BOOTSTRAP_KEY] = true
+
+  // ── PHASE 15: observability wiring (ED-165/166/179) ──────────────────────
+  // trace provider → logger (correlation ids on every line, import-cycle-free)
+  setTraceProvider(() => currentTrace())
+  // durable ServiceLog sink (batched, fire-and-forget, PII-guarded)
+  void import('@/server/infrastructure/observability/logPersist').then(({ serviceLogSink }) => {
+    setLogSink(serviceLogSink)
+  })
+  // business counters from domain events
+  void import('@/server/infrastructure/observability/sampler').then((s) => s.registerBusinessCounters())
+  // metrics sampler: probes → gauges → series ring (+MetricPoint every 60s)
+  registerJob('metrics-sampler', async () => {
+    const { runSamplerTick } = await import('@/server/infrastructure/observability/sampler')
+    await runSamplerTick()
+  })
+  scheduleRecurring('metrics-sampler', 30_000)
+  // alert evaluator (60s) — unified rules incl. integrations (ED-179)
+  registerJob('alert-evaluator', async () => {
+    const { runAlertEvaluation } = await import('@/server/infrastructure/observability/sampler')
+    await runAlertEvaluation()
+  })
+  scheduleRecurring('alert-evaluator', 60_000)
+  // "today" business tiles (bounded queries)
+  registerJob('business-today', async () => {
+    const { refreshTodayMetrics } = await import('@/server/infrastructure/observability/sampler')
+    await refreshTodayMetrics()
+  })
+  scheduleRecurring('business-today', 60_000)
+  // retention purge (ServiceLog 3d / MetricPoint 7d / AlertEvent 90d)
+  registerJob('observability-retention', async () => {
+    const { runObservabilityRetention } = await import('@/server/infrastructure/observability/sampler')
+    await runObservabilityRetention()
+  })
+  scheduleRecurring('observability-retention', 24 * 3600_000)
+  // readiness flag: bootstrap finished (health/readiness probes check this)
+  markBootstrapped()
+
 
   // ── PHASE 13: bind notify channels SYNCHRONOUSLY (before any request is
   // served). Dependency inversion (ED-137b): lib/notify lives in the SHARED
@@ -242,30 +285,10 @@ if (!g[BOOTSTRAP_KEY]) {
   })
   enqueue('integration-wiring', {}, { maxAttempts: 3 })
 
-  // integrations-monitor (ED-139): every 5 min — breaker OPEN providers and
-  // success-rate < 80% (min 5 calls) notify admins (once per state change).
-  registerJob('integrations-monitor', async () => {
-    const { db } = await import('@/lib/db')
-    const { integrationStatus } = await import('@/server/integrations')
-    const rows = integrationStatus()
-    const g2 = globalThis as unknown as { __bhIntegrNotified?: Set<string> }
-    const notified = g2.__bhIntegrNotified ?? new Set<string>()
-    g2.__bhIntegrNotified = notified
-    for (const r of rows) {
-      if (r.mode !== 'live') continue
-      const bad = r.circuit.state === 'OPEN' || (r.stats.total >= 5 && r.stats.successRate < 0.8)
-      const k = `${r.kind}:${r.providerName}`
-      if (bad && !notified.has(k)) {
-        notified.add(k)
-        const extraFa = `INTEGRATION ${r.kind} (${r.providerName}) ${r.circuit.state === 'OPEN' ? 'CIRCUIT OPEN' : 'SUCCESS ' + Math.round(r.stats.successRate * 100) + '%'} — ${r.stats.lastError?.code ?? ''} ${r.stats.lastError?.message ?? ''}`.slice(0, 180)
-        const admins = await db.user.findMany({ where: { role: 'ADMIN', isActive: true }, select: { id: true } })
-        for (const a of admins) notify(a.id, 'WORKFLOW_ESCALATED', { extraFa })
-      } else if (!bad) {
-        notified.delete(k)
-      }
-    }
-  })
-  scheduleRecurring('integrations-monitor', 5 * 60_000)
+  // PHASE 15 (ED-179): the standalone integrations-monitor job was subsumed
+  // by the unified alert-evaluator (60s) — breaker OPEN / success<80% now
+  // flow through AlertEvent with dedup + cooldown + auto-resolve instead of
+  // an ad-hoc once-per-state set.
 
   // PHASE 13: IntegrationCallLog retention purge — 90-day window (mirrors
   // the AIInferenceLog retention decision; keeps the table bounded).

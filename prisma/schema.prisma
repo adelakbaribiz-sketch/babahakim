@@ -967,3 +967,62 @@ model IntegrationCallLog {
   @@index([kind, provider, status])
   @@index([createdAt])
 }
+
+// ── PHASE 15: Logging, Monitoring & Observability (ED-171) ───────────────
+// Append-only operational tables with HARD purge retention (they are not
+// medical/business records — soft-delete semantics do not apply; ED-172):
+//   ServiceLog  — searchable structured logs (warn/error + opt-in info),
+//                 fields already REDACTED before persistence (ED-166)
+//   MetricPoint — periodic metric snapshots (ring in RAM + 7d durable)
+//   AlertEvent  — alert lifecycle (OPEN→firing→RESOLVED) with dedup/cooldown
+model ServiceLog {
+  id         String   @id @default(uuid())
+  t          DateTime @default(now())
+  lvl        String // debug | info | warn | error
+  svc        String
+  msg        String
+  route      String?
+  method     String?
+  status     Int?
+  reqId      String?
+  corrId     String?
+  traceId    String?
+  actorId    String?
+  actorRole  String?
+  ipHash     String? // sha256(ip)[:12] — IP is personal data (ED-173)
+  fields     String? // JSON — redacted BEFORE persist (never raw PII)
+
+  @@index([t])
+  @@index([lvl, t])
+  @@index([svc, t])
+  @@index([reqId])
+  @@index([corrId, t])
+}
+
+model MetricPoint {
+  id   String   @id @default(uuid())
+  at   DateTime @default(now())
+  data String // JSON snapshot of the metric registry (bounded keyset)
+
+  @@index([at])
+}
+
+model AlertEvent {
+  id             String    @id @default(uuid())
+  key            String    @unique // rule key (e.g. db_unavailable)
+  severity       String // WARN | CRITICAL
+  status         String // OPEN | RESOLVED
+  msgFa          String
+  msgEn          String
+  payload        String? // JSON — numbers/keys only, no PII (ED-173)
+  firstSeenAt    DateTime  @default(now())
+  lastSeenAt     DateTime  @default(now())
+  resolvedAt     DateTime?
+  fireCount      Int       @default(1)
+  lastNotifiedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([status, lastSeenAt])
+  @@index([severity, status])
+}

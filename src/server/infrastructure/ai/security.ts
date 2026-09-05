@@ -11,11 +11,12 @@
 //   training gate— no training on unfrozen/unapproved datasets (spec §11)
 import { z } from 'zod'
 import { AppError, BusinessRuleError } from '@/server/core/errors'
+import { childLogger } from '@/server/core/logger'
 import { AI_INDICATOR_ALLOWLIST, LOW_CONFIDENCE_THRESHOLD } from './constants'
 import type { AIResult, IndicatorPrediction } from '@/lib/ai/provider'
 import type { QualityReport } from '@/lib/storage'
 
-const logTag = 'ai-security'
+const log = childLogger({ svc: 'ai-security' })
 
 /* ── Output schema (ED-129) ─────────────────────────────────────────────── */
 
@@ -70,7 +71,7 @@ export function validateAiOutput(result: AIResult): AIResult {
   const before = out.predictions.length
   out.predictions = out.predictions.filter((p) => (AI_INDICATOR_ALLOWLIST as readonly string[]).includes(p.indicator))
   if (before !== out.predictions.length) {
-    console.warn(JSON.stringify({ level: 'WARN', scope: logTag, msg: 'off-allowlist indicators dropped', dropped: before - out.predictions.length }))
+    log.warn('off-allowlist indicators dropped', { dropped: before - out.predictions.length })
   }
   if (out.predictions.length === 0) {
     throw new AppError('INTERNAL', 'خروجی مدل بدون شاخص معتبر است | AI output has no allowlisted indicators', 500)
