@@ -419,3 +419,29 @@ Stage Summary:
 - Verification: ۳۱۳/۳۱۳ bun test (۲۵ unit + ۵ integration جدید) · lint 0 خطا · ۵/۵ audit (backend/media/ai/frontend/integrations) · pentest 45/45 · browser-verified با صفر خطای کنسول
 - Remaining risks (honest): D-13-1 S3 driver · D-13-2 breaker درون‌حافظه (Redis برای multi-instance) · D-13-3/4 قرارداد Courier/CRM زنده · D-13-5 IPN/Webhook زرین‌پال · D-13-6 polling تحویل SMS · فاز ۰۹ remediation همچنان باز
 - Next: PHASE 09 remediation (۷۳ صفحه SC-ID) یا M17 Deployment طبق PRD §12
+
+---
+Task ID: 15
+Agent: Main agent (Super Z)
+Task: PHASE 14 — Search, Reporting & Analytics (موتور جستجو با Filtering/Sorting/Pagination/FTS/i18n + ۶ دسته گزارش Permission-aware + CSV/Excel/PDF/Export + منع Queryهای سنگین و Unbounded)
+
+Work Log:
+- ممیزی ۱۰ شکاف (S-1..S-10): جستجوی «بعد از صفحه‌بندی در JS» (الگوی ضد S-1 در catalog/case/adminUsers/auditLogs) · getReports بدون هیچ where/take هفت جدول کامل را در JS reduce می‌کرد — دقیقاً Query سنگین Unbounded فرمان · فیلترهای ad-hoc بدون DSL Whitelist · پارامترهای from/to/groupBy مسیر گزارش‌ها نادیده گرفته می‌شدند (قرارداد مرده) · بدون Full Text Search فارسی · بدون خروجی CSV/XLSX/PDF
+- Search Engine (src/server/infrastructure/search): normalize.ts خالص و client-safe — فولد ی/ي/ى، ك/ک، أ/إ/ٱ، ة→ه، ؤ، حذف Tatweel/Diacritics/Presentation-forms/BIDI، ZWNJ با دو گونه compact+spaced، ارقام فارسی/عربی/لاتین، توکن‌سازی یونیکد، ماتریس سوزن×۴گونا (ED-151) · query-build.ts: applyQ داخل SQL (LIKE با سوزن‌های چندگانه — رکورد با خط فارسی/عربی/نیم‌فاصله متفاوت هم می‌یابد) · bounds.ts: کلاه‌های سخت SEARCH_BOUNDS (limit≤۱۰۰، offset≤۱۰k) + OffsetTooDeep/WindowTooWide/ReportTimeout با ۴۲۲/۴۲۲/۵۰۴ صادق
+- سرویس و مسیر: searchService + GET /api/v1/search — گروه‌های user/case/order/product/ticket، permission+data-scoped (بیمار فقط پرونده خود) · GlobalSearchDialog در AppShell (دیاگ clones با کلید میان‌بر، نتایج گروه‌بندی‌شده، خالی/بارگذاری/خطا)
+- Reporting Engine (src/server/infrastructure/reporting): types (ReportDef/Result با meta صادق: from/to/cached/truncated/totalRows/ms) · registry تک‌منبع ۱۹ گزارش در ۶ دسته فرمان — عملیاتی ۴ (case-status/queue-sla/followup-compliance/workflow-health) · مالی ۴ (revenue-summary/payments/expenses/referrals) · کسبوکار ۴ (top-products/order-funnel/pending-prescriptions/funnel-conversion) · کاربران ۳ (growth/retention/activity) · عملکرد ۳ (case-cycle/ai-accuracy/sla) · سفارشی ۱ (custom.dataset با ۸ دیتاست مجوزدار) — همه از SQL مقید با clampWindow (پیش‌فرض ۳۰ روز، سقف ۴۰۰ روز، minDate) و maxViewRows/maxBuckets · runner با کش TTL per-category (ED-158) · withReportTimeout ۱۵s
+- Permission-aware: canViewReport (مجوز + نقش + بایپس ADMIN طبق BR-RBAC-02)؛ کاتالوگ بیمار = ۰ گزارش (راستی‌آزمایی مرورگر)؛ مسیر اجرا ۴۰۳؛ DATASET_PERMISSIONS برای ۸ دیتاست سفارشی؛ ۸ مجوز متمایز هم‌راستا با کاتالوگ ۳۱تایی constants (گیت SR9)
+- Export (ED-156): csv.ts با BOM UTF-8 (اکسل فارسی سالم) · xlsx.ts نویسنده ZIP/SheetML خودبسنده RTL + ارقام فارسی سربرگ · pdf.ts فارسی RTL · exportService: همزمان ≤۲۰۰۰ سطر (REPORT_SYNC_MAX_ROWS)؛ بزرگ‌تر → POST صف ناهمزمان → StoredFile موقت با TTL ۲۴h + فهرست «خروجیهای من» + دانلود از /reports/exports/[fileId] · ۶ مسیر API (reports، [id]، export، exports، [fileId]) + آداپتور مقید legacy /admin/reports
+- Frontend: ReportsCenter (تب ۶ دسته با شمارنده، کارت گزارش با آیکن chart، پنل اجرا با بازه/گروهبندی، کارت‌های خلاصه با ارقام فارسی، CSV/Excel/PDF/خروجی ناهمزمان، جدول سطرها، بخش خروجیهای من) · GlobalSearchDialog · i18n کامل fa/en + RTL/LTR
+- تست: ۶۲ تست جدید (search ۲۵: فولد حروف/ارقام/ZWNJ دوگونه/سوزن‌ها/حدود؛ reporting ۱۵: clampWindow/reportBounds/timeout/cache/permission؛ integration ۲۲: کاتالوگ per-role، ۴۰۳ بیمار، ۴۲۲ window/deep-offset، BOM CSV، ZIP معتبر XLSX، PDF magic، async job، عدم نشت) → ۳۷۵/۳۷۵ bun test
+- گیت CI scripts/search-reporting-audit.mjs (SR1..SR10: queries مقید · گزارش فقط از registry/runner · شکل ReportDef · جستجوی SQL-side بدون post-filter · مسیر واحد export · سیم‌کشی گاردها · نویسنده‌های export خودبسنده · PDF فارسی+RTL · هم‌راستایی مجوزها · سخت‌سازی مسیرها) + npm run audit:reporting — PASSED
+- چرخه منشور: bun test ۳۷۵/۳۷۵ · lint ۰ خطا (۴ هشدار پیش‌موجود e2e-harness) · گیت ۱۰/۱۰ · docs-validator PASS (۲۳ بخش، ۱۹ گزارش، ED-151..163) · pentest 45/45 · smoke-phase14.sh کامل (کاتالوگ ۱۹، اجرای گزارش با کش ۴ms، ۴۲۲ window ۵۰۰روزه، ۴۲۲ صفحه‌بندی عمیق، CSV با BOM+RTL، XLSX معتبر RTL، PDF معتبر، async queued، جستجوی «سارا» ۱۴ms در ۳ گروه) · مرورگر: دیالوگ جستجو فارسی (بیمار+پرونده+سفارش) · مرکز گزارش با ۶ تب · اجرای revenue-summary (درآمد ۲۰٬۳۱۱٬۰۰۰) · خروجی CSV از UI · بیمار: ۰ گزارش + ۴۰۳ + جستجوی مقید به داده خود · EN/LTR · صفر خطای console · اسکرین‌شات verify-p14-browser-final/en-patient.png
+- مستندات: SEARCH-REPORTING.md (۲۳ بخش: ممیزی S-1..S-10، موتور جستجو، مرجع گزارش‌ها، خروجی‌ها، API، Frontend، تست، گیت، ED-151..163، بدهی‌ها D-14-*) · ADR-0018 · BUSINESS-RULES BR-SRCH-01..05 + BR-RPT-01..08 · PRD/RTM ردیف فاز ۱۴
+
+Stage Summary:
+- موتور جستجوی واحد SQL-side با Normalization فارسی/لاتین دوطرفه (یونیکد کامل) + سوزن‌های ۴گونه — الگوی S-1 (فیلتر بعد از صفحه‌بندی) از کل کدبیس حذف شد
+- ۱۹ گزارش Permission-aware در ۶ دسته فرمان (Operational/Financial/Business/User/Performance/Custom) از registry واحد؛ اجرای مقید (Window/Buckets/Rows/Timeout 15s) + کش per-category
+- خروجی CSV (BOM)/Excel (RTL)/PDF (فارسی) — همزمان ≤۲k سطر و ناهمزمان ≤۲۰k با TTL ۲۴h
+- قرارداد Unbounded-Query Prevention سخت و تک‌منبع: SEARCH_BOUNDS/REPORT_BOUNDS + خطاهای تایپ‌شده ۴۲۲/۵۰۴ — از «کوئریهای بسیار سنگین و Unbounded» فرمان جلوگیری می‌شود
+- Verification: ۳۷۵/۳۷۵ test · SR1..SR10 PASSED · pentest 45/45 · docs-validator PASS · browser fa+en صفر خطا
+- Git: پیاده‌سازی در commit 63e3fb2 (قبل از اتمام چرخه) + این تکمیل چرخه (worklog/اسکرین‌شات/DB) در commit جدید
