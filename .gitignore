@@ -86,3 +86,13 @@ storage/
 backups/
 dist/
 storage.pre-restore.*/
+
+# PHASE 20 · audit-gate JSON reports are RUNTIME OUTPUT, not source
+# (backend/media/ui/frontend audit gates rewrite them on every run — a
+# tracked report dirtied the tree and made deploy.sh preflight refuse,
+# the exact state/source class PHASE 19 sealed. perf baseline/after JSONs
+# stay tracked: they are committed measurement evidence (PERF9).)
+scripts/backend-audit.json
+scripts/media-audit.json
+scripts/ui-audit-report.json
+scripts/frontend-audit-report.json
