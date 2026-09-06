@@ -13,7 +13,16 @@ cd "$(dirname "$0")/.."
 
 LOG=/tmp/qa-server-run.log
 
-# a stale server on :3000 would poison the run — clear it first
+# a stale server on :3000 would poison the run — clear it first.
+# (REG-fix: ANY listener counts — a `next dev` from the workspace bootstrap
+# survives the old standalone-only pkill and silently absorbs the whole suite;
+# the chaos console 404s because the dev tree never got BH_CHAOS=1.)
+PORT_PID=$(ss -tlnpH 'sport = :3000' 2>/dev/null | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' | head -1)
+if [ -n "$PORT_PID" ]; then
+  echo "── clearing stale :3000 listener (pid $PORT_PID) ──"
+  kill "$PORT_PID" 2>/dev/null; sleep 2
+  kill -9 "$PORT_PID" 2>/dev/null; sleep 1
+fi
 pkill -f "standalone/server.js" 2>/dev/null; sleep 1
 
 JWT=$(python3 -c "import hashlib;print(hashlib.sha256(b'babahakim-dev:JWT_SECRET').hexdigest())")
@@ -39,6 +48,16 @@ for i in $(seq 1 90); do
   fi
 done
 curl -s -o /dev/null --max-time 2 http://localhost:3000/liveness || { echo "✗ server never became live"; exit 1; }
+
+# OWNERSHIP GUARD: if anything else owns :3000 our liveness curl just probed
+# the wrong process (EADDRINUSE above) — the suite would run against an
+# impostor server. Refuse instead of reporting poisoned results.
+OWNER_PID=$(ss -tlnpH 'sport = :3000' 2>/dev/null | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' | head -1)
+if [ -n "$OWNER_PID" ] && [ "$OWNER_PID" != "$SERVER_PID" ]; then
+  echo "✗ :3000 is owned by pid $OWNER_PID, not our QA server ($SERVER_PID) — refusing a poisoned run"
+  kill $SERVER_PID 2>/dev/null
+  exit 1
+fi
 
 # PHASE 18 (settling window): a freshly-booted server spends its first seconds
 # in DurableJob catch-up (orphan recovery, recurring schedulers arming) which

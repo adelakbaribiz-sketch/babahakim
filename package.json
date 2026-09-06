@@ -28,7 +28,8 @@
     "audit:reporting": "node scripts/search-reporting-audit.mjs",
     "audit:observability": "node scripts/observability-audit.mjs",
     "audit:perf": "node scripts/perf-audit.mjs",
-    "audit:reliability": "node scripts/reliability-audit.mjs"
+    "audit:reliability": "node scripts/reliability-audit.mjs",
+    "audit:qa": "node scripts/qa-audit.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

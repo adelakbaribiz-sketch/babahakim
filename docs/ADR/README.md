@@ -40,3 +40,4 @@
 
 هر ADR الزاماً بخش **Compliance** دارد — چون طبق منشور پروژه (قاعده ۲) «هر قاعده باید قابل Test باشد»، تصمیمی که نتوان در CI/تست اعتبارسنجی کرد، ADR نیست؛ فقط آرزوست.
 | [ADR-0021](./ADR-0021-reliability-engineering.md) | قابلیت اطمینان: صف پایدار DurableJob + بازیابی کرش + DLQ replay · Idempotency درخواست با کلید مشتق · تاکسونومی 503+Retry-After · هستهٔ آشوب دوگارد با TTL | Accepted | ED-187..196 | REL1..REL10 گیت، FS-1..FS-9 زنده، ۴۷۶/۴۷۶ |
+| [ADR-0022](./ADR-0022-quality-assurance-stack.md) | تضمین کیفیت جامع: کاتالوگ ۱۰نوع تست · نقشهٔ Critical Path صریح (کیفیت>عدد) · حافظهٔ باگ REG-* · Runner واحد با گارد مالکیت پورت · گیت QA1..QA10 | Accepted | ED-197..206 | ۵۹۳/۵۹۳ دو اجرای متوالی، Critical Bug=۰ |

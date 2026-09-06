@@ -304,7 +304,11 @@ describe('PHASE 08 — layered backend golden path (integration)', () => {
   // ═══════════ 6 · shop checkout (transactional, stock-guarded) ═════════════
 
   test('shop: cart → atomic checkout (stock+cart in-tx) → card-to-card → operator verify', async () => {
-    const { data: products } = await patient.get('/api/v1/products?limit=5')
+    // REG-fix (repeatable QA): earlier runs legitimately consume stock (220+
+    // orders across suites), so the first listing page may be sold out.
+    // Scan the FULL catalog page (limit=100, the SEARCH_BOUNDS ceiling) and
+    // pick any in-stock product; a fully-drained catalog still fails loudly.
+    const { data: products } = await patient.get('/api/v1/products?limit=100')
     const items = products.products as { id: string; stock: number; price: number; nameFa: string }[]
     const available = items.find((p) => p.stock >= 2)
     expect(available).toBeTruthy()
@@ -325,7 +329,7 @@ describe('PHASE 08 — layered backend golden path (integration)', () => {
     expect((cart.data.items as unknown[]).length).toBe(0)
 
     // stock decremented inside the same transaction
-    const { data: after } = await patient.get('/api/v1/products?limit=60')
+    const { data: after } = await patient.get('/api/v1/products?limit=100')
     const prod = (after.products as { id: string; stock: number }[]).find((p) => p.id === available!.id)
     expect(prod!.stock).toBe(available!.stock - 2)
 

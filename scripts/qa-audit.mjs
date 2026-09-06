@@ -29,13 +29,13 @@ const problems = []
 const ok = (name) => console.log(`  ✓ ${name}`)
 const fail = (name, detail) => { problems.push(`${name}: ${detail}`); console.log(`  ✗ ${name} — ${detail}`) }
 
-function walk(dir, acc = [], filter = (f) => f.endsWith('.ts') || f.endsWith('.tsx')) {
+function walk(dir, filter = (f) => f.endsWith('.ts') || f.endsWith('.tsx'), acc = []) {
   if (!existsSync(dir)) return acc
   for (const entry of readdirSync(dir)) {
     const p = join(dir, entry)
     if (statSync(p).isDirectory()) {
       if (entry === 'node_modules' || entry === '.next') continue
-      walk(p, acc, filter)
+      walk(p, filter, acc)
     } else if (filter(p)) acc.push(p)
   }
   return acc
@@ -72,7 +72,7 @@ console.log('QA2 — route inventory: referenced API paths have handlers')
   for (const f of walk(join(root, 'src/app/api'))) {
     if (!f.endsWith('/route.ts')) continue
     let url = '/api' + f.replace(join(root, 'src/app/api'), '').replace('/route.ts', '')
-    url = url.replace(/\[[^\]]+\]/g, '/{P}')
+    url = url.replace(/\/\[[^\]]+\]/g, '/{P}')
     actual.add(url.replace(/\/+$/, ''))
   }
   const refFiles = [
@@ -84,15 +84,25 @@ console.log('QA2 — route inventory: referenced API paths have handlers')
     if (!existsSync(f)) continue
     const src = read(f)
     for (const m of src.matchAll(/\/api\/v1\/[A-Za-z0-9_\-./[\]${}]*/g)) {
-      let p = m[0].split('?')[0].replace(/\/+$/, '').replace(/\.\w+$/, '')
-      p = p.replace(/\$\{[^}]*\}/g, '{P}').replace(/\/\*+/g, '/{P}').replace(/\[[^\]]+\]/g, '/{P}')
-      if (p && !/\.(ts|mjs)$/.test(p)) refs.add(p)
+      let p = m[0].split('?')[0]
+      p = p.replace(/\$\{[^}]*\}/g, '{P}') // ${expr} → {P} (template refs)
+      p = p.replace(/\$\{[^}]*$/, '') // unterminated fragment (e.g. ${artifact!.id}) → drop the tail
+      p = p.replace(/\/\*+/g, '/{P}').replace(/\/\[[^\]]+\]/g, '/{P}') // comments: /files/[id] → /files/{P}
+      p = p.replace(/\/{2,}/g, '/') // collapse accidental doubles
+      if (p && p !== '/api/v1' && !/\.(ts|mjs)$/.test(p)) refs.add(p)
     }
   }
+  // The actual route set is authoritative. A ref resolves when it equals a
+  // route, when it is a string-concat prefix ('/api/v1/images/' + id), or
+  // when it fits a route's dynamic pattern ({P} → [^/]+). Literals that only
+  // differ in the id segment (case_does_not_exist00) legitimately resolve.
   const match = (ref) => {
     if (actual.has(ref)) return true
-    const rx = new RegExp('^' + ref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\{P\\\}/g, '[^/]+') + '$')
-    return [...actual].some((a) => rx.test(a))
+    if (ref.endsWith('/') && [...actual].some((a) => a.startsWith(ref))) return true
+    return [...actual].some((a) => {
+      const rx = new RegExp('^' + a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\{P\\\}/g, '[^/]+') + '$')
+      return rx.test(ref)
+    })
   }
   const missing = [...refs].filter((r) => !match(r) && !r.endsWith('/nope.nope'))
   if (missing.length) fail('route inventory', `referenced but no handler: ${missing.slice(0, 5).join(', ')}`)
@@ -166,7 +176,7 @@ console.log('QA6 — load suite: §79 races + zero-5xx + p95 budgets')
   const checks = [
     ['claim race (two concurrent CLAIMs, one winner)', load.includes('CLAIM') && load.includes('toHaveLength(1)')],
     ['double-checkout exactly-once', load.includes('myOrders.length).toBe(1)')],
-    ['sustained read budget (zero 5xx + p95)', load.includes('toBe(0)') && load.includes('p95').toString() !== undefined && load.includes('toBeLessThan(1500)')],
+    ['sustained read budget (zero 5xx + p95)', load.includes('toBe(0)') && load.includes('p95') && load.includes('toBeLessThan(1500)')],
     ['concurrent price change append-only history', load.includes('currentPrice') && load.includes('append-only, no overwrite')],
   ]
   for (const [name, cond] of checks) {
@@ -180,9 +190,9 @@ console.log('QA7 — contract suite pins the wire contract (§85/§86/§87)')
 {
   const c = read(join(root, 'tests/integration/contract.test.ts'))
   const checks = [
-    ['§85 versioning header on success + every error', c.includes("x-api-version')).toBe ? c.includes("'v1'") : c.includes('v1')],
+    ['§85 versioning header on success + every error', c.includes("x-api-version") && c.includes("toBe('v1')")],
     ['§86 envelope {error first, code, requestId, details}', c.includes("keys[0]).toBe('error')") && c.includes('data.requestId')],
-    ['§87 request-id header ↔ body equality (log-traceable)', c.includes("res.headers.get('x-request-id')"))],
+    ['§87 request-id header ↔ body equality (log-traceable)', c.includes("res.headers.get('x-request-id')")],
     ['pagination flat contract across 3 list endpoints', c.includes('flat pagination fields')],
     ['§89 rate-limit Retry-After', c.includes('retry-after')],
     ['method discipline (405 never 500)', c.includes('never 500')],
@@ -204,7 +214,7 @@ console.log('QA8 — database suite: constraints, soft-delete, price history, pa
     ['append-only price history', d.includes('never destroyed, always appended')],
     ['soft-delete isolation (hidden from reads, row survives)', d.includes('stays in the table')],
     ['money invariants (PAID⇒verifiedAt, no negatives)', d.includes('verifiedAt: null') && d.includes('data-level sanity')],
-    ['WAL durability contract', d.includes('journal_mode=WAL') || d.includes("journal_mode'").toString() !== undefined],
+    ['WAL durability contract', d.includes('journal_mode=WAL')],
   ]
   for (const [name, cond] of checks) {
     if (cond) ok(name)
@@ -220,7 +230,7 @@ console.log('QA9 — test hygiene: no silent skips, provenance headers, session 
   for (const f of testFiles) {
     const src = read(f)
     if (/\.skip\(|\.only\(|\.todo\(/.test(src)) dirty.push(`${f}: skip/only/todo`)
-    if (/TODO|FIXME|HACK/.test(src)) dirty.push(`${f}: TODO/FIXME marker`)
+    if (/\b(TODO|FIXME|HACK)\b/.test(src)) dirty.push(`${f}: TODO/FIXME marker`)
   }
   if (dirty.length) fail('hygiene', dirty.slice(0, 4).join('; '))
   else ok(`hygiene clean across ${testFiles.length} test files`)
