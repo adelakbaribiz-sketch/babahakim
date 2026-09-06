@@ -355,7 +355,10 @@ describe('PHASE 08 — layered backend golden path (integration)', () => {
   test('structured request logging emitted (logger → dev.log)', async () => {
     await patient.get('/api/v1/notifications')
     const { readFileSync } = await import('node:fs')
-    const tail = readFileSync('/home/z/my-project/dev.log', 'utf8').slice(-30000)
+    // REG-fix (repeatable QA): assert against the log of the server under test
+    // (qa-run.sh exports BH_QA_SERVER_LOG); dev.log was dev-server residue
+    const logPath = process.env.BH_QA_SERVER_LOG ?? '/home/z/my-project/dev.log'
+    const tail = readFileSync(logPath, 'utf8').slice(-30000)
     expect(tail).toContain('"svc":"babahakim-api"')
     expect(tail).toMatch(/"msg":"request"/)
   })

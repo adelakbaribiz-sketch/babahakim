@@ -324,8 +324,11 @@ describe('PHASE 10 — media engine (integration)', () => {
     const { res: orig } = await anon.get(`/api/v1/files/${imageFileId}/content?variant=original`)
     expect(orig.status).toBe(403)
 
-    // catalog exposes the public image URL (previously always-404 bug)
-    const { data: list } = await anon.get('/api/v1/products?q=' + encodeURIComponent('محصول تست رسانه'))
+    // catalog exposes the public image URL (previously always-404 bug).
+    // REG-fix (repeatable QA): search the UNIQUE per-run sku — every suite run
+    // adds another 'محصول تست رسانه' product (60+ by now) and the catalog's
+    // oldest-first page would push the fresh product out of page 1.
+    const { data: list } = await anon.get('/api/v1/products?q=' + encodeURIComponent(productJson.sku))
     const products = (list.products ?? []) as { image: string | null }[]
     expect(products.some((p) => p.image && p.image.includes(`/api/v1/files/${imageFileId}/content`))).toBe(true)
   })
