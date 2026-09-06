@@ -1,0 +1,38 @@
+# PHASE 19 · docker build context hygiene — keep the image buildable & small
+# (never bake secrets/history/runtime state into layers)
+
+# vcs / env / secrets
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+
+# runtime state (volumes own these — never bake them)
+db/
+storage/
+*.log
+dev.log
+server.log
+backups/
+
+# build outputs (rebuilt inside the image)
+.next
+node_modules
+*.tsbuildinfo
+
+# tooling that must not enter the image
+download/
+upload/
+agent-ctx/
+skills/
+tool-results/
+tests/e2e/screenshots/
+scripts/*.json
+scripts/perf-*.json
+scripts/perf-*.png
+
+# docs are not runtime dependencies (DEPLOYMENT.md lives in the repo/CI)
+docs/
+*.md
+!prisma/*.md

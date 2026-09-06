@@ -1,0 +1,63 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# BabaHakim — DEVELOPMENT compose (PHASE 19 · spec §71 «یک فرمان»)
+#   docker compose up -d           → app on http://localhost:3000
+# First run seeds via bind-mounted ./db (bun run db:push && bun run db:seed
+# from the host, or exec into the container).
+# Profiles (opt-in growth services — NOT required by v1 architecture):
+#   docker compose --profile redis up -d    (cache seam D-15-3 / D-17-1)
+#   docker compose --profile storage up -d  (MinIO S3 seam ADR-0006)
+# ═══════════════════════════════════════════════════════════════════════════
+name: babahakim-dev
+
+services:
+  app:
+    build:
+      context: .
+      target: build          # dev uses the full build stage (devDeps available)
+    command: sh -c "bunx prisma db push --accept-data-loss && bunx prisma db seed 2>/dev/null || bun prisma/seed.ts; bun run dev"
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env                 # local dev values (git-ignored)
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: file:/app/db/custom.db
+      BH_STORAGE_PATH: /app/storage/uploads
+    volumes:
+      - ./:/app
+      - node_modules:/app/node_modules   # host/container isolation
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/liveness"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  # ── optional: Redis (cache/queue seam — in-memory today, Redis-ready) ──
+  redis:
+    image: redis:7-alpine
+    profiles: ["redis"]
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru", "--requirepass", "${REDIS_PASSWORD:-bhdev}"]
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  # ── optional: MinIO (S3-compatible object storage seam, ADR-0006) ──────
+  minio:
+    image: minio/minio:latest
+    profiles: ["storage"]
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${STORAGE_KEY:-bhdev}
+      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET:-bhdevsecret}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    restart: unless-stopped
+
+volumes:
+  node_modules:
+  minio-data:

@@ -1,0 +1,86 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# BabaHakim — PRODUCTION compose (PHASE 19 · spec §75)
+# Topology: nginx (TLS termination, reverse proxy) → app (standalone, non-root)
+# Data: named volumes (SQLite + media). Queue: DurableJob (DB-backed, crash-
+# safe — ADR-0021). Cache: in-process (Redis seam documented). One command:
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+# Health-gated: app must pass /readiness within 90s or compose restarts it.
+# Rollback: scripts/rollback.sh (previous image tag) — see DEPLOYMENT.md.
+# ═══════════════════════════════════════════════════════════════════════════
+name: babahakim
+
+services:
+  app:
+    image: babahakim/app:${BH_VERSION:?BH_VERSION is required — pin the release tag (git sha), never :latest}
+    build:
+      context: .
+      target: runner
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: file:/data/bh.db
+      BH_STORAGE_PATH: /data/storage
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    volumes:
+      - bh-data:/data
+    expose:
+      - "3000"               # only nginx reaches the app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/readiness"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          memory: 2g         # D-16-6: bounded heap; horizontal scale-out instead
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/babahakim.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/nginx/certs:/etc/nginx/certs:ro
+      - nginx-cache:/var/cache/nginx
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # one-shot migration guard (idempotent; exits before app boots in parallel
+  # are also safe — migrate deploy is advisory-locked by Prisma)
+  # (migrations ALSO run in the app entrypoint; this service exists so a
+  #  failed migration visibly fails the compose stack, not just one container)
+  migrate:
+    image: babahakim/app:${BH_VERSION}
+    build:
+      context: .
+      target: runner
+    command: ["bun", "/app/node_modules/prisma/build/index.js", "migrate", "deploy", "--schema", "/app/prisma/schema.prisma"]
+    env_file:
+      - .env.production
+    environment:
+      DATABASE_URL: file:/data/bh.db
+    volumes:
+      - bh-data:/data
+    restart: "no"
+
+volumes:
+  bh-data:
+  nginx-cache:
