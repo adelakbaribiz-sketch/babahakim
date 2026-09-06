@@ -587,3 +587,30 @@ Stage Summary:
 - Verification: ۹/۹ CI · ۵۹۳/۵۹۳ · DEV1..DEV10 · QA1..QA10 · pentest 45/45 · smoke 15/15 · browser روی release · tsc/lint صفر
 - Remaining (honest): D-19-1 اجرای docker/trivy در محیط بدون docker (CI نهادی) · D-19-2 multi-instance (Redis/Postgres — ADR-0005/D-17-1) · D-19-3 blue-green دو-upstream · D-19-4 staging snapshot با masking داده · D-19-5 فاز ۰۹ remediation باز
 - Git: ۸ commit فاز ۱۹ (infra → state/source → CI scripts → type-fix → copy semantics → repeatable-QA → gate needles → docs)
+
+---
+Task ID: 21
+Agent: Main agent (Super Z)
+Task: PHASE 20 — FINAL PRODUCTION READINESS (ممیزی صفر-تا-صد ۱۹ حوزه + اصلاح Critical/High + تست Backup/Restore + Deployment + Rollback + Critical User Journey + Production Readiness Report + حکم READY/NOT READY)
+
+Work Log:
+- تأیید وضعیت واقعی: خلاصهٔ متریج جلسهٔ قبل اشتباه بود — git/worklog نشان داد PHASE 15-19 همگی بسته (HEAD d1a7224 · 593/593 · 11 گیت · CI 9/9). working tree کثیف: route آپلود سومین بار محو (کلاس REG-02) + ۳۵ فایل فقط mode-change — route بازیابی، core.fileMode off، درخت تمیز
+- بازخوانی spec: §103 (۳۰ معیار اتمام) · §95 (۲۳ آیتم checklist) · §49 backup · §75/§76 · §99/§100 · §74 حقوقی
+- ممیزی ۱۹ حوزه با بازاجرای شواهد: گیت‌های ۱۱گانه → اولین شکست واقعی: **PERF1 قرمز (journal=delete)** — علت ریشه‌ای: WAL فقط در boot ست می‌شود، مسیر rebuild (db:push→seed) بدون تضمین؛ گیت به «آیا بعد از rebuild بوت شده؟» وابسته بود. رفع در source: seed حالا WAL+NORMAL+busy_timeout را construction-time تضمین می‌کند
+- کشف state drift: DB runtime کاملاً خالی (۰ کاربر/۰ نقش!) → تست reliability-core شکست (count=0 بعد از deactivate)؛ reseed → سبز. وابستگی پنهان دوم کشف شد
+- شکست سوم: CI integration — `.next/standalone/server.js` وجود ندارد → **نقص ترتیب CI**: integration قبل از build اجرا می‌شد و فقط با build مانده روی دیسک کار می‌کرد (نقض تکرارپذیری فاز ۱۹). رفع: ترتیب وابستگی-صادق (build قبل از integration، آینهٔ workflow نهادی)
+- شکست چهارم: ED-157 (patient search scoping) — تست ادعا می‌کرد «seed patient سارا ≥1 case دارد» اما seed هرگز case نمی‌ساخت؛ سبز بودن تاریخی فقط به residue داده‌ای legacy وابسته بود که جداسازی state/source فاز ۱۹ آن را حذف کرد. رفع: زنجیرهٔ case دمو (questionnaireResponse + MedicalCase CLOSED + CaseEvent) در seed — idempotent، صف کارشناسان دست‌نخورده. ۵۹۳/۵۹۳ سبز، صفر blast radius
+- شکست پنجم: deploy preflight رد — گزارش‌های JSON گیت‌های ممیزی (backend/media/ui/frontend) در فایل tracked نوشته می‌شوند → هر audit درخت را کثیک می‌کرد. رفع: untrack + .gitignore (خروجی runtime ≠ source؛ perf-baselineها به‌عنوان evidence tracked ماندند)
+- commit میان‌فازی 9151be4 (سه ریشه) + commit untrack — سپس artifact (57MB+sha256) → deploy (atomic + migrate + readiness ready True) → rollback-drill (deploy→rollback→release قبلی سالم→redeploy) = تست استقرار + تست rollback فرمان ✓
+- Backup/Restore Test: backup.sh (snapshot سازگار + integrity ۵۴ جدول + rotation) → restore.sh (stop writer → verify → safety-copy → swap → WAL quiesce) → post-restore: users 55 · case دمو ✓ · integrity ok · journal wal → deploy مجدد و بازگشت به سرویس ✓
+- pentest ۴۵/۴۵ · smoke-phase18 ۱۵/۱۵ (rate-limit IP واقعاً trip شد و در سفر مرورگر هم خودش را نشان داد — 429 → reset پنجره → موفق)
+- بدهی فاز ۰۹ راستی‌آزمایی مجدد: F01-F24 (۲ بحرانی + ۱۰ بالا) تک‌تک چک شد — همه remediate در فازهای ۱۰-۱۹ (routes registry ED-112 · dynamic chunks · رفع آلودگی Prisma · permissions در login · zod client ED-111 · مبالغ سرور ED-110 · Dialog دسترس‌پذیر · debounce F09 · useApiQuery F06 · ApiError F07)؛ PRD row قدیمی stale بود
+- Critical User Journey در مرورگر واقعی (agent-browser، FA/RTL): Landing → ورود سارا → داشبورد (سایبار permission-aware + case دمو) → پرونده‌های من → جزئیات TC-DEMO-000001 (مزاج/خط زمانی) → فروشگاه → افزودن به سبد → سبد (جمع اقلام ۱۴۵۰۰۰ + ارسال ۵۰۰۰ سرور = ۱۹۵۰۰۰) → ثبت سفارش ORD-MTPV1600993 → درگاه شبیه‌سازی → تأیید → «پرداخت شد» → EN (dir=ltr/lang=en) → **صفر خطای console** · ۷ اسکرین‌شات verify-p20-*
+- مستندات: docs/PRODUCTION-READINESS.md (۱۹ حوزه + ۳۰ معیار §103 + ۴ تست عملیاتی + Blockerها با قالب Severity/Impact/Location/RootCause/Fix + Go-Live Checklist) · PRD §12 ردیف فاز ۲۰
+
+Stage Summary:
+- حکم نهایی: **NOT READY برای go-live واقعی** (مهندسی Production-Grade ✔) — ۶ Blocker: B-01 حقوقی §74 (Critical·بیرونی) · B-02 Docker build اجرانشده (High·CI نهادی باید یکبار کامل اجرا شود) · B-03 مدل AI واقعی (High·§99 seam آماده) · B-04 credentials واقعی پرداخت/SMS/حمل (High) · B-05 دامنه/TLS/هاست + secrets تولید (High) · B-06 تک-نمونه‌ای SLO (Medium·conditional·ADR-0005)
+- ۴ یافتهٔ Critical/High این فاز همه در source رفع شد (نه workaround): F-PR20-01 WAL · F-PR20-02 seed contract · F-PR20-03 state/source · F-PR20-04 ترتیب CI
+- Verification: گیت ۱۱/۱۱ · ۵۹۳/۵۹۳ · lint/tsc صفر · CI محلی ۱۰/۱۰ · pentest 45/45 · smoke 15/15 · backup/restore ✓ · deploy/rollback ✓ · سفر بحرانی مرورگر FA+EN صفر خطا
+- ۳۰ معیار §103: ۲۷ کامل سبز · #27 Docker (B-02) · #28/#29 سبز محلی با caveat نهادی
+- Remaining (honest): اجرای CI نهادی روی GitHub + docker/trivy (B-02) · Decisions بیرونی B-01/B-03/B-04/B-05 سازمانی · staging با داده mask (D-19-4) · cron بکاپ روی هاست واقعی
