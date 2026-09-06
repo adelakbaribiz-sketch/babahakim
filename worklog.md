@@ -506,3 +506,31 @@ Stage Summary:
 - رفع نقض I8 واقعی از فاز ۱۵ (db→metrics) با الگوی تزریق
 - کشف OOM محیط dev (توضیح مرگ‌های مکرر سرور در فازهای گذشته) + مستندسازی Horizontal Scaling §58
 - Remaining (honest): D-16-1 rerun-ai sync · D-16-2 tsvector · D-16-3 brotli · D-16-4 sync=NORMAL per-connection · D-16-5 بنچ production · D-16-6 OOM dev · فاز ۰۹ remediation همچنان باز
+
+---
+Task ID: 18
+Agent: Main agent (Super Z)
+Task: PHASE 17 — Reliability Engineering (بررسی و تست Failure Scenarioهای کل سیستم: DB/Redis/Worker/Timeout/External/Payment/Duplicate/Network/Storage/Partial + پیاده‌سازی در صورت نیاز: Retry/Timeout/Circuit Breaker/Idempotency/DLQ/Graceful Degradation/Recovery)
+
+Work Log:
+- ممیزی R-1..R-11: هفت الگو تا حدی موجود (فاز ۱۳ خارجی/۱۵ پایش) اما شکافهای اصلی: (۱) قطعی DB/Storage→500 مبهم (۲) صف شغل فقط حافظه‌ای — کرش=از دست رفتن کارها (۳) بدون Idempotency سطح درخواست (۴) تست شکستها روی سرور زنده غیرممکن (۵) پروب storage جعلی (fs.access)
+- هستهٔ آشوب faults.ts (ED-187): خطاهای نامدار db/storage/worker/cache + TTL خود-خاموش‌شونده (بازگشت خودکار) + دو گارد (env BH_CHAOS/test-runner + ADMIN 404-نامرئی) + درزها: db از globalThis در lib/db.ts (الگوی ED-137b)، storage در LocalDriver، cache با setCacheStore، worker با stop/ensure
+- تاکسونومی ED-188: SERVICE_UNAVAILABLE(503)+dependency+retryAfterSec؛ classifyInfraFailure: P1001/P1002/P2024/SQLITE_CANTOPEN-IOERR-READONLY-CORRUPT-BUSY/ENOSPC-EIO-EROFS-EMFILE؛ Retry-After در apiRoute (RATE_LIMITED هم حفظ)
+- کش یکبارمصرف ED-189: facade خطامحور روی CacheStore (get/set/del/clearPrefix هرگز نمی‌شکنند) + setCacheStore/resetCacheStore — تعویض زمان-اجرای (Redis آینده/تست)
+- صف پایدار ED-190: مدل DurableJob + migration 20260907090000 (db push)؛ enqueue write-through (شکست DB→حافظه: صف degrade نمی‌میرد)؛ claim اتمیک updateMany با ownerPid (dev/test همدیگر را نمی‌ربایند)؛ timeout هر شغل (120s/300s سنگینها + setJobTimeoutFor)؛ tick ایزوله + خودترمیمی worker (recurring→ensureWorker)؛ recovery: stale-RUNNING>5min→PENDING (بوت+هر5min) + یتیم‌سازی owner؛ retention DONE 7d/DEAD 30d؛ قرارداد v1 عمومی enqueue/drain/reset/deadLetters/queueStats حفظ شد (۴۴۱ تست قبلی سبز)
+- Idempotency درخواست ED-191: مدل IdempotencyRecord + unique(userId,route,key)؛ کلید=هدر یا sha256(user|route|canonicalJson(body)) — دابل‌کلیک بدون هدر هم دیداپ؛ RUNNING→409 · DONE→بازپخش ≤32KB+Idempotency-Replayed · FAILED→اجازهٔ retry · RUNNING>5min=crash→FAILED؛ مسیرها: POST orders/payments/cases؛ TTL 24h + purge hourly
+- DLQ عملیاتی ED-193: GET /admin/jobs (لیست/آمار groupBy/صفحه‌بندی) + POST /admin/jobs/[id]/replay (فقط DEAD، attempts صفر، Audit JOB_REPLAY) + پنل UI «شغل‌ها و صف مرده» در AdminViews4 (چیپهای آمار + جدول + دکمهٔ اجرای مجدد + badge worker)
+- ED-192: پروب نوشت‌پذیری storage واقعی (put/get/delete از درایور در files/temp) — رفع جعل ready مونت read-only
+- رفع ۳ باگ واقعی که خود آشوب کشف کرد: (۱) **AlertEvent P2002**: key سراسری یکتا ولی tick فقط OPEN می‌خواند → هشدار resolve-شده هرگز دوباره fire نمی‌شد و هر ۶۰s کل tick fail می‌کرد → reopen-after-resolve + تحمل P2002 رقابتی (ED-196)؛ (۲) پروب جعلی storage؛ (۳) الگوی مرگ پس‌زمینهٔ سرور: کشف شد فرآیند‌های پس‌زمینه پس از پایان دستور شروع‌کننده reap می‌شوند — راه‌حل setsid+script-wrapper (مستند در D-17) + پاکسازی ~۱۰ پروسهٔ zombie مرورگر که OOM کامپایل dev را می‌ساخت
+- چرخهٔ Fix واقعی: درز fault داخل try تا db_errors بشمارد · drain در قطعی DB باید claim را skip کند · TTL faults (امکان deactivate در قطعی auth-needs-db) · clone().json() برای بدنهٔ idempotency · rate-limit login (XFF per-client الگوی فاز ۱۳) · casing پارامتر callback authority · کوشش idempotency روی POST /orders (نه /orders/checkout) · buyable از ۵۰ محصول · body یکتا در هر run تست (پنجرهٔ 24h)
+- تست: ۲۵ unit (تاکسونومی/گارد production-refusal/cache-degrade/کلید مشتق/durability/timeout/backoff/degraded-queue/stale-claim/hook/آینه/اتمیسیته-tx) + ۱۰ integration زنده FS-1..FS-9 روی سرور production واقعی با BH_CHAOS=1 + smoke-phase17.sh (۱۸ چک curl مستقل)
+- گیت CI scripts/reliability-audit.mjs REL1..REL10 + npm audit:reliability — چرخهٔ Fix: ۴ needle غلط gate اصلاح (comment-import lib/db، regex SQLITE، DEAD-only، unique-array) · probe دود cache-shielded→endpoint بی‌کش
+- ED-93: منطق chaos به chaosService منتقل (route نازک) + zod در replay — گیت backend دوباره PASSED
+- مستندات: RELIABILITY.md (۱۴ بخش) · ADR-0021 + رجیستری · BUSINESS-RULES §12 BR-REL-01..10 · PRD §12 ردیف فاز ۱۷ · RTM یادداشت فاز ۱۷
+
+Stage Summary:
+- هر ۷ الگوی فرمان با کد واقعی: Retry (classified/backoff/SQLITE_BUSY) · Timeout (integration+گزارش+هر شغل) · Circuit Breaker (فاز ۱۳ + مرجع) · Idempotency (Provider+Payment+جدید سطح درخواست) · **DLQ (دیتابی+بازیابی+کنسول+UI)** · **Graceful Degradation (503 صادق/کش به loader/صف به حافظه)** · **Recovery (stale-claim+یتیم+replay)**
+- هر ۱۱ سناریوی فرمان: ممیزی R-1..R-11 + ۹ سناریو تست زنده FS-1..FS-9 (۲ از ۱۱ با پوشش موجود فاز ۱۳ ارجاع شد)
+- سه باگ واقعی شکار و رفع شد — آشوب خودش شاهد ارزش فاز است (الگوی تکرارشونده از فاز ۱۵)
+- Verification: ۴۷۶/۴۷۶ bun test (۲۵+۱۰ جدید) · lint ۰ خطا · ۱۰/۱۰ گیت CI (backend/frontend/media/ai/integrations/reporting/observability/perf/**reliability**) · pentest 45/45 · smoke-phase17 ۱۸/۱۸ · مرورگر FA/EN: پنل DLQ زنده + replay واقعی از UI + worker زنده + صفر خطای console · اسکرین‌شات verify-p17-observatory-dlq-{fa,en}.png
+- Remaining (honest): D-17-1 مالتی‌اینستنس (Redis/BullMQ=ADR-0005) · D-17-2 gate فعال‌سازی دریل در استیج · D-17-3 replay مشروط به نوع · D-17-4 گسترش خودکار مسیرهای idempotency · D-17-5 فاز ۰۹ remediation باز

@@ -12,6 +12,10 @@ export type ErrorCode =
   | 'BUSINESS_RULE' | 'RATE_LIMITED' | 'PAYLOAD_TOO_LARGE' | 'UNSUPPORTED_MEDIA_TYPE' | 'INTERNAL'
   // PHASE 14 (ED-153): unbounded-query guards
   | 'PAGINATION_TOO_DEEP' | 'WINDOW_TOO_WIDE' | 'REPORT_TIMEOUT' | 'GATEWAY_TIMEOUT'
+  // PHASE 17 (ED-188): infrastructure outage — honest 503 + Retry-After.
+  // The client can finally distinguish "transient outage, retry later" from
+  // "server bug" (both used to collapse into an opaque 500).
+  | 'SERVICE_UNAVAILABLE'
 
 export class AppError extends Error {
   readonly code: ErrorCode
@@ -99,6 +103,42 @@ export class InternalError extends AppError {
   }
 }
 
+/** Dependency outage (db / storage / queue) → 503 + Retry-After (PHASE 17, ED-188).
+ * The message is user-facing Persian; `details.dependency` names the layer so
+ * logs/metrics can group outages without leaking topology to clients. */
+export type InfraDependency = 'db' | 'storage' | 'queue' | 'external'
+export class ServiceUnavailableError extends AppError {
+  constructor(dependency: InfraDependency, message?: string, retryAfterSec = 5) {
+    const defaultMsg =
+      dependency === 'db' ? 'سرویس پایگاه داده موقتاً در دسترس نیست. لطفاً چند لحظه بعد دوباره تلاش کنید.'
+      : dependency === 'storage' ? 'فضای ذخیره‌سازی موقتاً در دسترس نیست. لطفاً بعداً تلاش کنید.'
+      : 'سرویس موقتاً در دسترس نیست. لطفاً چند لحظه بعد دوباره تلاش کنید.'
+    super('SERVICE_UNAVAILABLE', message ?? defaultMsg, 503, { dependency, retryAfterSec })
+  }
+}
+
+/**
+ * PHASE 17 (ED-188): recognize infrastructure-outage error shapes and map
+ * them onto ServiceUnavailableError(503). Recognized shapes:
+ *   Prisma P1001/P1002 (unreachable/exit) and P2024 (operation timeout)
+ *   raw SQLite failures: CANTOPEN / IOERR / READONLY / CORRUPT / BUSY spill
+ *   storage (fs) error codes: ENOSPC / EIO / EROFS / EACCES / EMFILE
+ * Anything else returns null (caller keeps normal classification).
+ */
+export function classifyInfraFailure(e: unknown): InfraDependency | null {
+  const err = e as { code?: string; name?: string; message?: string }
+  const code = err?.code ?? ''
+  const msg = err?.message ?? ''
+  // storage fs codes first (EIO overlaps nothing prisma-shaped)
+  if (['ENOSPC', 'EIO', 'EROFS', 'EMFILE', 'ENFILE'].includes(code)) return 'storage'
+  if (code === 'EACCES' && /storage|write|read|open|dir|file/i.test(msg)) return 'storage'
+  // Prisma connection-level failures
+  if (['P1001', 'P1002', 'P2024'].includes(code)) return 'db'
+  if (/SQLITE_(CANTOPEN|IOERR|READONLY|CORRUPT|BUSY|NOTADB)/i.test(msg)) return 'db'
+  if (/database is locked|database disk image is malformed|unable to open database file/i.test(msg)) return 'db'
+  return null
+}
+
 /** Coerce any thrown value into an AppError (lossless for AppError instances). */
 export function toAppError(e: unknown): AppError {
   if (e instanceof AppError) return e
@@ -117,6 +157,10 @@ export function toAppError(e: unknown): AppError {
   if (prismaLike?.code === 'P2025') {
     return new NotFoundError('رکورد یافت نشد')
   }
+  // PHASE 17 (ED-188): infrastructure outage → 503 + Retry-After (never a
+  // bare 500 — a dead dependency is not a server bug)
+  const dep = classifyInfraFailure(e)
+  if (dep) return new ServiceUnavailableError(dep)
   return new InternalError('خطای داخلی سرور', {
     thrown: e instanceof Error ? { name: e.name, message: e.message, stack: e.stack?.split('\n').slice(0, 6) } : String(e),
   })

@@ -1,7 +1,16 @@
-// ── BabaHakim Backend · Cache (PHASE 08, ED-98) ────────────────────────────
+// ── BabaHakim Backend · Cache (PHASE 08, ED-98 → PHASE 17 ED-189) ────────────
 // In-process TTL cache with LRU-ish trimming and stampede-safe `cached()`.
 // The `CacheStore` port keeps a Redis/Memcached adapter a drop-in swap
 // (constraint C2: local memory only for the current deployment).
+// PHASE 17 (ED-189): the cache layer is a DISPOSABLE dependency — a failing
+// store (Redis down, EIO, OOM) must NEVER break a business request. Every
+// store op goes through safeGet/safeSet (log + degrade to loader) and the
+// active store is swappable at runtime (tests inject failures; prod may
+// inject Redis later via setCacheStore).
+import { childLogger } from '@/server/core/logger'
+
+const log = childLogger({ svc: 'cache' })
+
 interface Entry { value: unknown; expiresAt: number }
 
 export interface CacheStore {
@@ -59,8 +68,32 @@ class MemoryCacheStore implements CacheStore {
   }
 }
 
-/** Swappable store (tests inject fakes; prod may inject Redis later). */
-export const cacheStore: CacheStore = new MemoryCacheStore()
+/** Swappable store (tests inject failing fakes; prod may inject Redis). */
+let activeStore: CacheStore = new MemoryCacheStore()
+
+// stable delegating facade — `cacheStore` importers keep working while the
+// underlying store is swapped at runtime (PHASE 17)
+export const cacheStore: CacheStore = {
+  get: (key: string) => activeStore.get(key).catch((e: unknown) => {
+    log.warn('cache get failed — degrading to loader', { key, error: e instanceof Error ? e.message : String(e) })
+    return undefined
+  }),
+  set: (key: string, value: unknown, ttlMs: number) => activeStore.set(key, value, ttlMs).catch((e: unknown) => {
+    log.warn('cache set failed — value not cached', { key, error: e instanceof Error ? e.message : String(e) })
+  }),
+  del: (key: string) => activeStore.del(key).catch((e: unknown) => {
+    log.warn('cache del failed', { key, error: e instanceof Error ? e.message : String(e) })
+  }),
+  clearPrefix: (prefix: string) => activeStore.clearPrefix(prefix).catch((e: unknown) => {
+    log.warn('cache clearPrefix failed', { prefix, error: e instanceof Error ? e.message : String(e) })
+    return 0
+  }),
+}
+
+/** PHASE 17 (ED-189): swap the backing store (tests / future Redis adapter). */
+export function setCacheStore(store: CacheStore): void { activeStore = store }
+/** PHASE 17: restore the default in-process store (test teardown). */
+export function resetCacheStore(): void { activeStore = new MemoryCacheStore() }
 
 // in-flight de-dup: concurrent callers of the same key share one promise
 const inflight = new Map<string, Promise<unknown>>()

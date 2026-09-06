@@ -1,9 +1,9 @@
 {
   "tool": "backend-audit",
-  "generatedAt": "2026-09-05T22:53:59.503Z",
-  "files": 73,
+  "generatedAt": "2026-09-06T00:19:56.103Z",
+  "files": 76,
   "errors": 0,
-  "warnings": 13,
+  "warnings": 15,
   "results": [
     {
       "file": "src/app/api/v1/admin/ai/datasets/route.ts",
@@ -41,7 +41,21 @@
       "level": "warn"
     },
     {
+      "file": "src/app/api/v1/admin/chaos/route.ts",
+      "rule": "E8",
+      "line": null,
+      "message": "GET collection without parseListQuery — verify non-list semantics",
+      "level": "warn"
+    },
+    {
       "file": "src/app/api/v1/admin/integrations/route.ts",
+      "rule": "E8",
+      "line": null,
+      "message": "GET collection without parseListQuery — verify non-list semantics",
+      "level": "warn"
+    },
+    {
+      "file": "src/app/api/v1/admin/jobs/route.ts",
       "rule": "E8",
       "line": null,
       "message": "GET collection without parseListQuery — verify non-list semantics",

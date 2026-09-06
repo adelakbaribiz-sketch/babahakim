@@ -550,3 +550,20 @@
 | BR-PERF-10 | سقفهای anti-unbounded فاز ۱۴ (SEARCH_BOUNDS/REPORT_BOUNDS/take caps) توسط کارایی فاز ۱۶ نباید رگرسیون کنند — گیت PERF10 | Unbounded | ED-153..158 |
 
 کاتالوگ ED-181..186 در `PERFORMANCE.md §9` و ADR-0020 ثبت شده است.
+
+## §12 — قوانین قابلیت اطمینان فاز ۱۷ (BR-REL)
+
+| قانون | شرح | دامنه | مرجع |
+|---|---|---|---|
+| BR-REL-01 | قطعی وابستگی داخلی (DB/Storage) باید 503 SERVICE_UNAVAILABLE با dependency و Retry-After برگرداند — 500ِ مبهم ممنوع | API | ED-188 / گیت REL2+3 |
+| BR-REL-02 | تزریق خطا فقط در محیط تست/دریل (BH_CHAOS=1 یا test-runner) مسلح می‌شود؛ مسیر کنسول در production نامرئی (404) است و ماژول faults امتناع می‌کند | تست/امنیت | ED-187 / گیت REL1 |
+| BR-REL-03 | هر فعال‌سازی fault زمان‌بندی‌شده است (TTL) و خودبه‌خود خاموش می‌شود — دریل فراموش‌شده مسلح نمی‌ماند | تست | ED-187 |
+| BR-REL-04 | هر شغل صف یک ردیف DurableJob است؛ claim فقط اتمیک (flip وضعیت) انجام می‌شود و هر شغل timeout دارد (پیش‌فرض 120s، سنگینها 300s) | زیرساخت | ED-190 / گیت REL5 |
+| BR-REL-05 | RUNNING قدیمی‌تر از ۵ دقیقه (کرش worker) در بوت و هر ۵ دقیقه به PENDING برمی‌گردد؛ شغل یتیم به هر worker تحویل می‌شود | بازیابی | ED-190 / گیت REL6 |
+| BR-REL-06 | DLQ دیتابی است و فقط ADMIN می‌بیند/بازپخش می‌کند (replay فقط برای DEAD، Audit=JOB_REPLAY، attempts صفر می‌شود) | عملیات | ED-193 / گیت REL7 |
+| BR-REL-07 | درخواستهای جهش‌دار حساس (orders/payments/cases) زیر Idempotency هستند: RUNNING→409، DONE→بازپخش ≤32KB، FAILED→اجازهٔ اجرای مجدد | پرداخت/جهش | ED-191 / گیت REL8 |
+| BR-REL-08 | کلید idempotency بدون هدر از (user+route+canonicalBody) مشتق می‌شود — دابل‌کلیک بدون کلاینت هوشمند هم دیداپ است | پرداخت | ED-191 |
+| BR-REL-09 | خطای لایهٔ کش هرگز درخواست را نمی‌شکند (degrade-to-loader)؛ store در زمان اجرا قابل تعویض است | کارایی | ED-189 / گیت REL4 |
+| BR-REL-10 | آمادگی storage با نوشتن/خواندن/حذف واقعی از درایور سنجیده می‌شود — مونت read-only یا دیسک پر باید degraded شود | زیرساخت | ED-192 / گیت REL9 |
+
+کاتالوگ ED-187..196 در `RELIABILITY.md §12` و ADR-0021 ثبت شده است.

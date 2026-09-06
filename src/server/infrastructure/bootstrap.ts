@@ -5,7 +5,7 @@
 //   events → notification fan-out (lib/notify) + cache invalidation
 //   jobs   → AI analysis (async, out of the request path) + follow-up scan
 import { subscribe, Events } from '@/server/infrastructure/events'
-import { registerJob, setDeadLetterHook, scheduleRecurring, enqueue } from '@/server/infrastructure/jobs'
+import { registerJob, setDeadLetterHook, scheduleRecurring, enqueue, runJobRecovery, refreshMirrorFromDb } from '@/server/infrastructure/jobs'
 import { logger, setLogSink, setTraceProvider } from '@/server/core/logger'
 import { bindNotificationChannels } from '@/lib/notify'
 import { sms, email, emailChannelEnabled } from '@/server/integrations'
@@ -25,7 +25,10 @@ import { markBootstrapped } from '@/server/infrastructure/observability/health'
 //      metrics sampler (30s), alert evaluator (60s, subsumes the old
 //      integrations-monitor notify path — ED-179), business counters,
 //      today tiles, observability retention purge
-const BOOTSTRAP_KEY = '__bhBootstrapped_v8'
+// v9: PHASE 17 adds reliability — durable-job boot recovery + mirror
+//      refresh, job-recovery (5min) / job-retention (daily) / idempotency
+//      retention (hourly) recurring jobs
+const BOOTSTRAP_KEY = '__bhBootstrapped_v9'
 const g = globalThis as unknown as { [BOOTSTRAP_KEY]?: boolean }
 
 /** no-op marker — importing the module runs the wiring below exactly once per version. */
@@ -91,6 +94,29 @@ if (!g[BOOTSTRAP_KEY]) {
     await runObservabilityRetention()
   })
   scheduleRecurring('observability-retention', 24 * 3600_000)
+
+  // ── PHASE 17: reliability wiring (ED-190/191) ─────────────────────────────
+  // crash recovery at boot: stale RUNNING claims (crashed worker) requeue,
+  // orphaned PENDING owners are handed off; mirrors rebuild from DB truth
+  void runJobRecovery().catch((e) => logger.warn('boot job recovery failed', { error: e instanceof Error ? e.message : String(e) }))
+  void refreshMirrorFromDb().catch(() => { /* mirrors rebuild lazily */ })
+  registerJob('job-recovery', async () => {
+    const { runJobRecovery: recover } = await import('@/server/infrastructure/jobs')
+    await recover()
+  })
+  scheduleRecurring('job-recovery', 5 * 60_000)
+  // finished-job history retention (DONE 7d / DEAD 30d hard purge)
+  registerJob('job-retention', async () => {
+    const { purgeJobHistory } = await import('@/server/infrastructure/jobs')
+    await purgeJobHistory()
+  })
+  scheduleRecurring('job-retention', 24 * 3600_000)
+  // idempotency record TTL purge (24h window, hourly sweep)
+  registerJob('idempotency-retention', async () => {
+    const { purgeIdempotencyRecords } = await import('@/server/infrastructure/idempotency')
+    await purgeIdempotencyRecords()
+  })
+  scheduleRecurring('idempotency-retention', 60 * 60_000)
   // readiness flag: bootstrap finished (health/readiness probes check this)
   markBootstrapped()
 

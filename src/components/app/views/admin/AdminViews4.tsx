@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { SectionCard, LoadingRows, EmptyState, ErrorState } from '../../shared/atoms'
-import { Activity, Cpu, HardDrive, MemoryStick, Database, ListChecks, AlertTriangle, CheckCircle2, Gauge, RefreshCw, FileSearch, HeartPulse, Timer } from 'lucide-react'
+import { Activity, Cpu, HardDrive, MemoryStick, Database, ListChecks, AlertTriangle, CheckCircle2, Gauge, RefreshCw, FileSearch, HeartPulse, Timer, RotateCcw } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { toFaDigits, formatJalali } from '@/lib/jalali'
 
@@ -93,6 +93,71 @@ function MetricCard({ icon, title, value, sub, tone }: { icon: React.ReactNode; 
         {sub ? <div className="text-[10px] text-muted-foreground truncate">{sub}</div> : null}
       </CardContent>
     </Card>
+  )
+}
+
+// ── PHASE 17: Jobs & Dead-Letter Queue console (ED-190) ─────────────────────
+interface JobsResult {
+  jobs: { id: string; type: string; status: string; attempts: number; maxAttempts: number; nextRunAt: string | null; claimedAt: string | null; lastError: string | null; createdAt: string; finishedAt: string | null }[]
+  meta: { page: number; limit: number; total: number; pages: number }
+  stats: Record<string, number>
+  queue: { pending: number; dead: number; handlerCount: number; workerAlive: boolean; lastJobAt: number | null }
+}
+
+function JobsDlqSection({ fa, api }: { fa: boolean; api: (path: string, opts?: { method?: string; json?: unknown }) => Promise<unknown> }) {
+  const { data, error, loading, refetch } = useApiQuery<JobsResult>('/api/v1/admin/jobs?status=DEAD&limit=20')
+  const [replaying, setReplaying] = useState<string | null>(null)
+  const nf = (x: number | null | undefined) => (x == null ? '—' : fa ? toFaDigits(x) : String(x))
+
+  async function replay(id: string) {
+    setReplaying(id)
+    try {
+      await api(`/api/v1/admin/jobs/${id}/replay`, { method: 'POST' })
+      toast.success(fa ? 'شغل برای اجرای مجدد در صف قرار گرفت' : 'Job requeued for replay')
+      refetch()
+    } catch (e) {
+      toast.error(ApiError.message(e))
+    } finally {
+      setReplaying(null)
+    }
+  }
+
+  return (
+    <SectionCard
+      title={fa ? 'شغل‌ها و صف مرده (DLQ)' : 'Jobs & Dead-Letter Queue'}
+      desc={fa ? 'صف پایدار: هر شغل یک ردیف دیتابی — بازیابی خودکار پس از کرش، تلاش مجدد با timeout، DLQ قابل اجرای دوباره' : 'Durable queue: every job is a DB row — crash auto-recovery, timed retries, replayable DLQ'}
+    >
+      {loading ? <LoadingRows rows={3} /> : error ? <ErrorState error={error} /> : !data ? <EmptyState text={fa ? 'داده‌ای نیست' : 'No data'} /> : (
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className="text-[10px]">{fa ? 'در انتظار' : 'PENDING'}: {nf(data.stats.PENDING ?? 0)}</Badge>
+            <Badge variant="outline" className="text-[10px]">{fa ? 'در اجرا' : 'RUNNING'}: {nf(data.stats.RUNNING ?? 0)}</Badge>
+            <Badge variant="outline" className="text-[10px]">{fa ? 'انجام‌شده' : 'DONE'}: {nf(data.stats.DONE ?? 0)}</Badge>
+            <Badge className={`text-[10px] ${statusColor((data.stats.DEAD ?? 0) > 0 ? 'down' : 'ok')}`}>{fa ? 'مرده (DLQ)' : 'DEAD (DLQ)'}: {nf(data.stats.DEAD ?? 0)}</Badge>
+            <Badge variant="outline" className={`text-[10px] ${data.queue.workerAlive ? '' : 'text-status-danger'}`}>
+              {fa ? 'worker' : 'worker'}: {data.queue.workerAlive ? (fa ? 'زنده' : 'alive') : (fa ? 'خاموش' : 'down')}
+            </Badge>
+          </div>
+          {data.jobs.length === 0 ? (
+            <EmptyState text={fa ? 'صف مرده خالی است' : 'Dead-letter queue is empty'} />
+          ) : (
+            <div className="space-y-1">
+              {data.jobs.map((j) => (
+                <div key={j.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-2 text-xs" dir="ltr">
+                  <span className="font-mono text-[10px] text-muted-foreground shrink-0">{j.id.slice(0, 22)}</span>
+                  <span className="font-mono text-[10px] shrink-0 max-w-44 truncate">{j.type}</span>
+                  <span className="text-[10px] tabular-nums text-muted-foreground shrink-0">{j.attempts}/{j.maxAttempts}</span>
+                  <span className="flex-1 min-w-40 truncate text-[10px] text-status-danger" title={j.lastError ?? ''}>{j.lastError ?? '—'}</span>
+                  <Button variant="outline" size="sm" disabled={replaying === j.id} onClick={() => replay(j.id)}>
+                    <RotateCcw size={12} /> {fa ? 'اجرای مجدد' : 'Replay'}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </SectionCard>
   )
 }
 
@@ -264,6 +329,8 @@ export function AdminObservatoryPage() {
           </div>
         </SectionCard>
       )}
+
+      <JobsDlqSection fa={fa} api={api} />
 
       <SectionCard title={fa ? 'کاوشگر لاگ' : 'Log explorer'} desc={fa ? 'جستجوی لاگهای ساخت‌یافته (ذخیره اخطار/خطاها) — بدون داده حساس' : 'Searchable structured logs (warn/error persisted) — PII-free'}>
         <div className="flex flex-wrap gap-2 mb-3">

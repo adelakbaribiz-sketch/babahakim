@@ -32,16 +32,49 @@ export async function runAlertTick(health: HealthSignals, snap: { counters: Reco
     for (const v of violations) {
       const existing = rows.find((r) => r.key === v.key)
       if (!existing) {
-        await database.alertEvent.create({
-          data: {
-            key: v.key, severity: v.severity, status: 'OPEN',
-            msgFa: v.fa, msgEn: v.en,
-            payload: v.payload ? JSON.stringify(v.payload) : null,
-            lastNotifiedAt: new Date(),
-          },
-        })
-        fired.push(v.key)
-        await deliver(v, true)
+        // PHASE 17 fix (real bug found by chaos drills): AlertEvent.key is
+        // GLOBALLY unique, but `rows` only carries OPEN alerts. A rule that
+        // auto-RESOLVED and then re-fires hit create → P2002 → the whole tick
+        // failed — an alert could NEVER fire again after its first resolve.
+        // Re-open the prior row instead of colliding with it.
+        const prior = await database.alertEvent.findFirst({ where: { key: v.key } })
+        if (prior) {
+          await database.alertEvent.update({
+            where: { id: prior.id },
+            data: {
+              status: 'OPEN', severity: v.severity,
+              msgFa: v.fa, msgEn: v.en,
+              payload: v.payload ? JSON.stringify(v.payload) : prior.payload,
+              lastSeenAt: new Date(), lastNotifiedAt: new Date(),
+              fireCount: { increment: 1 }, resolvedAt: null,
+            },
+          })
+          fired.push(v.key)
+          await deliver(v, true)
+          log.info('alert re-opened after resolve', { key: v.key })
+        } else {
+          try {
+            await database.alertEvent.create({
+              data: {
+                key: v.key, severity: v.severity, status: 'OPEN',
+                msgFa: v.fa, msgEn: v.en,
+                payload: v.payload ? JSON.stringify(v.payload) : null,
+                lastNotifiedAt: new Date(),
+              },
+            })
+            fired.push(v.key)
+            await deliver(v, true)
+          } catch (e) {
+            // concurrent tick created the same key first → it is OPEN now;
+            // this tick simply treats it as already fired (no crash)
+            if ((e as { code?: string }).code === 'P2002') {
+              fired.push(v.key)
+              log.warn('alert create raced a concurrent tick — treated as fired', { key: v.key })
+            } else {
+              throw e
+            }
+          }
+        }
       } else {
         const sinceNotified = existing.lastNotifiedAt ? Date.now() - existing.lastNotifiedAt.getTime() : Infinity
         await database.alertEvent.update({

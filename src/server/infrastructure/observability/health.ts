@@ -48,11 +48,19 @@ export function isBootstrapped(): boolean {
 }
 
 async function storageWritable(): Promise<boolean> {
+  // PHASE 17 (REL9 — honest probe): the OLD check only verified the storage
+  // directory was traversable — a READ-ONLY mount passed readiness. The new
+  // probe writes + reads back + deletes a tiny file through the REAL storage
+  // driver, so ENOSPC / EROFS / EIO / chaos storage:down all flip readiness
+  // to degraded. Probe keys stay inside the TTL-purged files/temp zone.
   try {
-    const fs = await import('fs/promises')
-    const path = process.env.BH_STORAGE_PATH || 'storage'
-    await fs.access(path) // exists & is traversable is enough for readiness
-    return true
+    const { getStorageDriver, ZONES } = await import('@/server/infrastructure/media/storage-driver')
+    const driver = getStorageDriver()
+    const key = `${ZONES.filesTemp}/.probe-${process.pid}-${Date.now().toString(36)}`
+    await driver.put(key, Buffer.from('ok', 'utf8'))
+    const back = await driver.get(key)
+    await driver.delete(key)
+    return back.toString('utf8') === 'ok'
   } catch {
     return false
   }

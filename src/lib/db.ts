@@ -14,10 +14,18 @@ export type DbMetricsSink = (labels: { op: string; entity: string }, ms: number,
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient
   __bhDbMetricsSink?: DbMetricsSink
+  // PHASE 17 (ED-187): chaos seam — a fault hook registered by the server-side
+  // faults module (test/drill only). Same injection pattern as the metrics
+  // sink: lib stays free of @/server imports (browser-bundle graph).
+  __bhDbFaultHook?: () => void
 }
 /** Injected once by bootstrap — keeps this module in the client-safe graph. */
 export function setDbMetricsSink(fn: DbMetricsSink): void {
   globalForPrisma.__bhDbMetricsSink = fn // globalThis: survives HMR reloads
+}
+/** PHASE 17: arm/clear the chaos fault hook (never armed in production). */
+export function setDbFaultHook(fn: (() => void) | null): void {
+  globalForPrisma.__bhDbFaultHook = fn ?? undefined
 }
 
 function instrumented(base: PrismaClient): PrismaClient {
@@ -34,6 +42,11 @@ function instrumented(base: PrismaClient): PrismaClient {
           const sink = globalForPrisma.__bhDbMetricsSink
           const start = performance.now()
           try {
+            // PHASE 17 (ED-187): fault-injection seam — throws a Prisma-shaped
+            // P1001 when the db:down chaos fault is armed (test/drill only;
+            // the hook is undefined in every other environment). Thrown inside
+            // the timed region so db_errors_total counts it like a real outage.
+            globalForPrisma.__bhDbFaultHook?.()
             const result = await query(args)
             sink?.(labels, performance.now() - start, true)
             return result

@@ -19,6 +19,7 @@ import { buildRequestContext, RequestContext } from '@/server/core/context'
 import { errorBody, withMetaHeaders } from '@/server/api/envelope'
 import { currentTrace, enterTrace, startRequestTrace, type TraceContext } from '@/server/core/trace'
 import { inc, observe, METRIC_NAMES } from '@/server/core/metrics'
+import { isIdempotencyProtected, runIdempotent } from '@/server/infrastructure/idempotency'
 import '@/server/infrastructure/bootstrap'
 
 export interface RouteCtx<P> {
@@ -64,7 +65,13 @@ export function apiRoute<P = Record<string, never>>(handler: Handler<P>) {
       try {
         const safeRoute: RouteCtx<P> = route ?? ({ params: Promise.resolve({} as P) } as RouteCtx<P>)
         ctx = buildRequestContext(req, reqId)
-        const data = await handler(req, safeRoute, { reqId, ctx: ctx!, log, trace })
+        // PHASE 17 (ED-191): duplicate-request protection on mutation-critical
+        // routes — identical retries/double-clicks replay the stored response
+        // instead of re-executing the business write (checkout, payments, …).
+        const run = () => handler(req, safeRoute, { reqId, ctx: ctx!, log, trace })
+        const data = isIdempotencyProtected(req.method, pattern)
+          ? await runIdempotent(req, `${req.method} ${pattern}`, run)
+          : await run()
         const res = data instanceof NextResponse ? data : NextResponse.json(data === undefined ? { ok: true } : data)
         status = res.status
         return withMetaHeaders(res, trace)
@@ -78,7 +85,9 @@ export function apiRoute<P = Record<string, never>>(handler: Handler<P>) {
           log.warn('request rejected', { method: req.method, code: err.code, error: err.message })
         }
         const res = NextResponse.json(errorBody(err, reqId), { status: err.httpStatus })
-        if (err.code === 'RATE_LIMITED') {
+        // PHASE 14: rate-limit backoff hint · PHASE 17 (ED-188): outage hint —
+        // both carry Retry-After so well-behaved clients pace their retry.
+        if (err.code === 'RATE_LIMITED' || err.code === 'SERVICE_UNAVAILABLE' || err.code === 'GATEWAY_TIMEOUT') {
           const ra = (err.details as { retryAfterSec?: number } | undefined)?.retryAfterSec
           if (ra) res.headers.set('Retry-After', String(ra))
         }

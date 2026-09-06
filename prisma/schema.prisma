@@ -1054,3 +1054,60 @@ model AlertEvent {
   @@index([status, lastSeenAt])
   @@index([severity, status])
 }
+
+// ── PHASE 17: Reliability Engineering (ED-190/191) ─────────────────────────
+// DurableJob — the job queue was in-memory only: a process crash lost every
+// pending job (AI analyses, notifications, exports). Jobs are now rows:
+// PENDING → RUNNING (claimed) → DONE | back-to-PENDING (retry) | DEAD (DLQ).
+// ownerPid is a claim optimization: a worker only takes its own or unowned
+// jobs, so the dev server and the test runner never steal each other's rows;
+// crash recovery nulls stale owners (runJobRecovery, 5-minute cadence).
+// Hard purge applies (operational data, not medical records — ED-172).
+model DurableJob {
+  id          String    @id // job_<base36ts>_<seq> — stable public contract
+  type        String
+  payload     String // JSON
+  status      String // PENDING | RUNNING | DONE | DEAD
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  backoffMs   Int       @default(2000)
+  nextRunAt   DateTime  @default(now())
+  claimedAt   DateTime?
+  ownerPid    Int?
+  lastError   String? // 500-char cap applied at write
+  corrId      String?
+  traceId     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  finishedAt  DateTime?
+
+  @@index([status, nextRunAt])
+  @@index([type, status])
+  @@index([status, updatedAt])
+}
+
+// IdempotencyRecord — duplicate-request protection (ED-191) for
+// mutation-critical routes (checkout, payments, case creation). Key = client
+// Idempotency-Key header, or deterministically derived (user+route+body
+// canonical hash) so a double-click with no header is still deduped.
+//   RUNNING → concurrent identical request → 409
+//   DONE    → replay stored response (≤32KB) + Idempotency-Replayed: true
+//   FAILED  → row dropped, retry executes for real
+// Hard purge at expiresAt (24h) — operational data (ED-172).
+model IdempotencyRecord {
+  id              String   @id @default(uuid())
+  key             String // header value or derived sha256 (≤64 chars)
+  route           String // 'POST /api/v1/orders/checkout'
+  userId          String // owner scope
+  status          String // RUNNING | DONE | FAILED
+  responseStatus  Int?
+  responseBody    String? // JSON ≤32KB — null disables replay (oversized)
+  errorCode       String?
+  requestId       String?
+  createdAt       DateTime @default(now())
+  expiresAt       DateTime
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, route, key])
+  @@index([expiresAt])
+}

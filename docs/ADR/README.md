@@ -39,3 +39,4 @@
 قالب استاندارد در [`_TEMPLATE.md`](./_TEMPLATE.md): **Context → Options → Decision → Consequences → Compliance (چگونه قاعده Enforce می‌شود)**.
 
 هر ADR الزاماً بخش **Compliance** دارد — چون طبق منشور پروژه (قاعده ۲) «هر قاعده باید قابل Test باشد»، تصمیمی که نتوان در CI/تست اعتبارسنجی کرد، ADR نیست؛ فقط آرزوست.
+| [ADR-0021](./ADR-0021-reliability-engineering.md) | قابلیت اطمینان: صف پایدار DurableJob + بازیابی کرش + DLQ replay · Idempotency درخواست با کلید مشتق · تاکسونومی 503+Retry-After · هستهٔ آشوب دوگارد با TTL | Accepted | ED-187..196 | REL1..REL10 گیت، FS-1..FS-9 زنده، ۴۷۶/۴۷۶ |

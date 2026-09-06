@@ -15,6 +15,7 @@
 // filesystem path.
 import { mkdir, readFile, writeFile, rename, unlink, stat, readdir } from 'fs/promises'
 import { join, dirname } from 'path'
+import { faultActive, FAULT_STORAGE_DOWN } from '@/server/infrastructure/faults'
 
 export const STORAGE_ROOT = join(process.cwd(), 'storage')
 
@@ -65,17 +66,30 @@ function abs(key: string): string {
 class LocalDriver implements StorageDriver {
   readonly name = 'local'
 
+  /** PHASE 17 (ED-187): chaos seam — storage:down throws a realistic fs EIO
+   * error so outage handling (→ 503 STORAGE, readiness degraded) is testable
+   * against the live server. No-op in every non-chaos environment. */
+  private chaos(): void {
+    if (!faultActive(FAULT_STORAGE_DOWN)) return
+    const err = new Error('EIO: injected storage fault (chaos) — storage unavailable') as Error & { code?: string }
+    err.code = 'EIO'
+    throw err
+  }
+
   async put(key: string, data: Buffer): Promise<void> {
+    this.chaos()
     const p = abs(key)
     await mkdir(dirname(p), { recursive: true })
     await writeFile(p, data)
   }
 
   async get(key: string): Promise<Buffer> {
+    this.chaos()
     return readFile(abs(key))
   }
 
   async move(from: string, to: string): Promise<void> {
+    this.chaos()
     const src = abs(from)
     const dst = abs(to)
     await mkdir(dirname(dst), { recursive: true })
@@ -83,6 +97,7 @@ class LocalDriver implements StorageDriver {
   }
 
   async delete(key: string): Promise<void> {
+    this.chaos()
     try {
       await unlink(abs(key))
     } catch (e) {
@@ -92,6 +107,7 @@ class LocalDriver implements StorageDriver {
   }
 
   async exists(key: string): Promise<boolean> {
+    this.chaos()
     try {
       await stat(abs(key))
       return true
