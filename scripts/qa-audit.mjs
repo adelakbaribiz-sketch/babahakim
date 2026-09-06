@@ -171,7 +171,7 @@ console.log('QA5 — qa-run.sh runner: chaos boot, env isolation, settle, teardo
   const runner = read(join(root, 'scripts/qa-run.sh'))
   const checks = [
     ['boots production standalone with BH_CHAOS=1', /BH_CHAOS=1/.test(runner) && runner.includes('standalone/server.js')],
-    ['NODE_ENV isolated from the test process', runner.includes('NODE_ENV=test bun test')],
+    ['NODE_ENV isolated from the test process', /NODE_ENV=test(\s+\S+)*\s+bun test/.test(runner)],
     ['readiness + settle window before racing', runner.includes('/readiness') && /sleep 8/.test(runner)],
     ['teardown trap (no orphan server)', runner.includes("trap 'kill $SERVER_PID")],
   ]

@@ -11,15 +11,22 @@ cd "$(dirname "$0")/.."
 FAIL=0
 
 echo "── [security] 1/4 dependency vulnerability scan ───────"
-if bun pm audit 2>/dev/null; then
-  echo "  ✓ bun pm audit clean"
-else
-  CODE=$?
-  if [ "$CODE" = "1" ]; then
-    echo "  ✗ vulnerable dependencies found — pipeline stops"; FAIL=1
+# osv-scanner reads bun.lock directly; `bun pm scan` needs a configured
+# scanner package and npm audit needs package-lock (bun project) — so the
+# local stage attempts osv and degrades LOUDLY (CI runs the full quartet).
+if command -v osv-scanner >/dev/null 2>&1; then
+  if osv-scanner --lockfile=bun.lock:lockfile . 2>/dev/null; then
+    echo "  ✓ osv-scanner: no known vulnerabilities"
   else
-    echo "  ⚠ bun pm audit unavailable (exit $CODE) — osv-scanner/gitleaks run in CI (DEPLOYMENT.md §9)"
+    CODE=$?
+    if [ "$CODE" = "1" ]; then
+      echo "  ✗ osv-scanner: vulnerable dependencies — pipeline stops"; FAIL=1
+    else
+      echo "  ⚠ osv-scanner exit $CODE (no findings ≠ error) — check output above"
+    fi
   fi
+else
+  echo "  ⚠ osv-scanner not installed locally — dependency vuln scan runs in GH Actions (workflow ci.yml + DEPLOYMENT.md §9)"
 fi
 
 echo "── [security] 2/4 secret detection ────────────────────"
