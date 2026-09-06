@@ -229,10 +229,18 @@ export async function patchFollowup(
 // ════════════════════════════ NOTIFICATIONS ════════════════════════════════
 
 export async function listNotifications(auth: AuthContext, query: ListQuery) {
-  const items = await db.notification.findMany({
-    where: { userId: auth.user.id }, orderBy: { createdAt: 'desc' }, take: Math.max(50, query.limit),
-  })
-  return { notifications: items, unread: items.filter((n) => !n.read).length }
+  // PHASE 18 fix (contract audit): this endpoint violated the ED-100 pagination
+  // contract — offset was silently ignored (take: max(50, limit)) and no
+  // page/total/pages were returned. Now it paginates like every other list
+  // endpoint, and `unread` counts ALL unread rows for the user (the bell badge
+  // must not shrink to the current page — the old page-scoped count was wrong).
+  const where = { userId: auth.user.id }
+  const [items, total, unread] = await Promise.all([
+    db.notification.findMany({ where, orderBy: { createdAt: 'desc' }, skip: query.offset, take: query.limit }),
+    db.notification.count({ where }),
+    db.notification.count({ where: { userId: auth.user.id, read: false } }),
+  ])
+  return { notifications: items, unread, ...listMeta(query.page, query.limit, total) }
 }
 
 export async function markNotificationsRead(

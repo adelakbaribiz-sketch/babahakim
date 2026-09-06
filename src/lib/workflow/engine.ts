@@ -76,8 +76,22 @@ export async function executeTransition(input: ExecuteInput): Promise<ExecResult
     const auditAction = t.auditAction || `WORKFLOW_${machine.entity}_${t.action}`
 
     const updated = await db.$transaction(async (tx) => {
-      const txTable = (tx as unknown as Record<string, { update: (a: { where: { id: string }; data: unknown }) => Promise<EntityRow> }>)[machine.prismaKey]
-      const next = await txTable.update({ where: { id: input.entityId }, data })
+      const txTable = (tx as unknown as Record<string, {
+        updateMany: (a: { where: { id: string; [k: string]: unknown }; data: unknown }) => Promise<{ count: number }>
+        findUnique: (a: { where: { id: string } }) => Promise<EntityRow | null>
+      }>)[machine.prismaKey]
+      // PHASE 18 · §79 claim-race fix: optimistic-concurrency write — the
+      // machine's SOURCE status is the version. Two concurrent CLAIMs both
+      // read WAITING_FOR_EXPERT_1 and both passed guards; the unconditional
+      // update let BOTH commit (double-assignment, spec §79 violation). Now
+      // only the first commit matches the source status; the loser affects
+      // 0 rows → 409 INVALID_TRANSITION and the whole transaction rolls back.
+      const raced = await txTable.updateMany({ where: { id: input.entityId, [statusKey]: currentStatus }, data })
+      if (raced.count === 0) {
+        throw new WorkflowError('INVALID_TRANSITION', 'وضعیت رکورد همین حالا تغییر کرد — عملیات هم‌زمان دیگری انجام شد | Concurrent transition already applied', 409)
+      }
+      const next = await txTable.findUnique({ where: { id: input.entityId } })
+      if (!next) throw new WorkflowError('NOT_FOUND', 'رکورد یافت نشد | Not found', 404)
 
       // event log: CASE keeps CaseEvent (timeline UI); every machine is audited
       if (machine.entity === 'CASE') {
@@ -116,7 +130,7 @@ export async function executeTransition(input: ExecuteInput): Promise<ExecResult
       await syncWorkflowStateTx(tx, machine, input.entityId, t.to)
 
       return next
-    })
+    }, { timeout: 15_000, maxWait: 5_000 }) // PHASE 18: default 5s expires under legitimate SQLite write contention
 
     /* 5 — post-commit notifications (failures logged, never fatal) */
     if (t.postCommit) {
@@ -231,8 +245,18 @@ export async function executeAdminRecovery(input: AdminRecoveryInput): Promise<E
     /* 5 — atomic recovery write */
     const now = new Date()
     const updated = await db.$transaction(async (tx) => {
-      const txTable = (tx as unknown as Record<string, { update: (a: { where: { id: string }; data: unknown }) => Promise<EntityRow> }>)[machine.prismaKey]
-      const next = await txTable.update({ where: { id: input.entityId }, data: { [statusKey]: input.targetStatus } })
+      const txTable = (tx as unknown as Record<string, {
+        updateMany: (a: { where: { id: string; [k: string]: unknown }; data: unknown }) => Promise<{ count: number }>
+        findUnique: (a: { where: { id: string } }) => Promise<EntityRow | null>
+      }>)[machine.prismaKey]
+      // PHASE 18 · §79: same optimistic guard on the admin recovery write —
+      // status may not have moved between the read above and this write.
+      const raced = await txTable.updateMany({ where: { id: input.entityId, [statusKey]: currentStatus }, data: { [statusKey]: input.targetStatus } })
+      if (raced.count === 0) {
+        throw new WorkflowError('INVALID_TRANSITION', 'وضعیت رکورد همین حالا تغییر کرد | Concurrent transition already applied', 409)
+      }
+      const next = await txTable.findUnique({ where: { id: input.entityId } })
+      if (!next) throw new WorkflowError('NOT_FOUND', 'رکورد یافت نشد | Not found', 404)
 
       if (machine.entity === 'CASE') {
         await (tx as unknown as { caseEvent: { create: (a: unknown) => Promise<unknown> } }).caseEvent.create({
@@ -256,7 +280,7 @@ export async function executeAdminRecovery(input: AdminRecoveryInput): Promise<E
 
       await syncWorkflowStateTx(tx, machine, input.entityId, input.targetStatus)
       return next
-    })
+    }, { timeout: 15_000, maxWait: 5_000 }) // PHASE 18: same contention headroom as executeTransition
 
     /* 6 — post-commit owner notice (failures logged, never fatal — ED-17) */
     try {

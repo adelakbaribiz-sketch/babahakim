@@ -78,7 +78,13 @@ export function apiRoute<P = Record<string, never>>(handler: Handler<P>) {
       } catch (e) {
         const err = toAppError(e)
         status = err.httpStatus
-        inc(METRIC_NAMES.apiErrors, { code: err.code })
+        // PHASE 18 (REG-06): the 5xx/4xx split the PHASE 15 fix documented was
+        // never wired — every 4xx incremented api_errors_total, so pentest/test
+        // traffic manufactured a fake error-rate and a false CRITICAL alert.
+        // Server faults (5xx) stay alert-grade; client faults (4xx) count into
+        // the reserved-but-unused api_rejected_total (visible, not alerting).
+        if (status >= 500) inc(METRIC_NAMES.apiErrors, { code: err.code })
+        else inc(METRIC_NAMES.apiRejected, { code: err.code })
         if (err.code === 'INTERNAL') {
           log.error('unhandled route error', { method: req.method, details: err.details })
         } else {

@@ -109,11 +109,17 @@ describe('PHASE 16 — identity cache (ED-183)', () => {
 })
 
 describe('PHASE 16 — dashboard batching equivalence (ED-184)', () => {
-  test('staff stats (groupBy) equal direct counts', async () => {
+  // PHASE 18 (test-quality fix): dash:staff:shared is a 15s TTL cache with NO
+  // invalidation path (by design — ED-184). The old assertion compared a
+  // possibly-stale CACHED block against fresh direct counts, which passed only
+  // while suites registered few users. With the PHASE 18 suites registering
+  // several patients per run, the stale-cache window broke the test through no
+  // fault of the batched queries. The equivalence now verifies the QUERY
+  // LOGIC: on mismatch, wait out the TTL so the cache rebuilds, then re-compare.
+  async function staffEquivalence(): Promise<{ ok: boolean; detail?: string; r?: ReturnType<typeof admin.getJson> extends Promise<infer R> ? R : never }> {
     const r = await admin.getJson('/api/v1/dashboard')
-    expect(r.status).toBe(200)
+    if (r.status !== 200) return { ok: false, detail: `dashboard ${r.status}` }
     const stats = r.data.stats as Record<string, number>
-
     const [totalCases, waiting1, waiting2, waitingDoc, paidOrders, totalPatients] = await Promise.all([
       db.medicalCase.count(),
       db.medicalCase.count({ where: { status: 'WAITING_FOR_EXPERT_1' } }),
@@ -122,17 +128,35 @@ describe('PHASE 16 — dashboard batching equivalence (ED-184)', () => {
       db.order.count({ where: { status: 'PAID' } }),
       db.user.count({ where: { role: 'PATIENT' } }),
     ])
-    expect(stats.totalCases).toBe(totalCases)
-    expect(stats.pendingExpert1).toBe(waiting1)
-    expect(stats.pendingExpert2).toBe(waiting2)
-    expect(stats.pendingDoctor).toBe(waitingDoc)
-    expect(stats.paidOrders).toBe(paidOrders)
-    expect(stats.totalPatients).toBe(totalPatients)
-    expect(stats.unreadSelf).toBeGreaterThanOrEqual(0)
+    const checks: [unknown, unknown, string][] = [
+      [stats.totalCases, totalCases, 'totalCases'],
+      [stats.pendingExpert1, waiting1, 'pendingExpert1'],
+      [stats.pendingExpert2, waiting2, 'pendingExpert2'],
+      [stats.pendingDoctor, waitingDoc, 'pendingDoctor'],
+      [stats.paidOrders, paidOrders, 'paidOrders'],
+      [stats.totalPatients, totalPatients, 'totalPatients'],
+    ]
+    for (const [got, want, name] of checks) {
+      if (got !== want) return { ok: false, detail: `${name}: api=${got} db=${want}`, r }
+    }
+    return { ok: true, r }
+  }
+
+  test('staff stats (groupBy) equal direct counts (cache-aware)', async () => {
+    let res = await staffEquivalence()
+    if (!res.ok) {
+      // a stale dash:staff:shared entry — let the 15s TTL expire and rebuild
+      await new Promise((resolve) => setTimeout(resolve, 16_000))
+      res = await staffEquivalence()
+    }
+    expect(res.ok).toBe(true)
+    if (!res.ok) throw new Error(res.detail)
     // shape contract: queue + recentEvents still present (ED-184 refactor)
-    expect(Array.isArray(r.data.queue)).toBe(true)
-    expect(Array.isArray(r.data.recentEvents)).toBe(true)
-  })
+    expect(Array.isArray((res.r?.data as { queue?: unknown }).queue)).toBe(true)
+    expect(Array.isArray((res.r?.data as { recentEvents?: unknown }).recentEvents)).toBe(true)
+    const stats = (res.r!.data as { stats: Record<string, number> }).stats
+    expect(stats.unreadSelf).toBeGreaterThanOrEqual(0)
+  }, 45_000)
 
   test('patient stats (batched groupBy) equal direct counts', async () => {
     const r = await patient.getJson('/api/v1/dashboard')
