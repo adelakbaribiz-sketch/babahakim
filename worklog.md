@@ -614,3 +614,18 @@ Stage Summary:
 - Verification: گیت ۱۱/۱۱ · ۵۹۳/۵۹۳ · lint/tsc صفر · CI محلی ۱۰/۱۰ · pentest 45/45 · smoke 15/15 · backup/restore ✓ · deploy/rollback ✓ · سفر بحرانی مرورگر FA+EN صفر خطا
 - ۳۰ معیار §103: ۲۷ کامل سبز · #27 Docker (B-02) · #28/#29 سبز محلی با caveat نهادی
 - Remaining (honest): اجرای CI نهادی روی GitHub + docker/trivy (B-02) · Decisions بیرونی B-01/B-03/B-04/B-05 سازمانی · staging با داده mask (D-19-4) · cron بکاپ روی هاست واقعی
+
+---
+Task ID: 22
+Agent: Main agent (Super Z)
+Task: File Delivery — تحویل کل پروژه به‌صورت ZIP (درخواست کاربر)
+
+Work Log:
+- پیش‌نیاز بحرانی: ردیابی و بازیابی محوشدگی چهارم src/app/api/v1/images/upload/route.ts (کلاس REG-02) پیش از بسته‌بندی — وگرنه ZIP ناقص تحویل می‌شد؛ درخت کار تمیز روی HEAD 78ebee9
+- وضعیت runtime: db/custom.db (848K) بدون sidecarهای WAL = snapshot بستهٔ سازگار · storage/ · backups/ · releases/ · dist/ وجود ندارند · dev server زنده اما فقط در .next و dev.log می‌نویسد (هر دو مستثنا)
+- محدودهٔ بستهٔ تحویل: تمام فایل‌های source (src · database · tests · scripts · prisma · deploy · examples · types · .github) + مستندات کامل docs/ + شواهد verify-* · download/ · upload/ (سند اصلی) + db/custom.db (داده seed) + .env (فقط DATABASE_URL — بدون secret واقعی) + .git کامل (تاریخچهٔ ۲۲ تسک) + bun.lock
+- استثناها (عمدی و مستند): node_modules (1.2G — بازیابی با «bun install») · .next (191M build cache — بازتولید با build) · skills/ · tool-results/ (زیرساخت داخلی عامل، متعلق به پروژهٔ BabaHakim نیست) · *.log
+
+Stage Summary:
+- خروجی: download/BabaHakim-full-2026-09-06-<short-hash>.zip + sha256 در گزارش تحویل
+- وضعیت پروژه در لحظهٔ تحویل: چرخهٔ فاز ۰۱–۲۰ بسته · 593/593 · حکم NOT READY (۶ بلاکر مستند در docs/PRODUCTION-READINESS.md — B-01..B-06)
