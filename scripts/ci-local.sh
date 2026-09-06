@@ -2,11 +2,17 @@
 # ═══════════════════════════════════════════════════════════════════════════
 # PHASE 19 · ci-local.sh — the FULL CI pipeline, locally (spec §76 mirror).
 # ═══════════════════════════════════════════════════════════════════════════
-# Stage order (spec §76 — any failure STOPS the pipeline):
-#   1 lint            5 security-scan      9 deploy (health-gated, auto-rollback)
-#   2 type-check      6 build             10 health-check
-#   3 unit-tests      7 artifact          11 rollback (drill)
-#   4 integration     8 docker-build (CI-only — needs a docker runtime)
+# Stage order (PHASE 20 fix — dependency-honest, mirrors .github/workflows/ci.yml;
+# spec §76 — any failure STOPS the pipeline):
+#   1 lint            5 build               9 deploy (health-gated, auto-rollback)
+#   2 type-check      6 integration         10 health-check
+#   3 unit-tests      7 artifact            11 rollback (drill)
+#   4 security-scan   8 docker-build (CI-only — needs a docker runtime)
+# PHASE 20 finding (F-CICD-02): integration boots .next/standalone/server.js,
+# so it REQUIRES the build stage to have run — the old order only worked
+# because a stale build happened to sit on disk (not repeatable from clean
+# state, violating the PHASE 19 iron law). Build now precedes integration,
+# exactly like the institutional workflow's integration job (build → qa-run).
 #
 # Usage:  bash scripts/ci-local.sh [stage …]   (no args = all runnable stages)
 # Exit:   first failing stage's code.
@@ -14,7 +20,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-STAGES="${*:-lint type-check unit-tests integration security-scan build artifact deploy health-check rollback-drill}"
+STAGES="${*:-lint type-check unit-tests security-scan build integration artifact deploy health-check rollback-drill}"
 FAILED=0
 
 stage() { # name, cmd…

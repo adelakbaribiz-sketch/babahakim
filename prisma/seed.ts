@@ -15,6 +15,22 @@ import { ROLES, ROLE_LABELS, ROLE_PERMISSIONS, PERMISSIONS } from '../src/lib/co
 async function main() {
   console.log('🌱 Seeding TongueAI platform...')
 
+  // ── PHASE 20 (PERF1 root-cause): WAL from birth, not just from boot ────────
+  // ED-182 tuning lives at app boot (src/lib/db.ts) — but a freshly db:push'ed
+  // database is born journal_mode=delete and only becomes WAL after the first
+  // app boot. The seed is the canonical rebuild step (db:push → db:seed), so
+  // asserting it here makes every rebuilt DB WAL-native: PERF1 becomes a
+  // property of the construction path, not of "did the app boot since rebuild".
+  // Guarded + idempotent — same contract as the boot seam (tuning never blocks).
+  try {
+    await db.$queryRaw`PRAGMA journal_mode=WAL`
+    await db.$queryRaw`PRAGMA synchronous=NORMAL`
+    await db.$queryRaw`PRAGMA busy_timeout=5000`
+    console.log('  ✓ SQLite WAL asserted (ED-182 — construction-time, not boot-time)')
+  } catch {
+    console.log('  · WAL assert skipped (non-SQLite/managed environment)')
+  }
+
   // ── Permissions & Roles ──
   for (const code of PERMISSIONS) {
     await db.permission.upsert({ where: { code }, update: {}, create: { code, nameFa: code, nameEn: code } })
@@ -225,6 +241,44 @@ async function main() {
     }
   }
   // Remove demo response if any leftover
+
+  // ── PHASE 20 (ED-157 root-cause): demo case chain for the seed patient ────
+  // The search/reporting suite asserts the seed patient owns ≥1 case ("TC-"
+  // code) to verify patient-side search scoping (own data only, never other
+  // patients'). That contract was written in the test's comment ("seed patient
+  // سارا has ≥1 case") but never implemented — the suite stayed green only on
+  // legacy DB residue, and broke the moment the DB was rebuilt from source
+  // (state/source separation, PHASE 19). Deterministic + idempotent chain:
+  //   questionnaireResponse → CLOSED demo case → timeline event.
+  // CLOSED status keeps expert queues and workflow tests untouched (queues
+  // filter WAITING_FOR_EXPERT_*; search only filters deletedAt + ownership).
+  await db.questionnaireResponse.upsert({
+    where: { id: 'qr-demo-sara' }, update: {},
+    create: {
+      id: 'qr-demo-sara', userId: created['09120000006'], questionnaireId: q.id,
+      answers: JSON.stringify([{ questionId: 'q1-1', optionId: 'q1-1-0', score: 3, dimension: 'HOT' }]),
+      scores: JSON.stringify({ HOT: 9, COLD: 4, WET: 6, DRY: 3 }),
+      mizajFa: 'گرم و تر', mizajEn: 'Warm & Moist', summary: 'پاسخ دموی seed',
+    },
+  })
+  await db.medicalCase.upsert({
+    where: { id: 'case-demo-sara' }, update: {},
+    create: {
+      id: 'case-demo-sara', code: 'TC-DEMO-000001', patientId: created['09120000006'],
+      status: 'CLOSED', priority: 'NORMAL',
+      description: 'پرونده نمونه seed — برای دمو و تست محدودهٔ جستجوی بیمار (ED-157)',
+      mizajSnapshot: JSON.stringify({ mizajFa: 'گرم و تر', mizajEn: 'Warm & Moist', scores: { HOT: 9, COLD: 4, WET: 6, DRY: 3 }, province: 'تهران', city: 'تهران' }),
+      closedAt: new Date('2026-08-20T10:00:00Z'),
+    },
+  })
+  await db.caseEvent.upsert({
+    where: { id: 'event-demo-sara-close' }, update: {},
+    create: {
+      id: 'event-demo-sara-close', caseId: 'case-demo-sara', actorId: created['09120000006'],
+      action: 'STATUS_CHANGE', fromStatus: 'NEW', toStatus: 'CLOSED',
+      comment: 'بستن پروندهٔ دموی seed (PHASE 20)',
+    },
+  })
 
   // ── Diseases ──
   const diseases = [
