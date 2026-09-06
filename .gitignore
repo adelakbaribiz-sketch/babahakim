@@ -81,3 +81,7 @@ prisma/dev.db
 # release directories + current symlink (server-side deploy artifacts)
 releases/
 current
+# media storage = runtime state (volumes own it; .dockerignore agrees)
+storage/
+backups/
+dist/

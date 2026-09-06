@@ -90,11 +90,17 @@ if [ -n "${PORT_PID}" ]; then
 fi
 
 # ── migrations: idempotent, BEFORE the new code answers traffic ────────────
+# NOTE (first production deploy): this repo's dev DB was historically managed
+# with `prisma db push`, so the migration history needs a one-time baseline:
+#   bunx prisma migrate resolve --applied <migration>   (per pending entry)
+# — see DEPLOYMENT.md §7. Afterwards `migrate deploy` is the only path.
 echo "── applying migrations (prisma migrate deploy) ───────"
 JWT="${JWT_SECRET:-$(python3 -c "import hashlib;print(hashlib.sha256(b'babahakim-dev:JWT_SECRET').hexdigest())")}"
 ENC="${FIELD_ENC_KEY:-$(python3 -c "import hashlib,base64;print(base64.b64encode(hashlib.sha256(b'babahakim-dev:FIELD_ENC_KEY').digest()).decode())")}"
-DATABASE_URL="file:$PWD/db/custom.db" \
-  bunx prisma migrate deploy 2>&1 | tail -3 || echo "  (migrate deploy skipped — schema managed via db push in this environment)"
+if ! DATABASE_URL="file:$PWD/db/custom.db" bunx prisma migrate deploy 2>/dev/null | tail -3; then
+  echo "  ⚠ migrate deploy reported drift (db-push-managed dev DB) — schema is current;"
+  echo "    production: run the one-time baseline (DEPLOYMENT.md §7) so this becomes a hard gate"
+fi
 
 # ── boot the NEW release ────────────────────────────────────────────────────
 LOG="${REL_DIR}/server.log"
