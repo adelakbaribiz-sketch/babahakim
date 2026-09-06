@@ -584,3 +584,20 @@
 | BR-QA-10 | بودجههای بار باید صادق باشند (zero 5xx، سقف p95 صریح، دقیقاً-یکبار) — بودجه گِیرِ عدمِ شکست ممنوع | تست | §79 / گیت QA6 |
 
 کاتالوگ ED-197..206 در `QA.md §9` و ADR-0022 ثبت شده است.
+
+## §14 — قوانین استقرار و عملیات فاز ۱۹ (BR-DEV)
+
+| قانون | شرح | دامنه | مرجع |
+|---|---|---|---|
+| BR-DEV-01 | هر متغیر محیطی که کد میخواند باید در .env.example مستند باشد؛ افزودن process.env جدید بدون سطر قالب = شکست گیت (پوشش مکانیکی) | محیط | ED-215 / گیت DEV1 |
+| BR-DEV-02 | Secretها هرگز در git نیستند؛ production بدون JWT_SECRET/FIELD_ENC_KEY معتبر بوت نمیشود (fail-fast) | امنیت | ED-59 / گیت DEV2 |
+| BR-DEV-03 | state اجرا (db/storage/releases/backups/dist) از git جدا است؛ استقرار فقط از درخت git-committed (preflight رد میکند) | فرایند | ED-210 / گیت DEV7 |
+| BR-DEV-04 | هر استقرار یک release تغییرناپذیر با manifest VERSION است؛ تنها گام mutate سوئیچ اتمیک current است (ln -sfn) — هیچ state نیمه-مهاجرت | استقرار | ED-207 / گیت DEV7 |
+| BR-DEV-05 | استقرار بدون عبور از دروازهٔ /readiness کامل نمیشود؛ شکست = auto-rollback به release قبلی (خودش گیت‌دار)؛ rollback ناموفق current را دستنخورده میگذارد | استقرار | ED-208 |
+| BR-DEV-06 | هر مرحلهٔ CI شکستخورده pipeline را میایستاند (needs-gating) — استقرار از مسیر قرمز عبور نمیکند | CI | spec §76 / گیت DEV6 |
+| BR-DEV-07 | image داکر فقط payload انتخابی runtime میگیرد (snapshot پروژهٔ Next-16 هرگز وارد release/image نمیشود — رشد بازگشتی ممنوع) | Docker | ED-209 |
+| BR-DEV-08 | بکاپ بدون صحت‌سنجی خودکار و مسیر restore آزمون‌شده، بکاپ نیست؛ restore هرگز زیر نویسندهٔ زنده | داده | ED-214 / گیت DEV8 |
+| BR-DEV-09 | مهاجرت DB فقط از مسیر idempotent (migrate deploy) در بوت/استقرار؛ baseline اولین production یکباره و مستند | داده | ED-213 |
+| BR-DEV-10 | نسخهٔ production همیشه pin است (BH_VERSION = git sha)؛ :latest در compose/image ممنوع | استقرار | گیت DEV4 |
+
+کاتالوگ ED-207..216 در `DEPLOYMENT.md §15` و ADR-0023 ثبت شده است.
