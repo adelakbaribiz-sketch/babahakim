@@ -118,6 +118,18 @@ console.log('QA3 — PHASE 18 critical fixes are committed and wired')
     if (!tracked.includes(f)) fail(`restored route committed: ${f}`, 'file exists on disk but is NOT tracked by git (the REG-01/REG-02 class)')
     else ok(`restored route committed: ${f}`)
   }
+  // REG-02 root-cause lock: a BARE ignore pattern (e.g. `test`) matches any
+  // path segment and silently swallows source dirs like /integrations/test/.
+  // Ignore patterns that can hit src/ must be anchored (/path) or extension-scoped.
+  const gi = read(join(root, '.gitignore'))
+  const bare = []
+  for (const line of gi.split('\n')) {
+    const l = line.trim()
+    if (!l || l.startsWith('#') || l.startsWith('!')) continue
+    if (!l.includes('/') && !l.includes('.') && ['test', 'tests', 'src', 'app', 'api', 'docs', 'scripts'].includes(l)) bare.push(l)
+  }
+  if (bare.length) fail('gitignore hygiene', `bare directory pattern(s) ${bare.join(', ')} can swallow source paths (REG-02 root cause) — anchor them (/dir)`)
+  else ok('gitignore: no bare directory patterns that can swallow source paths')
   const engine = read(join(root, 'src/lib/workflow/engine.ts'))
   if (/updateMany\(\{\s*where:\s*\{\s*id:\s*input\.entityId,\s*\[statusKey\]:\s*currentStatus/.test(engine) && engine.includes('raced.count === 0')) {
     ok('engine optimistic-concurrency on the machine source status (§79)')

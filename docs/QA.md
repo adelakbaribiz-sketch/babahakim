@@ -48,7 +48,7 @@
 | قفل | باگ تاریخی | تست |
 |---|---|---|
 | REG-01 | route آپلود تصویر از working-tree حذف شده بود (سفر بیمار مرده؛ 405-cascade) | inventory + upload زنده |
-| REG-02 | route `admin/integrations/test` در فاز ۱۳ فقط در لایهٔ سرویس/سند بود، route فایل هرگز commit نشد و بعداً کلاً مفقود شد | بازسازی route + قرارداد 400/403/audit |
+| REG-02 | route `admin/integrations/test` در فاز ۱۳ هرگز commit نشد و بعداً کلاً مفقود شد — **علت ریشه‌ای: الگوی bare در gitignore (`test`) پوشهٔ هر مسیری به نام test را میبلعد** و فایل را از index حذف میکرد (دقیقاً `/integrations/test/`) | رفع الگوی gitignore (`/test` مهارشده) + بازسازی route + قرارداد 400/403/audit + قفل hygiene در گیت QA3 |
 | REG-03 | کلاسِ بالای دو مورد: هر مسیر ارجاع‌شده باید handler داشته باشد | inventory کل پروژه در تست + گیت |
 | REG-04 | AlertEvent P2002 (فاز ۱۷): هشدار resolveشده هرگز دوباره fire نمی‌شد و کل tick fail می‌کرد | reopen-after-resolve |
 | REG-05 | business-today روی فیلد ناموجود paidAt (فاز ۱۵) | aggregate روی verifiedAt |
@@ -80,7 +80,7 @@
 2. **باگ منطقی walk()**: پارامتر filter بهجای acc پاس میشد (`acc.push is not a function`).
 3. **جهت اشتباه تطبیق مسیر**: regex از «مرجع» ساخته میشد و با actual تطبیق داده میشد؛ refs بدون placeholder هرگز match نمیشدند + دوبل-اسلش در actual (`[id]`→`/{P}` روی اسلش موجود) → refهای سالم false-positive. رفع: actual مرجع همیشگی است؛ تطبیق سه‌گانه (دقیق/پیشوند string-concat/الگوی dynamic) + نرمالسازی `${fragment` ناتمام.
 4. **افعال hygiene کاذب**: مقدار تست `HACKED_FIELD` (ورودی adversarial عمدی برای validateAiOutput) با regex بدون word-boundary بهعنوان «علامت HACK» گیر میافتاد → `\b(TODO|FIXME|HACK)\b`.
-5. **REG-02 واقعی بود**: route مفقود از git reconstruct شد (از قرارداد قفل‌شدهٔ تستها) و حالا inventory + خود تست پاس آن را نگه میدارد.
+5. **REG-02 واقعی بود و علت ریشه‌ای آن شکار شد**: الگوی bare `test` در .gitignore (به قصد نادیدهگرفتن خروجی تست) پوشهٔ `src/app/api/v1/admin/integrations/test/` را میبلعید — فایل روی دیسک بود اما هرگز در index نمیآمد؛ به همین دلیل «commit نشدنِ» فاز ۱۳ خودکار و خاموش بود. رفع: الگوی به `/test` مهار شد + قفل hygiene در گیت QA3 (الگوهای bare دایرکتوری که میتوانند مسیر source را ببلعند ممنوع) + بازسازی route از قرارداد قفل‌شدهٔ تستها.
 
 ## §8 گیت CI — QA1..QA10 (`scripts/qa-audit.mjs`)
 
