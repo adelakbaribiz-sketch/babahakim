@@ -86,6 +86,9 @@ storage/
 backups/
 dist/
 storage.pre-restore.*/
+# PHASE 20: DB pre-restore safety copies are runtime state too (2b7c117 —
+# one was accidentally committed by a phase-19 drill; class locked)
+db/*.pre-restore.*
 
 # PHASE 20 · audit-gate JSON reports are RUNTIME OUTPUT, not source
 # (backend/media/ui/frontend audit gates rewrite them on every run — a
