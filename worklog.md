@@ -534,3 +534,27 @@ Stage Summary:
 - سه باگ واقعی شکار و رفع شد — آشوب خودش شاهد ارزش فاز است (الگوی تکرارشونده از فاز ۱۵)
 - Verification: ۴۷۶/۴۷۶ bun test (۲۵+۱۰ جدید) · lint ۰ خطا · ۱۰/۱۰ گیت CI (backend/frontend/media/ai/integrations/reporting/observability/perf/**reliability**) · pentest 45/45 · smoke-phase17 ۱۸/۱۸ · مرورگر FA/EN: پنل DLQ زنده + replay واقعی از UI + worker زنده + صفر خطای console · اسکرین‌شات verify-p17-observatory-dlq-{fa,en}.png
 - Remaining (honest): D-17-1 مالتی‌اینستنس (Redis/BullMQ=ADR-0005) · D-17-2 gate فعال‌سازی دریل در استیج · D-17-3 replay مشروط به نوع · D-17-4 گسترش خودکار مسیرهای idempotency · D-17-5 فاز ۰۹ remediation باز
+
+---
+Task ID: 19
+Agent: Main agent (Super Z)
+Task: PHASE 18 — Complete Quality Assurance (ممیزی تست‌های موجود + ایجاد/تکمیل ۱۰ نوع تست برای Critical Path + کیفیت پوشش مهم‌تر از عدد + برای هر باگ یک Regression Test + هدف Critical Bug = ۰)
+
+Work Log:
+- تحلیل وضعیت: فاز ۱۵/۱۶/۱۷ در commits be036a1/e8830b5/d4b0cb6+80c572e بسته بودند؛ PHASE 18 نیمه‌کاره رها شده بود — qa-audit.mjs سه خطای syntax داشت (ternary خردشده در خط ۱۸۳، پرانتز اضافی در ۱۸۵، عبارات tautology در ۱۶۹/۲۰۷)، walk() پارامتر filter را به‌جای acc میگرفت (acc.push is not a function)، و route آپلود تصویر از working-tree حذف شده بود (بازگردانی از git)
+- رفع منطق QA2 (سخت‌ترین باگ): جهت تطبیق مسیر برعکس بود — regex از «مرجع» ساخته میشد و actual هیچوقت match نمیشد + دوبل‌اسلش در actual (`[id]`→`/{P}` روی اسلش موجود) + refهای سالم false-positive؛ رفع: actual مرجع همیشگی + تطبیق سه‌گانه (دقیق/پیشوند string-concat/الگوی dynamic {P}→[^/]+) + نرمالسازی `${fragment` ناتمام (از `${artifact!.id}`)
+- کشف REG-02 بهعنوان باگ واقعی + **شکار علت ریشه‌ای**: route `admin/integrations/test` نه در git بود نه روی دیسک؛ علت ریشه‌ای = الگوی bare `test` در .gitignore که پوشهٔ هر مسیری به نام test (شامل `src/app/api/v1/admin/integrations/test/`) را خاموش میبلعید — به همین دلیل فایل در فاز ۱۳ هرگز index نشد؛ رفع: الگوی به `/test` مهار شد + بازسازی route از قرارداد قفل‌شدهٔ تستها (zod enum → 400 VALIDATION قبل از provider، requireRole ADMIN → 403، integrationSmokeTest سرویس موجود فاز ۱۳) + قفل hygiene در گیت QA3 (الگوهای bare دایرکتوری ممنوع)
+- کشف عیب خطرناک Runner (qa-run.sh): سرور dev رهاشده از bootstrap محیط روی :3000 بود؛ runner فقط standalone را pkill میکرد → سرور QA با EADDRINUSE میمرد و کل suite خاموش علیه سرور dev (بدون BH_CHAOS) اجرا میشد → ۹ شکست کاذب (FS-1..FS-9 + authz chaos)؛ رفع: پاکسازی هر listener :3000 + گارد مالکیت پورت (pid مالک باید pid سرور QA باشد — «refusing a poisoned run») + کشف الگوی reap محیط (~۳۰-۴۰s بعد از پایان دستور؛ setsid هم نجات نمیدهد — D-17) → الگوی verification bundle تک-فرمانی (scripts/verify-p18.sh)
+- رفع شکنندگی تولیدپذیری: ۲۲۰+ سفارش suiteهای قبلی stock ۵ محصول اول seed را صفر کرده بود و `limit=5` در golden-path به دیوار میخورد → اسکن کل صفحهٔ کاتالوگ (limit=100 سقف SEARCH_BOUNDS) + همترازی limit=60→100
+- رفع hygiene کاذب: مقدار تست `HACKED_FIELD` (ورودی adversarial عمدی validateAiOutput) با regex بدون word-boundary گیر میافتاد → `\b(TODO|FIXME|HACK)\b`
+- قفل HTTP-level مستقل: smoke-phase18.sh (۱۵ چک: liveness، REG-01/02/03 با جفت CSRF ناشناس، per-IP rate limit 15/5min با Retry-After — کشف شد reset روی موفقیت per-account را صفر میکند و فقط IP-limiter میtrips، inventory suite روی دیسک، wiring گیت) + verify-p18.sh (سرور+پنتست+دود در یک درخت فرایند)
+- مستندات: QA.md (۱۲ بخش: ممیزی، کاتالوگ ۱۰نوع، نقشهٔ Critical Path، حافظهٔ REG-01..07، runner، سوئیتها، چرخهٔ Fix، گیت، ED-197..206، بدهیهای D-18-1..6، runbook، نتایج) · ADR-0022 + رجیستری · BUSINESS-RULES §13 BR-QA-01..10 · PRD §12 ردیف فاز ۱۸ · RTM یادداشت فاز ۱۸ · package.json audit:qa
+- چرخهٔ منشور: bun test ۵۹۳/۵۹۳ (۲ اجرای کامل متوالی روی سرور production standalone + BH_CHAOS=1) · lint ۰ خطا (۱۸ هشدار پیش‌موجود در ۲ فایل فاز ۱۷) · گیت ۱۰/۱۰ CI (backend/frontend/media/ai/integrations/reporting/observability/perf/reliability/**qa**) · pentest ۴۵/۴۵ · smoke-phase18 ۱۵/۱۵ · مرورگر FA (landing + console ادمین + صفر خطای console) + EN (dir=ltr/lang=en مصادق) · اسکرین‌شات verify-p18-landing-fa/admin-console-fa/landing-en.png · WAL checkpoint
+
+Stage Summary:
+- ۱۰ نوع تست فرمان به‌صورت کاتالوگ واقعی روی دیسک (Database/Load/Contract/Regression جدید) + نقشهٔ Critical Path صریح ۴مسیره (سفر طلایی/پول/RBAC/inventory) — پذیرش = نقشهٔ سبز نه عدد (کیفیت>عدد طبق فرمان)
+- حافظهٔ باگ REG-01..07 قفل شد؛ **علت ریشه‌ای REG-02 (gitignore bare pattern) شکار و کلاس-بسته شد** — خود فاز QA خودِ علت باگ فاز ۱۳ را پیدا کرد
+- عیب runner با علامت‌گذاری مالکیت پورت بسته شد (سرور مسموم = رد صریح run)
+- Verification: ۵۹۳/۵۹۳ دوبار · ۱۰/۱۰ گیت · pentest 45/45 · smoke 15/15 · browser fa/en صفر خطا · **Critical Bug = ۰ (هدف فرمان)**
+- Remaining (honest): D-18-1 پوشش خط-to-خط · D-18-2 contract از replay واقعی · D-18-3 load خارج-پردازش (k6) · D-18-4 mutation testing · D-18-5 فلک async-export زیر suite کامل (مشاهده‌شده یکبار، واتچ) · D-18-6 فاز ۰۹ remediation باز
+- Git: feat(phase-18) + fix gitignore + docs — سه commit
