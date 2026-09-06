@@ -71,3 +71,13 @@ database/.pgsrc/
 
 # PHASE 10: storage is runtime data (zones: inbox/files/quarantine/trash)
 /storage/
+
+# PHASE 19 · runtime state is NOT source (deploy.sh preflight demands a clean tree)
+# the seeded dev DB is rebuilt via: bun run db:push && bun run db:seed
+db/*.db
+db/*.db-shm
+db/*.db-wal
+prisma/dev.db
+# release directories + current symlink (server-side deploy artifacts)
+releases/
+current
