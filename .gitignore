@@ -85,3 +85,4 @@ current
 storage/
 backups/
 dist/
+storage.pre-restore.*/
