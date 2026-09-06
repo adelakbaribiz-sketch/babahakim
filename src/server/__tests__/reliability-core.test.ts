@@ -98,18 +98,19 @@ describe('fault injection core', () => {
 
   test('REFUSES to arm when chaos mode is off (production guard, REL1)', async () => {
     const saved = { BUN_TEST: process.env.BUN_TEST, NODE_ENV: process.env.NODE_ENV, BH_CHAOS: process.env.BH_CHAOS }
-    process.env.BUN_TEST = undefined
-    process.env.NODE_ENV = 'production'
-    process.env.BH_CHAOS = undefined
+    const set = (k: string, v: string | undefined) => { (process.env as Record<string, string | undefined>)[k] = v }
+    set('BUN_TEST', undefined)
+    set('NODE_ENV', 'production')
+    set('BH_CHAOS', undefined)
     try {
       let code = ''
       try { await activateFault(FAULT_STORAGE_DOWN) } catch (e) { code = (e as { code?: string })?.code ?? '' }
       expect(code).toBe('FORBIDDEN')
       expect(faultActive(FAULT_STORAGE_DOWN)).toBe(false)
     } finally {
-      process.env.BUN_TEST = saved.BUN_TEST
-      process.env.NODE_ENV = saved.NODE_ENV
-      process.env.BH_CHAOS = saved.BH_CHAOS
+      set('BUN_TEST', saved.BUN_TEST)
+      set('NODE_ENV', saved.NODE_ENV)
+      set('BH_CHAOS', saved.BH_CHAOS)
     }
   })
 })

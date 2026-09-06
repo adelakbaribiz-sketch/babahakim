@@ -21,4 +21,12 @@ export class ApiError extends Error {
   get supportRef(): string {
     return this.requestId ? `${this.message} (req:${this.requestId.slice(0, 8)})` : this.message
   }
+
+  /** Safely extract a display message from an unknown thrown value
+   *  (PHASE 19 type-check closure: toast call sites pass raw catch values). */
+  static message(e: unknown): string {
+    if (e instanceof ApiError) return e.message
+    if (e instanceof Error) return e.message
+    return String(e)
+  }
 }

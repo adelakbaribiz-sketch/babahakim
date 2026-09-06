@@ -171,7 +171,7 @@ export function AdminObservatoryPage() {
   const [resolving, setResolving] = useState<string | null>(null)
   const fa = lang === 'fa'
 
-  const n = (x: number | null | undefined) => (x == null ? '—' : fa ? toFaDigits(x) : String(x))
+  const n = (x: number | string | null | undefined) => (x == null ? '—' : fa ? toFaDigits(x) : String(x))
   const ms = (x: number | null | undefined) => (x == null ? '—' : `${fa ? toFaDigits(Math.round(x)) : Math.round(x)}ms`)
 
   async function searchLogs() {

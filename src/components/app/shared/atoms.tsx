@@ -62,13 +62,16 @@ export function StatCard({ title, value, icon, tone, sub }: { title: string; val
 }
 
 // ─── SectionCard (§21) ─────────────────────────────────────────────────────
-export function SectionCard({ title, children, action, className }: { title?: string; children: React.ReactNode; action?: React.ReactNode; className?: string }) {
+export function SectionCard({ title, desc, children, action, className }: { title?: string; desc?: string; children: React.ReactNode; action?: React.ReactNode; className?: string }) {
   return (
     <Card className={cn('shadow-card', className)}>
       {title && (
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-base">{title}</CardTitle>
+            <div className="min-w-0">
+              <CardTitle className="text-base">{title}</CardTitle>
+              {desc && <div className="text-xs text-muted-foreground leading-relaxed mt-1">{desc}</div>}
+            </div>
             {action}
           </div>
         </CardHeader>
@@ -128,17 +131,18 @@ export function LoadingSpinner({ label, className }: { label?: string; className
 }
 
 /** Error state (SP-5) — actionable retry. */
-export function ErrorState({ title, message, onRetry, retryLabel }: {
-  title?: string; message?: string; onRetry?: () => void; retryLabel?: string
+export function ErrorState({ title, message, error, onRetry, retryLabel }: {
+  title?: string; message?: string; error?: unknown; onRetry?: () => void; retryLabel?: string
 }) {
   const { t } = useApp()
+  const text = message ?? (error instanceof Error ? error.message : error != null ? String(error) : undefined)
   return (
     <div className="flex flex-col items-center justify-center text-center py-10 px-4 gap-2" data-state="error" role="alert">
       <div className="size-12 rounded-full bg-destructive/10 flex items-center justify-center text-destructive" aria-hidden>
         <AlertTriangle size={22} />
       </div>
       <div className="text-sm font-medium text-foreground">{title ?? t('errorTitle')}</div>
-      {message && <div className="text-xs text-muted-foreground max-w-sm leading-relaxed">{message}</div>}
+      {text && <div className="text-xs text-muted-foreground max-w-sm leading-relaxed">{text}</div>}
       {onRetry && <Button variant="outline" size="sm" className="mt-2" onClick={onRetry}>{retryLabel || t('retry')}</Button>}
     </div>
   )

@@ -40,7 +40,8 @@ function fakeResult(overrides: Partial<AIResult> = {}): AIResult {
     features: {
       redness: 0.7, pallor: 0.2, purpleIndex: 0.1, coatingWhite: 0.3,
       coatingYellow: 0.2, brightness: 140, textureRoughness: 0.4,
-      dominantHex: 'test-color-ref', // non-hex string: UI-audit E3 forbids raw hex literals outside token sources centerStats: { r: 160, g: 82, b: 82 },
+      dominantHex: 'test-color-ref', // non-hex string: UI-audit E3 forbids raw hex literals outside token sources
+      centerStats: { r: 160, g: 82, b: 82 },
     },
     processingMs: 42,
     disclaimerFa: 'این تحلیل پیشنهاد کمکی است', disclaimerEn: 'assistive suggestion only',

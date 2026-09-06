@@ -187,7 +187,7 @@ function mergePath(where: PrismaWhere, field: string, op: FilterOp, value: unkno
   const existing = (where[field] as PrismaWhere | undefined) ?? {}
   // eq overrides range leaves; range leaves merge with each other
   if (prismaOp === undefined) where[field] = value
-  else where[field] = { ...existing, ...leaf }
+  else where[field] = { ...existing, ...(leaf as PrismaWhere) }
 }
 
 // ── sort hardening (extends ED-100) ────────────────────────────────────────

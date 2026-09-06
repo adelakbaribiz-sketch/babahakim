@@ -1,0 +1,198 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# BabaHakim — CI/CD (PHASE 19 · spec §76 + §77)
+# Pipeline: lint → type-check → unit → integration → security → build →
+#           docker-artifact → deploy → health-check → (auto-)rollback
+# Spec §76 rule: ANY failing stage STOPS the deployment (needs: gating).
+# Local mirror of the same stages: scripts/ci-local.sh
+# ═══════════════════════════════════════════════════════════════════════════
+name: ci-cd
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      rollback:
+        description: 'rollback instead of deploy (previous release)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  BH_VERSION: ${{ github.sha }}
+
+jobs:
+  # ── 1-2 · static quality ──────────────────────────────────────────────────
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: lint
+        run: bun run lint
+      - name: type-check
+        run: bunx tsc --noEmit
+      - name: unit tests
+        run: bun test src/
+
+  # ── 3-4 · integration (production server + chaos, the qa-run contract) ──
+  integration:
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: build (standalone)
+        run: bun run build
+      - name: full QA suite (server + BH_CHAOS=1 + readiness settle)
+        run: bash scripts/qa-run.sh
+      - name: pentest (45 scenarios)
+        run: bash scripts/verify-p18.sh
+      - name: smoke (phase 18 locks)
+        run: bash scripts/smoke-phase18.sh
+
+  # ── 5 · security scan (spec §77: dependency + secret + SAST) ─────────────
+  security:
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # gitleaks needs history
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: secret detection (repo pattern scan — zero-dep engine)
+        run: bash scripts/secret-scan.sh
+      - name: secret detection (gitleaks — history-aware second engine)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: dependency vulnerability scan (OSV — bun.lock + lockfile v1)
+        uses: google/osv-scanner/action/osv-scanner@v1
+        with:
+          scan-args: |-
+            --lockfile=requirements.txt:/dev/null
+            -r .
+      - name: SAST (semgrep, typescript ruleset)
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/typescript
+            p/owasp-top-ten
+      - name: architecture gates (10 phase audits)
+        run: |
+          for g in backend frontend media ai integrations reporting observability perf reliability qa; do
+            npm run --silent audit:$g || exit 1
+          done
+
+  # ── 6-7 · build artifact + container scan + registry push (main only) ────
+  artifact:
+    runs-on: ubuntu-latest
+    needs: [integration, security]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: docker build (image = the artifact, tagged by git sha)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: babahakim/app:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: container scan (trivy — spec §77)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: babahakim/app:${{ github.sha }}
+          severity: CRITICAL,HIGH
+          exit-code: '1'          # CRITICAL/HIGH vulns STOP the pipeline
+          ignore-unfixed: true
+      - name: tar artifact + checksum (bare-metal deploy path)
+        run: |
+          docker save babahakim/app:${{ github.sha }} -o babahakim-${{ github.sha }}.tar
+          sha256sum babahakim-${{ github.sha }}.tar > babahakim-${{ github.sha }}.tar.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: babahakim-${{ github.sha }}
+          path: |
+            babahakim-${{ github.sha }}.tar
+            babahakim-${{ github.sha }}.tar.sha256
+          retention-days: 30
+      - name: push to registry (ghcr.io)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/app:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/app:release-${{ github.run_number }}
+          cache-from: type=gha
+
+  # ── 8-10 · deploy → health check → (auto-)rollback ───────────────────────
+  # Gated by the `production` environment (manual approval in repo settings).
+  deploy:
+    runs-on: ubuntu-latest
+    needs: artifact
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && inputs.rollback != true
+    environment:
+      name: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: deploy over SSH (release = git sha; migrations + health gate + auto-rollback)
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cd ${{ secrets.DEPLOY_PATH }}
+            git fetch --all
+            git checkout ${{ github.sha }}
+            # pre-deploy backup (spec §75 — restore point before migrations)
+            bash scripts/backup.sh
+            # deploy: build release → migrate → health gate → atomic switch;
+            # a failed health gate ROLLS BACK automatically (exit 1 stops the
+            # pipeline — spec §76)
+            bash scripts/deploy.sh --target local --wait-secs 120
+      - name: post-deploy health check (readiness from the runner)
+        run: |
+          for i in $(seq 1 30); do
+            R=$(curl -s --max-time 5 https://${{ secrets.DEPLOY_DOMAIN }}/readiness \
+                 | python3 -c 'import sys,json;print(json.load(sys.stdin).get("status",""))' 2>/dev/null || true)
+            [ "$R" = "ready" ] && echo "✓ production ready" && exit 0
+            sleep 5
+          done
+          echo "✗ production health check FAILED — triggering rollback"
+          exit 1
+
+  # manual/explicit rollback job (workflow_dispatch or after a failed deploy)
+  rollback:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.rollback == true
+    environment:
+      name: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: rollback to previous release (health-gated, atomic)
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+            bash scripts/rollback.sh

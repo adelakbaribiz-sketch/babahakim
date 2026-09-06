@@ -75,7 +75,7 @@ echo "── QA server ready (pid $SERVER_PID · BH_CHAOS=1 · :3000) ──"
 # NODE_ENV must NOT leak into the test process: production mode disables dev
 # OTP codes (devCode) and enables fail-fast secret checks — unit suites expect
 # test semantics. BH_CHAOS=1 still propagates (faults module test-runner gate).
-NODE_ENV=test bun test "$@"
+NODE_ENV=test bun test src tests "$@"
 RESULT=$?
 echo "── bun test exit code: $RESULT · server log: $LOG ──"
 exit $RESULT

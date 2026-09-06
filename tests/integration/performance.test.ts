@@ -206,7 +206,7 @@ describe('PHASE 16 — SQLite tuning + index inventory (ED-181/182)', () => {
 // ── helpers ────────────────────────────────────────────────────────────────
 async function userQueryCount(): Promise<number> {
   const res = await admin.getJson('/api/v1/admin/observability')
-  const counters = (res.data.metrics?.counters ?? {}) as Record<string, number>
+  const counters = ((res.data as { metrics?: { counters?: Record<string, number> } }).metrics?.counters ?? {}) as Record<string, number>
   let total = 0
   for (const [k, v] of Object.entries(counters)) {
     if (k.includes('db_queries_total') && k.includes('User')) total += v

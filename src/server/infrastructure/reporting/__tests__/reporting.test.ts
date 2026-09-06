@@ -35,7 +35,7 @@ describe('PHASE 14 · report registry (ED-154, permission-aware)', () => {
 
   test('every report permission exists in the 31-entry catalogue (gate SR9)', () => {
     for (const p of reportPermissionsUsed()) {
-      expect(PERMISSIONS).toContain(p)
+      expect(PERMISSIONS as readonly string[]).toContain(p)
     }
   })
 

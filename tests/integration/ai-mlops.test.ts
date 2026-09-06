@@ -60,7 +60,7 @@ beforeAll(async () => {
   const buf = await sharp(randomBytes(640 * 480 * 3), { raw: { width: 640, height: 480, channels: 3 } })
     .jpeg({ quality: 90 })
     .toBuffer()
-  tongueJpeg = new Blob([buf], { type: 'image/jpeg' })
+  tongueJpeg = new Blob([new Uint8Array(buf)], { type: 'image/jpeg' })
 })
 
 const seedUser = (n: number) => ({ phone: `0912000000${n}`, password: 'Pass1234' })
@@ -267,7 +267,7 @@ describe('PHASE 11 — AI/ML engineering feedback loop (integration)', () => {
   test('dataset freeze → immutable FROZEN version + new draft opened', async () => {
     const freeze = await admin.post('/api/v1/admin/ai/datasets', { action: 'freeze' })
     expect(freeze.res.status).toBe(200)
-    expect(Number(freeze.data.dataset.itemCount)).toBeGreaterThanOrEqual(1)
+    expect(Number((freeze.data as { dataset: { itemCount: number } }).dataset.itemCount)).toBeGreaterThanOrEqual(1)
 
     const { data } = await admin.get('/api/v1/admin/ai/datasets')
     const datasets = data.datasets as { status: string }[]

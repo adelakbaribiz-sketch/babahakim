@@ -41,9 +41,17 @@ for S in $STAGES; do
       stage "$S" bash -c '
         set -e
         SHA=$(git rev-parse --short HEAD)
-        mkdir -p dist
+        STAGE=dist/stage; rm -rf "$STAGE"; mkdir -p "$STAGE"
+        # SELECTIVE runtime payload (Next 16 snapshots the whole project into
+        # .next/standalone — ship only what server.js resolves)
+        cp .next/standalone/server.js .next/standalone/package.json .next/standalone/next.config.ts "$STAGE/" 2>/dev/null || true
+        cp -r .next/standalone/node_modules "$STAGE/node_modules"
+        cp -r .next/standalone/.next "$STAGE/.next"
+        cp -r public prisma "$STAGE/"
+        cp docker-entrypoint.sh "$STAGE/"
         TARBALL="dist/babahakim-${SHA}.tar.gz"
-        tar -czf "$TARBALL" -C . .next/standalone .next/static public prisma docker-entrypoint.sh
+        tar -czf "$TARBALL" -C "$STAGE" .
+        rm -rf "$STAGE"
         sha256sum "$TARBALL" > "${TARBALL}.sha256"
         echo "artifact: $TARBALL ($(du -h "$TARBALL" | cut -f1)) + sha256 checksum"
       ' ;;

@@ -156,7 +156,7 @@ export function AdminReportsPage() {
   } | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  useEffect(() => { api('/api/v1/admin/reports').then((d) => { setData(d); setLoadError(null) }).catch((e) => setLoadError((e as ApiError).supportRef)) }, [api])
+  useEffect(() => { api('/api/v1/admin/reports').then((d) => { setData(d as NonNullable<typeof data>); setLoadError(null) }).catch((e) => setLoadError((e as ApiError).supportRef)) }, [api])
   if (loadError) return <ErrorState message={loadError} onRetry={() => { setLoadError(null); window.location.reload() }} />
   if (!data) return <LoadingRows rows={6} />
 

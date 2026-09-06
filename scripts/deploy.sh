@@ -55,10 +55,17 @@ fi
 echo "── building release (bun run build → standalone) ──────"
 bun run build 2>&1 | tail -3
 
-mkdir -p "${REL_DIR}"
-# runtime payload: standalone server + static + public + prisma migrations
-cp -r .next/standalone "${REL_DIR}/app"
-cp -r .next/static "${REL_DIR}/app/.next/static"
+# runtime payload — SELECTIVE (Next 16 standalone snapshots the whole project
+# root into .next/standalone; copying it wholesale would bake releases/,
+# storage/, verify-pngs — even recursion — into every release). Only the
+# files server.js actually resolves at runtime are shipped.
+mkdir -p "${REL_DIR}/app/.next"
+for f in server.js package.json next.config.ts; do
+  [ -f ".next/standalone/$f" ] && cp ".next/standalone/$f" "${REL_DIR}/app/$f"
+done
+cp -r .next/standalone/node_modules "${REL_DIR}/app/node_modules"
+cp -r .next/standalone/.next "${REL_DIR}/app/.next"
+# static assets + public (build script already placed them under standalone)
 cp -r public "${REL_DIR}/app/public"
 cp -r prisma "${REL_DIR}/prisma"
 

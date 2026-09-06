@@ -63,7 +63,7 @@ beforeAll(async () => {
   const buf = await sharp(randomBytes(640 * 480 * 3), { raw: { width: 640, height: 480, channels: 3 } })
     .jpeg({ quality: 90 })
     .toBuffer()
-  tongueJpeg = new Blob([buf], { type: 'image/jpeg' })
+  tongueJpeg = new Blob([new Uint8Array(buf)], { type: 'image/jpeg' })
 })
 
 const seedUser = (n: number) => ({ phone: `0912000000${n}`, password: 'Pass1234' })

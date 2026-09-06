@@ -151,7 +151,7 @@ describe('LOAD-5 concurrent price updates → both land, history records both, f
     expect(codes.every((s) => s < 500)).toBe(true)
 
     const row = await db.product.findUnique({ where: { id: productId } })
-    expect([A, B]).toContain(row?.currentPrice) // deterministic: last committed write wins, no corruption
+    expect([A, B]).toContain(row?.currentPrice as number) // deterministic: last committed write wins, no corruption
 
     const history = await db.productPriceHistory.findMany({ where: { productId }, orderBy: { createdAt: 'asc' } })
     expect(history.length).toBeGreaterThanOrEqual(2) // creation + at least one change

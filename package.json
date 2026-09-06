@@ -8,7 +8,7 @@
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
     "audit:ui": "node scripts/ui-audit.mjs",
-    "test": "bun test",
+    "test": "bun test src tests",
     "test:workflow": "bun test src/lib/workflow",
     "db:push": "prisma db push --accept-data-loss",
     "db:generate": "prisma generate",
@@ -30,7 +30,11 @@
     "audit:perf": "node scripts/perf-audit.mjs",
     "audit:reliability": "node scripts/reliability-audit.mjs",
     "audit:qa": "node scripts/qa-audit.mjs",
-    "db:seed": "bun prisma/seed.ts"
+    "db:seed": "bun prisma/seed.ts",
+    "audit:devops": "node scripts/devops-audit.mjs",
+    "ci:local": "bash scripts/ci-local.sh",
+    "secret-scan": "bash scripts/secret-scan.sh",
+    "backup": "bash scripts/backup.sh"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

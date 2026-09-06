@@ -366,7 +366,7 @@ export function DsStates() {
         </div>
         <div className="grid sm:grid-cols-2 gap-3 mt-3">
           <LoadingCard lines={2} />
-          <CardLike><EmptyState text /></CardLike>
+          <CardLike><EmptyState text="موردی نیست / Nothing yet" /></CardLike>
         </div>
       </SectionCard>
     </div>

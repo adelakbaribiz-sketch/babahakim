@@ -109,9 +109,9 @@ describe('PHASE 14 — search, reporting & analytics (API integration)', () => {
     const from = new Date(Date.now() - 395 * 86_400_000).toISOString().slice(0, 10) // ≤ 400d window (max allowed)
     const { status, data } = await admin.getJson(`/api/v1/reports/financial.revenue-summary?from=${from}&groupBy=month`)
     expect(status).toBe(200)
-    const r = data.report as { meta: Record<string, unknown>; rows: unknown[]; columns: unknown[]; summary: unknown[] }
+    const r = data.report as { meta: Record<string, unknown> & { from?: string }; rows: unknown[]; columns: unknown[]; summary: unknown[] }
     expect(r.meta.reportId).toBe('financial.revenue-summary')
-    expect(r.meta.from.slice(0, 10)).toBe(from)
+    expect(String(r.meta.from ?? '').slice(0, 10)).toBe(from)
     expect(Array.isArray(r.rows)).toBe(true)
     expect(r.columns.length).toBeGreaterThan(2)
     expect((r.meta as { ms?: number }).ms).toBeLessThan(5000) // bounded = fast

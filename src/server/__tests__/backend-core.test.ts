@@ -300,7 +300,7 @@ describe('questionnaire policies', () => {
 
 describe('case + payment policies', () => {
   test('assertCaseImageUsable: ownership, type, quality', () => {
-    const own = (o: Partial<Parameters<typeof assertCaseImageUsable>[0]>) => ({ ownerId: 'u1', type: 'TONGUE', status: 'VALIDATED', ...o }) as Parameters<typeof assertCaseImageUsable>[0]
+    const own = (o: Partial<Parameters<typeof assertCaseImageUsable>[0]> = {}) => ({ ownerId: 'u1', type: 'TONGUE', status: 'VALIDATED', ...o }) as Parameters<typeof assertCaseImageUsable>[0]
     expect(() => assertCaseImageUsable(null, 'u1')).toThrow(BusinessRuleError)
     expect(() => assertCaseImageUsable(own({ ownerId: 'u2' }), 'u1')).toThrow(BusinessRuleError)
     expect(() => assertCaseImageUsable(own({ type: 'SKIN' }), 'u1')).toThrow(ValidationError)

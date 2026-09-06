@@ -70,7 +70,6 @@ export function AdminUsersPage() {
                 </Select>
                 {roleConfirm && (
                   <ConfirmDialog
-                    open
                     trigger={<span />}
                     title={t('roleChangeConfirm')}
                     description={`${roleConfirm.name} → ${lang === 'fa' ? ROLE_LABELS[roleConfirm.next as keyof typeof ROLE_LABELS]?.fa : roleConfirm.next}. ${t('roleChangeHint')}`}
@@ -127,6 +126,7 @@ export function AdminDiseasesPage() {
   const diseases = data?.diseases || []
 
   async function save() {
+    if (!edit) return
     try {
       if (edit.id) await api('/api/v1/admin/diseases', { method: 'PATCH', json: edit })
       else await api('/api/v1/admin/diseases', { method: 'POST', json: edit })

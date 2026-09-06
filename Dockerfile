@@ -48,9 +48,14 @@ COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=build /app/node_modules/.bin ./node_modules/.bin
 COPY prisma ./prisma
 
-# standalone server (its own traced node_modules tree) + static assets
-COPY --from=build --chown=1001:1001 /app/.next/standalone ./.next/standalone
-COPY --from=build --chown=1001:1001 /app/.next/static ./.next/standalone/.next/static
+# standalone runtime — SELECTIVE (Next 16 snapshots the whole project into
+# .next/standalone; shipping it would bake the repo into the image). Only
+# what server.js resolves: entry, config, traced node_modules, build output.
+COPY --from=build --chown=1001:1001 /app/.next/standalone/server.js ./.next/standalone/server.js
+COPY --from=build --chown=1001:1001 /app/.next/standalone/package.json ./.next/standalone/package.json
+COPY --from=build --chown=1001:1001 /app/.next/standalone/next.config.ts ./.next/standalone/next.config.ts
+COPY --from=build --chown=1001:1001 /app/.next/standalone/node_modules ./.next/standalone/node_modules
+COPY --from=build --chown=1001:1001 /app/.next/standalone/.next ./.next/standalone/.next
 COPY --from=build --chown=1001:1001 /app/public ./.next/standalone/public
 
 COPY --chown=1001:1001 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh

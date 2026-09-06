@@ -187,7 +187,7 @@ export function pairsFromDatasetItems(items: {
       // uncorrected ones are noise and are skipped (never paired vs the JSON blob)
       const byIndicator = new Map(corrections.map((c) => [c.indicator, c.value]))
       for (const p of preds) {
-        const corrected = byIndicator.get(p.indicator)
+        const corrected = byIndicator.get(p.indicator ?? '')
         if (corrected == null) continue
         pairs.push({
           predicted: `${p.indicator}:${String(p.value)}`,

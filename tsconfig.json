@@ -31,6 +31,7 @@
   },
   "include": [
     "next-env.d.ts",
+    "types/**/*.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
@@ -40,6 +41,17 @@
     "node_modules",
     "src/lib/workflow/__tests__",
     "examples",
-    "skills"
+    "skills",
+    "releases",
+    "current",
+    "dist",
+    "backups",
+    "storage",
+    "storage.pre-restore.*",
+    "db",
+    "download",
+    "upload",
+    "agent-ctx",
+    "tool-results"
   ]
 }

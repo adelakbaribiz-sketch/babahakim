@@ -80,7 +80,7 @@ describe('PHASE 15 — observability (API integration)', () => {
   test('GET /readiness → 200 ready|degraded with boolean checks only', async () => {
     const { status, data } = await anon.getJson('/readiness')
     expect([200, 503]).toContain(status)
-    expect(['ready', 'degraded', 'not_ready']).toContain(data.status)
+    expect(['ready', 'degraded', 'not_ready']).toContain(String(data.status))
     const checks = data.checks as Record<string, boolean>
     expect(typeof checks.db).toBe('boolean')
     expect(typeof checks.queue).toBe('boolean')
@@ -93,7 +93,7 @@ describe('PHASE 15 — observability (API integration)', () => {
   test('GET /health → 200 ok with combined status', async () => {
     const { status, data } = await anon.getJson('/health')
     expect([200, 503]).toContain(status)
-    expect(['ok', 'degraded', 'down']).toContain(data.status)
+    expect(['ok', 'degraded', 'down']).toContain(String(data.status))
   })
 
   // ── correlation propagation (ED-164/165) ──────────────────────────────
@@ -144,8 +144,9 @@ describe('PHASE 15 — observability (API integration)', () => {
     const dbCounters = Object.keys(metrics.counters).filter((k) => k.startsWith('db_queries_total'))
     expect(dbCounters.length).toBeGreaterThan(0)
     expect(data.health).toBeTruthy()
-    expect(data.system).toBeTruthy()
-    expect(data.system.cpu).toBeTruthy()
+    const sys = data.system as { cpu: unknown }
+    expect(sys).toBeTruthy()
+    expect(sys.cpu).toBeTruthy()
     expect(Array.isArray(data.series)).toBe(true)
     expect(Array.isArray(data.alerts)).toBe(true)
     expect((data.queue as { workerAlive: boolean }).workerAlive).toBe(true)

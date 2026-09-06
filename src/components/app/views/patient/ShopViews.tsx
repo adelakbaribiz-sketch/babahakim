@@ -109,7 +109,7 @@ export function CartPage() {
   const [busy, setBusy] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  const load = useCallback(() => { api('/api/v1/cart').then(setData).catch((e) => setLoadError((e as ApiError).supportRef)) }, [api])
+  const load = useCallback(() => { api('/api/v1/cart').then((d) => setData(d as NonNullable<typeof data>)).catch((e) => setLoadError((e as ApiError).supportRef)) }, [api])
   useEffect(load, [load])
 
   if (loadError) return <ErrorState message={loadError} onRetry={() => { setLoadError(null); load() }} />

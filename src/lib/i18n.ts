@@ -130,7 +130,6 @@ const D: Dict = {
   confirm: ['تأیید', 'Confirm'],
   reject: ['رد', 'Reject'],
   submit: ['ثبت', 'Submit'],
-  search: ['جستجو…', 'Search…'],
   all: ['همه', 'All'],
   details: ['جزئیات', 'Details'],
   back: ['بازگشت', 'Back'],

@@ -44,7 +44,10 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     "no-useless-escape": "off",
   },
 }, {
-  ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills"]
+  // PHASE 19: runtime state (release dirs, backups, dist, storage copies)
+  // must NEVER enter the linter's tree — a single release is 289MB of
+  // standalone node_modules and lint stops finishing.
+  ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills", "releases/**", "dist/**", "backups/**", "storage/**", "storage.pre-restore.*/**", "db/**", "download/**", "upload/**", "agent-ctx/**", "tool-results/**", ".env*"]
 }];
 
 export default eslintConfig;

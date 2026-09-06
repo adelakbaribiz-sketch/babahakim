@@ -31,7 +31,7 @@ describe('CONTRACT-1 transport metadata on every response (success + error)', ()
     expect((res.headers.get('content-type') || '').includes('application/json')).toBe(true)
   })
 
-  const errorProbes: [string, number, () => Promise<ReturnType<Client['get']>>][] = [
+  const errorProbes: [string, number, () => Promise<{ res: Response; data: Record<string, unknown>; text: string }>][] = [
     ['401 (anon → protected)', 401, () => anon.get('/api/v1/cases')],
     ['400 (bad phone → zod)', 400, () => anon.post('/api/v1/auth/login', { phone: '12345', password: 'x' })],
     ['409 (duplicate phone register → CONFLICT)', 409, () => anon.post('/api/v1/auth/register', { phone: '09120000001', password: 'Pass1234', firstName: 'دوباره', lastName: 'تست', acceptTerms: true })],
@@ -110,7 +110,7 @@ describe('CONTRACT-3 method discipline', () => {
 
 // ═════════ ED-100 · pagination contract across list endpoints ══════════════
 describe('CONTRACT-4 pagination meta on list endpoints', () => {
-  const listProbes: [string, () => Promise<ReturnType<Client['get']>>][] = [
+  const listProbes: [string, () => Promise<{ res: Response; data: Record<string, unknown>; text: string }>][] = [
     ['products', () => anon.get('/api/v1/products?limit=4')],
     ['cases', () => patient.get('/api/v1/cases?limit=4')],
     ['notifications', () => patient.get('/api/v1/notifications?limit=4')],

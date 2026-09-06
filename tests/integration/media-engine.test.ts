@@ -82,7 +82,7 @@ let smallJpeg: Blob, otherJpeg: Blob, bigJpeg: Blob, eicarPng: Blob
 beforeAll(async () => {
   const sharp = (await import('sharp')).default
   const mk = async (w: number, h: number, q = 90) =>
-    new Blob([await sharp(randomBytes(w * h * 3), { raw: { width: w, height: h, channels: 3 } }).jpeg({ quality: q }).toBuffer()], { type: 'image/jpeg' })
+    new Blob([new Uint8Array(await sharp(randomBytes(w * h * 3), { raw: { width: w, height: h, channels: 3 } }).jpeg({ quality: q }).toBuffer())], { type: 'image/jpeg' })
   smallJpeg = await mk(640, 480)
   otherJpeg = await mk(560, 420)
   bigJpeg = await mk(1600, 1200, 100)

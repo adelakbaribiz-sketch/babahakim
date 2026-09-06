@@ -47,8 +47,8 @@ export const profileFormSchema = z.object({
   lastName: requiredText(100, 'نام خانوادگی'),
   email: z.union([z.literal(''), z.string().email('ایمیل معتبر نیست')]).optional(),
   gender: z.enum(['', 'MALE', 'FEMALE']).optional(),
-  heightCm: z.coerce.number({ invalid_type_error: 'قد باید عدد باشد' }).int('قد باید عدد صحیح باشد').min(50, 'قد بین ۵۰ تا ۲۵۰ سانتی‌متر').max(250, 'قد بین ۵۰ تا ۲۵۰ سانتی‌متر').optional(),
-  weightKg: z.coerce.number({ invalid_type_error: 'وزن باید عدد باشد' }).min(2, 'وزن بین ۲ تا ۳۰۰ کیلوگرم').max(300, 'وزن بین ۲ تا ۳۰۰ کیلوگرم').optional(),
+  heightCm: z.coerce.number({ error: 'قد باید عدد باشد' }).int('قد باید عدد صحیح باشد').min(50, 'قد بین ۵۰ تا ۲۵۰ سانتی‌متر').max(250, 'قد بین ۵۰ تا ۲۵۰ سانتی‌متر').optional(),
+  weightKg: z.coerce.number({ error: 'وزن باید عدد باشد' }).min(2, 'وزن بین ۲ تا ۳۰۰ کیلوگرم').max(300, 'وزن بین ۲ تا ۳۰۰ کیلوگرم').optional(),
   emergencyPhone: z.union([z.literal(''), phone]).optional(),
   postalCode: z.union([z.literal(''), z.string().regex(/^\d{10}$/, 'کد پستی باید ۱۰ رقم باشد')]).optional(),
 })
@@ -57,8 +57,8 @@ export const profileFormSchema = z.object({
 export const productFormSchema = z.object({
   sku: requiredText(40, 'SKU'),
   nameFa: requiredText(200, 'نام فارسی'),
-  currentPrice: z.coerce.number({ invalid_type_error: 'قیمت باید عدد باشد' }).int().min(0, 'قیمت نمی‌تواند منفی باشد'),
-  stock: z.coerce.number({ invalid_type_error: 'موجودی باید عدد باشد' }).int().min(0, 'موجودی نمی‌تواند منفی باشد'),
+  currentPrice: z.coerce.number({ error: 'قیمت باید عدد باشد' }).int().min(0, 'قیمت نمی‌تواند منفی باشد'),
+  stock: z.coerce.number({ error: 'موجودی باید عدد باشد' }).int().min(0, 'موجودی نمی‌تواند منفی باشد'),
 })
 
 // ── admin disease (mirror diseaseUpsertSchema) ────────────────────────────
