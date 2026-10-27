@@ -72,10 +72,31 @@ services:
     build:
       context: .
       target: runner
-    command: ["bun", "/app/node_modules/prisma/build/index.js", "migrate", "deploy", "--schema", "/app/prisma/schema.prisma"]
+    command: ["bun", "/app/scripts/db-migrate-safe.mjs"]
     env_file:
       - .env.production
     environment:
+      DATABASE_URL: file:/data/bh.db
+      BH_APP_ROOT: /app
+    volumes:
+      - bh-data:/data
+    restart: "no"
+
+  # one-shot FIRST-RUN bootstrap: reference data (roles, mizaj questionnaire,
+  # AI registry) + the first administrator from BH_ADMIN_PHONE/BH_ADMIN_PASSWORD
+  # in .env.production. Never creates demo accounts. Idempotent.
+  #   docker compose -f docker-compose.prod.yml --env-file .env.production --profile tools run --rm bootstrap
+  bootstrap:
+    profiles: ["tools"]
+    build:
+      context: .
+      target: build
+    command: ["bun", "prisma/seed.ts"]
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      SEED_MODE: production
       DATABASE_URL: file:/data/bh.db
     volumes:
       - bh-data:/data

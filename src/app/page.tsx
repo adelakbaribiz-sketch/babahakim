@@ -32,6 +32,7 @@ const AdminPricesPage = dynamic(() => import('@/components/app/views/admin/Admin
 const ReportsCenter = dynamic(() => import('@/components/app/views/admin/ReportsCenter').then((m) => m.ReportsCenter), { ssr: false, loading: () => <LoadingRows rows={5} /> })
 const AdminAuditPage = dynamic(() => import('@/components/app/views/admin/AdminViews2').then((m) => m.AdminAuditPage), { ssr: false, loading: () => <LoadingRows rows={5} /> })
 const AdminQuestionnairePage = dynamic(() => import('@/components/app/views/admin/AdminViews2').then((m) => m.AdminQuestionnairePage), { ssr: false, loading: () => <LoadingRows rows={5} /> })
+const AdminVocabularyPage = dynamic(() => import('@/components/app/views/admin/AdminVocabulary').then((m) => m.AdminVocabularyPage), { ssr: false, loading: () => <LoadingRows rows={5} /> })
 const AdminAIModelsPage = dynamic(() => import('@/components/app/views/admin/AdminViews2').then((m) => m.AdminAIModelsPage), { ssr: false, loading: () => <LoadingRows rows={5} /> })
 const AdminSMSPage = dynamic(() => import('@/components/app/views/admin/AdminViews2').then((m) => m.AdminSMSPage), { ssr: false, loading: () => <LoadingRows rows={5} /> })
 const AdminIntegrationsPage = dynamic(() => import('@/components/app/views/admin/AdminViews3').then((m) => m.AdminIntegrationsPage), { ssr: false, loading: () => <LoadingRows rows={5} /> })
@@ -85,6 +86,7 @@ function Router() {
   else if (page === 'reports') content = <ReportsCenter />
   else if (page === 'auditLogs') content = <AdminAuditPage />
   else if (page === 'questionnaireEditor') content = <AdminQuestionnairePage />
+  else if (page === 'vocabulary') content = <AdminVocabularyPage />
   else if (page === 'aiModels') content = <AdminAIModelsPage />
   else if (page === 'smsLog') content = <AdminSMSPage />
   else if (page === 'integrations') content = <AdminIntegrationsPage />

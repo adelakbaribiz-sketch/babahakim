@@ -8,6 +8,7 @@ import { subscribe, Events } from '@/server/infrastructure/events'
 import { registerJob, setDeadLetterHook, scheduleRecurring, enqueue, runJobRecovery, refreshMirrorFromDb } from '@/server/infrastructure/jobs'
 import { logger, setLogSink, setTraceProvider } from '@/server/core/logger'
 import { bindNotificationChannels } from '@/lib/notify'
+import { invalidateDashboards } from '@/lib/workflow/engine'
 import { sms, email, emailChannelEnabled } from '@/server/integrations'
 import { currentTrace } from '@/server/core/trace'
 import { markBootstrapped } from '@/server/infrastructure/observability/health'
@@ -376,6 +377,11 @@ if (!g[BOOTSTRAP_KEY]) {
   }
   for (const evt of [Events.PaymentVerified, Events.OrderPaid, Events.OrderCreated, Events.PriceChanged, Events.ProductCatalogChanged, Events.CaseCreated, Events.CaseTransitioned, Events.UserRegistered]) {
     subscribe(evt, clearReports)
+  }
+  // dashboard read models: non-workflow writes that change queue/counter
+  // content (workflow transitions invalidate inside the engine itself)
+  for (const evt of [Events.CaseCreated, Events.TicketCreated, Events.TicketReplied, Events.OrderCreated, Events.PaymentVerified]) {
+    subscribe(evt, () => invalidateDashboards())
   }
 
   logger.info('backend bootstrap complete', { subscribers: 24, jobs: 13 })

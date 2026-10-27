@@ -5,6 +5,7 @@
 // integration console authz + smoke test + call log, and idempotent
 // double-callbacks (BR-INT-03).
 import { describe, test, expect, beforeAll } from 'bun:test'
+import { nid } from '../helpers/national-id'
 
 const BASE = 'http://localhost:3000'
 
@@ -69,8 +70,8 @@ describe('PHASE 13 — external integration architecture (API integration)', () 
     const login = await admin.post('/api/v1/auth/login', seedUser(1))
     expect(login.res.status).toBe(200)
     // two fresh patient accounts (unique phones → no shared rate-limit bucket)
-    await patient.post('/api/v1/auth/register', { phone: uid(), password: 'Pass1234', firstName: 'یکتا', lastName: 'تست' })
-    await nonAdmin.post('/api/v1/auth/register', { phone: uid(), password: 'Pass1234', firstName: 'ناظر', lastName: 'تست' })
+    await patient.post('/api/v1/auth/register', { nationalId: nid(), phone: uid(), password: 'Pass1234', firstName: 'یکتا', lastName: 'تست' })
+    await nonAdmin.post('/api/v1/auth/register', { nationalId: nid(), phone: uid(), password: 'Pass1234', firstName: 'ناظر', lastName: 'تست' })
   })
 
   // ── 1. payment start/callback through the PaymentProvider adapter ──────
@@ -118,7 +119,7 @@ describe('PHASE 13 — external integration architecture (API integration)', () 
     const p = new Client()
     await p.get('/api/v1/products')
     const phone = uid()
-    await p.post('/api/v1/auth/register', { phone, password: 'Pass1234', firstName: 'پیامک', lastName: 'تست' })
+    await p.post('/api/v1/auth/register', { nationalId: nid(), phone, password: 'Pass1234', firstName: 'پیامک', lastName: 'تست' })
 
     const { data: sms } = await admin.get('/api/v1/admin/sms-log')
     const rows = (sms.logs as { recipient: string; provider: string; status: string; deliveryStatus: string | null }[])

@@ -27,6 +27,7 @@ const D: Dict = {
   reports: ['گزارش‌ها', 'Reports'],
   auditLogs: ['لاگ امنیتی', 'Audit Logs'],
   questionnaireEditor: ['ویرایش پرسشنامه', 'Questionnaire'],
+  vocabulary: ['واژه‌نامه نسخه', 'Rx vocabulary'],
   aiModels: ['مدل‌های AI', 'AI Models'],
   smsLog: ['پیامک‌ها', 'SMS Log'],
   integrations: ['Integrations', 'Integrations'],

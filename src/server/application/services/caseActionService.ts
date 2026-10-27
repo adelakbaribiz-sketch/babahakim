@@ -13,7 +13,7 @@ import { writeAudit, toAuditReq } from '@/server/infrastructure/audit'
 import { withTransaction } from '@/server/infrastructure/uow'
 import { publish, Events } from '@/server/infrastructure/events'
 import {
-  assessmentSchema, prescriptionSubmitSchema, expert2ReviewSchema, doctorDecisionSchema,
+  assessmentSchema, prescriptionSubmitSchema, expert2ReviewSchema, expert2ReturnSchema, doctorDecisionSchema,
   proformaSchema, shippingSchema,
 } from '@/server/application/dto'
 import { SHOP_SHIPPING_COST } from '@/server/domain/policies'
@@ -105,7 +105,7 @@ export async function applyCaseAction(
             productId: it.productId || null, drugName: it.drugName,
             dosage: it.dosage || null, frequency: it.frequency || null, duration: it.duration || null,
             instructionsFa: it.instructions || null, warnings: it.warnings || null,
-            quantity: 1,
+            quantity: it.quantity ?? 1,
           })) },
         },
         include: { items: true },
@@ -127,12 +127,45 @@ export async function applyCaseAction(
     // ── Expert 2: availability & pricing ───────────────────────────────────
     case 'EXPERT2_REVIEW': {
       const input = expert2ReviewSchema.parse(rawBody)
-      const p = await db.prescription.findFirst({ where: { caseId }, orderBy: { version: 'desc' } })
+      let p = await db.prescription.findFirst({ where: { caseId }, orderBy: { version: 'desc' }, include: { items: true } })
       if (!p) throw new BusinessRuleError('نسخه‌ای برای بازبینی وجود ندارد')
-      await withTransaction(async (tx) => {
+      if (input.revisedItems) {
+        // Expert 2 edited the content: write version N+1 as an immutable
+        // snapshot, supersede the reviewed version (history stays intact)
+        const reviewed = p
+        const next = await db.prescription.create({
+          data: {
+            caseId, version: reviewed.version + 1, status: 'PENDING_EXPERT_2', createdById: auth.user.id,
+            expert1Notes: reviewed.expert1Notes,
+            items: { create: input.revisedItems.map((it) => ({
+              productId: it.productId || null, drugName: it.drugName,
+              dosage: it.dosage || null, frequency: it.frequency || null, duration: it.duration || null,
+              instructionsFa: it.instructions || null, warnings: it.warnings || null,
+              quantity: it.quantity ?? 1, unitPrice: it.unitPrice ?? null,
+            })) },
+          },
+          include: { items: true },
+        })
+        await engineThrowing({
+          machine: 'PRESCRIPTION', entityId: reviewed.id, action: 'SUPERSEDE', actor,
+          payload: { reason: `ویرایش کارشناس دوم: ${input.changeReason}` }, req,
+        })
+        await writeAudit(ctx, {
+          userId: auth.user.id, action: 'EDIT_PRESCRIPTION', entity: 'Prescription', entityId: next.id,
+          oldValues: { version: reviewed.version, items: reviewed.items.map((i) => ({ drugName: i.drugName, dosage: i.dosage, frequency: i.frequency, duration: i.duration, quantity: i.quantity })) },
+          newValues: { version: next.version, reason: input.changeReason, items: next.items.map((i) => ({ drugName: i.drugName, dosage: i.dosage, frequency: i.frequency, duration: i.duration, quantity: i.quantity })) },
+        })
+        rawBody.comment = `کارشناس دوم نسخه را ویرایش کرد (نسخه ${next.version}) — ${input.changeReason}`
+        p = next
+      }
+      // availability/price rows target the reviewed version's item ids — they
+      // do not apply to a freshly written revision (prices travel in revisedItems)
+      const reviewedId = p.id
+      if (!input.revisedItems) await withTransaction(async (tx) => {
         for (const it of input.items) {
-          await tx.prescriptionItem.update({
-            where: { id: it.id },
+          // scoped to THIS prescription: an item id from another case is ignored
+          await tx.prescriptionItem.updateMany({
+            where: { id: it.id, prescriptionId: reviewedId },
             data: {
               available: it.available !== false, missing: it.missing === true,
               unitPrice: it.unitPrice != null ? it.unitPrice : undefined,
@@ -144,6 +177,21 @@ export async function applyCaseAction(
         machine: 'PRESCRIPTION', entityId: p.id, action: 'EXPERT2_REVIEW', actor,
         payload: { notes: input.notes }, req,
       })
+      rawBody.prescriptionId = p.id
+      break
+    }
+
+    // ── Expert 2: return to Expert 1 for correction (real queue state) ─────
+    case 'EXPERT2_RETURN': {
+      const input = expert2ReturnSchema.parse(rawBody)
+      const p = await db.prescription.findFirst({ where: { caseId }, orderBy: { version: 'desc' } })
+      if (!p) throw new BusinessRuleError('نسخه‌ای برای برگشت وجود ندارد')
+      await engineThrowing({
+        machine: 'PRESCRIPTION', entityId: p.id, action: 'EXPERT2_RETURN', actor,
+        payload: { reason: input.reason, notes: input.notes }, req,
+      })
+      rawBody.reason = input.reason
+      rawBody.comment = `برگشت به کارشناس اول — ${input.reason}`
       rawBody.prescriptionId = p.id
       break
     }
@@ -175,7 +223,9 @@ export async function applyCaseAction(
           }))
         }
       }
-      if (action === 'DOCTOR_REJECT') rawBody.closingNote = input.comment || 'رد توسط پزشک'
+      // rejection reason rides on the CaseEvent; the case is NOT closed (it
+      // returns to REVISION_REQUESTED in Expert 1's queue — see CASE machine)
+      if (action === 'DOCTOR_REJECT') rawBody.reason = input.comment
       if (input.followUpDays) {
         await db.medicalCase.update({ where: { id: caseId }, data: { followUpDays: input.followUpDays } })
       }

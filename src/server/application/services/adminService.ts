@@ -16,7 +16,9 @@ import { listMeta } from '@/server/api/envelope'
 import type { ListQuery } from '@/server/api/query'
 import type { RequestContext } from '@/server/core/context'
 import type { z } from 'zod'
-import type { adminUserPatchSchema, productSchema, deletionRequestPatchSchema } from '@/server/application/dto'
+import type { adminUserPatchSchema, adminNationalIdSchema, productSchema, deletionRequestPatchSchema } from '@/server/application/dto'
+import { nationalIdHash, encryptNationalId, decryptNationalId, maskNationalId } from '@/lib/security/national-id'
+import { displayAge } from '@/lib/national-id-format'
 import { acceptUpload, MediaValidationError, sanitizeFileName } from '@/server/infrastructure/media/pipeline'
 
 // ════════════════════════════ USERS ════════════════════════════════════════
@@ -50,6 +52,9 @@ export async function listAdminUsers(query: ListQuery, role: string) {
       id: u.id, firstName: u.firstName, lastName: u.lastName, phone: u.phone, email: u.email, role: u.role,
       isActive: u.isActive, referralCode: u.referralCode, createdAt: u.createdAt, lastLoginAt: u.lastLoginAt,
       profileComplete: u.profileComplete, profile: u.profile,
+      // masked only — the full value needs the audited reveal endpoint
+      nationalIdMasked: maskNationalId(decryptNationalId(u.nationalIdEnc)),
+      age: displayAge(u), birthDate: u.birthDate,
       referredBy: u.referralsReceived[0]?.referrer || null,
       caseCount: 0,
     })),
@@ -70,6 +75,43 @@ export async function patchAdminUser(
   invalidateUserIdentity(user.id) // ED-183: role/isActive changes must land on the next request
   await writeAudit(ctx, { userId: auth.user.id, action: 'EDIT_USER', entity: 'User', entityId: user.id, oldValues: { role: user.role, isActive: user.isActive }, newValues: data })
   return { ok: true }
+}
+
+// ════════════════════════════ NATIONAL ID (admin-only) ═════════════════════
+
+/** Reveal a full national ID — ADMIN only, every reveal is audited. */
+export async function revealNationalId(auth: AuthContext, ctx: RequestContext, userId: string) {
+  const user = await db.user.findUnique({ where: { id: userId }, select: { id: true, nationalIdEnc: true } })
+  if (!user) throw new NotFoundError('کاربر یافت نشد')
+  await writeAudit(ctx, { userId: auth.user.id, action: 'VIEW_PATIENT_NATIONAL_ID', entity: 'User', entityId: user.id })
+  return { nationalId: decryptNationalId(user.nationalIdEnc) }
+}
+
+/** Change (or first-set) a national ID. Duplicate-checked against the blind
+ *  index; audit keeps masked old/new + the encrypted old value + reason. */
+export async function changeNationalId(
+  auth: AuthContext, ctx: RequestContext, input: z.infer<typeof adminNationalIdSchema>,
+) {
+  const user = await db.user.findUnique({ where: { id: input.userId } })
+  if (!user || user.deletedAt) throw new NotFoundError('کاربر یافت نشد')
+  const hash = nationalIdHash(input.nationalId)
+  if (user.nationalIdHash === hash) throw new ValidationError('کد ملی جدید با کد فعلی یکسان است')
+  const taken = await db.user.findUnique({ where: { nationalIdHash: hash }, select: { id: true } })
+  if (taken) throw new ConflictError('این کد ملی برای حساب دیگری ثبت شده است')
+  const oldPlain = decryptNationalId(user.nationalIdEnc)
+  try {
+    await db.user.update({ where: { id: user.id }, data: { nationalIdHash: hash, nationalIdEnc: encryptNationalId(input.nationalId) } })
+  } catch (e) {
+    if ((e as { code?: string }).code === 'P2002') throw new ConflictError('این کد ملی برای حساب دیگری ثبت شده است')
+    throw e
+  }
+  await writeAudit(ctx, {
+    userId: auth.user.id, action: 'CHANGE_NATIONAL_ID', entity: 'User', entityId: user.id,
+    oldValues: { nationalId: maskNationalId(oldPlain), enc: user.nationalIdEnc },
+    newValues: { nationalId: maskNationalId(input.nationalId), reason: input.reason },
+  })
+  invalidateUserIdentity(user.id)
+  return { ok: true, nationalIdMasked: maskNationalId(input.nationalId) }
 }
 
 // ════════════════════════════ DISEASES ═════════════════════════════════════
@@ -378,9 +420,15 @@ export async function getReports() {
 
 export async function putQuestionnaire(
   auth: AuthContext, ctx: RequestContext,
-  questions: Array<{ textFa: string; textEn?: string; helpFa?: string; options: Array<{ textFa: string; textEn?: string; score: number; dimension: string }> }>,
+  questions: Array<{
+    textFa: string; textEn?: string; helpFa?: string
+    required?: boolean; weight?: number; category?: string | null; active?: boolean
+    options: Array<{ textFa: string; textEn?: string; score: number; dimension: string }>
+  }>,
 ) {
-  if (!Array.isArray(questions) || questions.length < 3) throw new ValidationError('پرسشنامه باید حداقل ۳ سؤال داشته باشد')
+  // every save writes a NEW version (old responses keep pointing at theirs);
+  // array order = display order; omitting a question = logical removal
+  if (!Array.isArray(questions) || questions.length < 1) throw new ValidationError('پرسشنامه باید حداقل ۱ سؤال داشته باشد')
 
   const last = await db.questionnaire.findFirst({ orderBy: { version: 'desc' } })
   const version = (last?.version || 0) + 1
@@ -393,7 +441,10 @@ export async function putQuestionnaire(
       const qq = questions[i]
       if (!qq.textFa || !qq.options?.length) continue
       const created = await tx.question.create({
-        data: { questionnaireId: q.id, order: i + 1, textFa: qq.textFa, textEn: qq.textEn || qq.textFa, helpFa: qq.helpFa || null },
+        data: {
+          questionnaireId: q.id, order: i + 1, textFa: qq.textFa, textEn: qq.textEn || qq.textFa, helpFa: qq.helpFa || null,
+          required: qq.required === true, weight: qq.weight ?? 1, category: qq.category || null, active: qq.active !== false,
+        },
       })
       for (let oi = 0; oi < qq.options.length; oi++) {
         const opt = qq.options[oi]

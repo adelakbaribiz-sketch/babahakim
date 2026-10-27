@@ -23,6 +23,13 @@ export {
   reachableFrom, terminalStatuses,
 } from './pure'
 
+/** Drop every cached dashboard read model (dash:* keys). */
+export function invalidateDashboards(): void {
+  const map = (globalThis as unknown as { __bhCacheMap?: Map<string, unknown> }).__bhCacheMap
+  if (!map) return
+  for (const k of [...map.keys()]) if (k.startsWith('dash:')) map.delete(k)
+}
+
 /* ── Execution layer (transactional) ─────────────────────────────────── */
 
 export interface ExecuteInput {
@@ -144,6 +151,12 @@ export async function executeTransition(input: ExecuteInput): Promise<ExecResult
         }))
       }
     }
+
+    // read models must not outlive the write: dashboards (queues, recent
+    // events, counters) were served from a 15s cache after every transition,
+    // so a just-moved case still showed its old status. Same globalThis map
+    // the server cache uses (lib stays free of @/server imports — ED-137b).
+    invalidateDashboards()
 
     return {
       ok: true,

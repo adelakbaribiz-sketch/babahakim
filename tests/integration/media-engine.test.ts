@@ -6,6 +6,7 @@
 // limits (413/415) → soft delete + lifecycle purge → PUBLIC product images.
 import { describe, test, expect, beforeAll } from 'bun:test'
 import { randomBytes } from 'node:crypto'
+import { nid } from '../helpers/national-id'
 
 const BASE = 'http://localhost:3000'
 
@@ -69,7 +70,7 @@ async function register(): Promise<Client> {
     await c.get('/api/v1/products') // CSRF cookie
     const phone = `0919${String(Date.now()).slice(-6)}${Math.floor(Math.random() * 90 + 10)}`.slice(0, 11)
     const { res } = await c.post('/api/v1/auth/register', {
-      phone, password: 'Pass1234', firstName: 'مدیا', lastName: 'تست', gender: 'FEMALE', birthYear: 1995,
+      nationalId: nid(), phone, password: 'Pass1234', firstName: 'مدیا', lastName: 'تست', gender: 'FEMALE', birthYear: 1995,
     })
     if (res.status === 200) return c
     // 409 = phone collision (parallel registers) → retry with fresh entropy

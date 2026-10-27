@@ -131,6 +131,12 @@ jobs:
             babahakim-${{ github.sha }}.tar
             babahakim-${{ github.sha }}.tar.sha256
           retention-days: 30
+      - name: log in to ghcr.io (GITHUB_TOKEN, packages:write)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: push to registry (ghcr.io)
         uses: docker/build-push-action@v6
         with:
@@ -146,7 +152,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: artifact
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && inputs.rollback != true
+    # deploys only once a server is configured: repo variable DEPLOY_ENABLED=true + DEPLOY_* secrets
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && inputs.rollback != true && vars.DEPLOY_ENABLED == 'true'
     environment:
       name: production
     steps:
@@ -182,7 +189,7 @@ jobs:
   # manual/explicit rollback job (workflow_dispatch or after a failed deploy)
   rollback:
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && inputs.rollback == true
+    if: github.event_name == 'workflow_dispatch' && inputs.rollback == true && vars.DEPLOY_ENABLED == 'true'
     environment:
       name: production
     steps:

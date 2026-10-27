@@ -309,65 +309,101 @@ export function AdminAuditPage() {
 }
 
 // ── Questionnaire editor (versioned) ────────────────────────────────────
+// 2026-10: per-question required / weight / category + reorder; new questions
+// start with the five default options (editable, never fixed in code).
+// Saving always writes a NEW version — historical answers keep their snapshot.
+type QOpt = { textFa: string; textEn: string; score: number; dimension: string }
+type QDraft = { textFa: string; textEn: string; required: boolean; weight: number; category: string; options: QOpt[] }
+const DEFAULT_OPTIONS: QOpt[] = [
+  { textFa: 'خیلی کم', textEn: 'Very low', score: 0, dimension: 'HOT' },
+  { textFa: 'کم', textEn: 'Low', score: 1, dimension: 'HOT' },
+  { textFa: 'متوسط', textEn: 'Medium', score: 2, dimension: 'HOT' },
+  { textFa: 'زیاد', textEn: 'High', score: 3, dimension: 'HOT' },
+  { textFa: 'خیلی زیاد', textEn: 'Very high', score: 4, dimension: 'HOT' },
+]
+const newQuestion = (): QDraft => ({ textFa: '', textEn: '', required: false, weight: 1, category: '', options: DEFAULT_OPTIONS.map((o) => ({ ...o })) })
+
 export function AdminQuestionnairePage() {
   const { t, lang, api } = useApp()
-  const [questions, setQuestions] = useState<{ textFa: string; textEn: string; options: { textFa: string; textEn: string; score: number; dimension: string }[] }[]>([{ textFa: '', textEn: '', options: [{ textFa: '', textEn: '', score: 2, dimension: 'HOT' }] }])
+  const [questions, setQuestions] = useState<QDraft[]>([newQuestion()])
   const [busy, setBusy] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
-    api<{ questionnaire: { questions: { textFa: string; textEn: string; options: { textFa: string; textEn: string; score: number; dimension: string }[] }[] } | null }>('/api/v1/questionnaires/active').then((d) => {
+    api<{ questionnaire: { questions: { textFa: string; textEn: string; required?: boolean; weight?: number; category?: string | null; options: QOpt[] }[] } | null }>('/api/v1/questionnaires/active').then((d) => {
       if (d.questionnaire && d.questionnaire.questions.length > 0) {
-        setQuestions(d.questionnaire.questions.map((q) => ({ textFa: q.textFa, textEn: q.textEn, options: q.options.map((o) => ({ textFa: o.textFa, textEn: o.textEn, score: o.score, dimension: o.dimension })) })))
+        setQuestions(d.questionnaire.questions.map((q) => ({
+          textFa: q.textFa, textEn: q.textEn, required: !!q.required, weight: q.weight ?? 1, category: q.category || '',
+          options: q.options.map((o) => ({ textFa: o.textFa, textEn: o.textEn, score: o.score, dimension: o.dimension })),
+        })))
       }
     }).catch((e) => setLoadError((e as ApiError).supportRef))
   }, [api])
 
+  const invalid = questions.length < 1 || questions.some((q) => !q.textFa.trim() || q.options.length < 2 || q.options.length > 10 || q.options.some((o) => !o.textFa.trim()))
+
   async function save() {
     setBusy(true)
     try {
-      await api('/api/v1/admin/questionnaire', { method: 'PUT', json: { questions } })
+      await api('/api/v1/admin/questionnaire', { method: 'PUT', json: { questions: questions.map((q) => ({ ...q, category: q.category || null })) } })
       toast.success('نسخه جدید ایجاد شد ✓')
     } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) }
   }
 
-  const setQ = (i: number, k: 'textFa' | 'textEn', v: string) => setQuestions(questions.map((q, idx) => idx === i ? { ...q, [k]: v } : q))
-  const setO = (i: number, j: number, k: 'textFa' | 'textEn' | 'score' | 'dimension', v: string | number) =>
-    setQuestions(questions.map((q, idx) => idx === i ? { ...q, options: q.options.map((o, oidx) => oidx === j ? { ...o, [k]: v } as typeof o : o) } : q))
+  const patchQ = (i: number, p: Partial<QDraft>) => setQuestions(questions.map((q, idx) => idx === i ? { ...q, ...p } : q))
+  const setO = (i: number, j: number, k: keyof QOpt, v: string | number) =>
+    setQuestions(questions.map((q, idx) => idx === i ? { ...q, options: q.options.map((o, oidx) => oidx === j ? { ...o, [k]: v } as QOpt : o) } : q))
+  const move = (i: number, d: -1 | 1) => {
+    const j = i + d
+    if (j < 0 || j >= questions.length) return
+    const next = [...questions]; [next[i], next[j]] = [next[j], next[i]]; setQuestions(next)
+  }
 
   return (
     <div className="space-y-4 max-w-3xl">
       <div className="flex items-center gap-3">
         <h1 className="page-title"><FileText size={22} />{t('questionnaireEditor')}</h1>
-        <Button className="ms-auto" disabled={busy || questions.length < 3} onClick={save}>{lang === 'fa' ? 'ایجاد نسخه جدید' : 'Create new version'}</Button>
+        <Button className="ms-auto" disabled={busy || invalid} onClick={save}>{lang === 'fa' ? 'ایجاد نسخه جدید' : 'Create new version'}</Button>
       </div>
-      <p className="text-xs text-muted-foreground leading-relaxed">{lang === 'fa' ? 'ذخیره، نسخه جدیدی از پرسشنامه ایجاد می‌کند و نسخه قبلی غیرفعال می‌شود — تاریخچه نتایج کاربران همیشه حفظ می‌شود.' : 'Saving creates a new questionnaire version and deactivates the old one — user result history is always preserved.'}</p>
+      {loadError && <ErrorState message={loadError} />}
+      <p className="text-xs text-muted-foreground leading-relaxed">{lang === 'fa' ? 'ذخیره، نسخه جدیدی از پرسشنامه ایجاد می‌کند و نسخه قبلی غیرفعال می‌شود — نتایج قبلی بیماران با امتیاز زمان پاسخ‌گویی حفظ می‌شوند. حذف سؤال در نسخه جدید، حذف منطقی است.' : 'Saving creates a new version and deactivates the old one — past results keep the scores in force when answered. Removing a question only affects the new version.'}</p>
       {questions.map((q, i) => (
         <Card key={i}>
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center gap-2">
               <Badge variant="secondary">{i + 1}</Badge>
-              <Input value={q.textFa} onChange={(e) => setQ(i, 'textFa', e.target.value)} placeholder="متن سؤال (فارسی)" className="flex-1" />
-              <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setQuestions(questions.filter((_, x) => x !== i))}>×</Button>
+              <Input value={q.textFa} onChange={(e) => patchQ(i, { textFa: e.target.value })} placeholder="متن سؤال (فارسی)" className="flex-1" aria-label="متن سؤال" />
+              <Button variant="ghost" size="sm" disabled={i === 0} onClick={() => move(i, -1)} aria-label={lang === 'fa' ? 'بالا' : 'Up'}>↑</Button>
+              <Button variant="ghost" size="sm" disabled={i === questions.length - 1} onClick={() => move(i, 1)} aria-label={lang === 'fa' ? 'پایین' : 'Down'}>↓</Button>
+              <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setQuestions(questions.filter((_, x) => x !== i))} aria-label={lang === 'fa' ? 'حذف سؤال' : 'Remove question'}>×</Button>
             </div>
-            <Input value={q.textEn} onChange={(e) => setQ(i, 'textEn', e.target.value)} placeholder="Question text (English)" dir="ltr" className="text-xs" />
+            <Input value={q.textEn} onChange={(e) => patchQ(i, { textEn: e.target.value })} placeholder="Question text (English)" dir="ltr" className="text-xs" />
+            <div className="flex gap-3 flex-wrap items-center text-xs">
+              <label className="flex items-center gap-1.5"><input type="checkbox" checked={q.required} onChange={(e) => patchQ(i, { required: e.target.checked })} className="size-4 accent-primary" />{lang === 'fa' ? 'اجباری' : 'Required'}</label>
+              <label className="flex items-center gap-1.5">{lang === 'fa' ? 'وزن' : 'Weight'}
+                <Input type="number" step="0.1" min={0} max={10} value={q.weight} onChange={(e) => patchQ(i, { weight: Math.max(0, Math.min(10, Number(e.target.value) || 0)) })} className="w-20 h-8 text-xs" dir="ltr" />
+              </label>
+              <label className="flex items-center gap-1.5">{lang === 'fa' ? 'دسته' : 'Category'}
+                <Input value={q.category} onChange={(e) => patchQ(i, { category: e.target.value })} className="w-40 h-8 text-xs" />
+              </label>
+            </div>
             <div className="space-y-2 ps-4 border-s-2 border-border">
               {q.options.map((o, j) => (
                 <div key={j} className="flex gap-2 items-center flex-wrap">
-                  <Input value={o.textFa} onChange={(e) => setO(i, j, 'textFa', e.target.value)} placeholder="گزینه" className="flex-1 min-w-32 h-8 text-xs" />
-                  <Input type="number" value={o.score} onChange={(e) => setO(i, j, 'score', Number(e.target.value))} className="w-16 h-8 text-xs" dir="ltr" />
-                  <select value={o.dimension} onChange={(e) => setO(i, j, 'dimension', e.target.value)} className="h-8 text-xs rounded-md border bg-background px-2">
+                  <Input value={o.textFa} onChange={(e) => setO(i, j, 'textFa', e.target.value)} placeholder="گزینه" className="flex-1 min-w-32 h-8 text-xs" aria-label="متن گزینه" />
+                  <Input type="number" value={o.score} onChange={(e) => setO(i, j, 'score', Number(e.target.value))} className="w-16 h-8 text-xs" dir="ltr" aria-label={lang === 'fa' ? 'امتیاز' : 'Score'} />
+                  <select value={o.dimension} onChange={(e) => setO(i, j, 'dimension', e.target.value)} className="h-8 text-xs rounded-md border bg-background px-2" aria-label={lang === 'fa' ? 'بُعد' : 'Dimension'}>
                     {['HOT', 'COLD', 'WET', 'DRY'].map((d) => <option key={d} value={d}>{({ HOT: 'گرما', COLD: 'برودت', WET: 'رطوبت', DRY: 'خشکی' } as Record<string, string>)[d]}</option>)}
                   </select>
-                  <Button variant="ghost" size="sm" className="text-destructive h-7" onClick={() => setQuestions(questions.map((qq, idx) => idx === i ? { ...qq, options: qq.options.filter((_, x) => x !== j) } : qq))}>×</Button>
+                  <Button variant="ghost" size="sm" className="text-destructive h-7" disabled={q.options.length <= 2} onClick={() => patchQ(i, { options: q.options.filter((_, x) => x !== j) })}>×</Button>
                 </div>
               ))}
-              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setQuestions(questions.map((qq, idx) => idx === i ? { ...qq, options: [...qq.options, { textFa: '', textEn: '', score: 2, dimension: 'HOT' }] } : qq))}>+ گزینه</Button>
+              <Button variant="outline" size="sm" className="h-7 text-xs" disabled={q.options.length >= 10} onClick={() => patchQ(i, { options: [...q.options, { textFa: '', textEn: '', score: 2, dimension: 'HOT' }] })}>+ گزینه</Button>
             </div>
           </CardContent>
         </Card>
       ))}
-      <Button variant="outline" onClick={() => setQuestions([...questions, { textFa: '', textEn: '', options: [{ textFa: '', textEn: '', score: 2, dimension: 'HOT' }] }])}>+ سؤال</Button>
+      <Button variant="outline" onClick={() => setQuestions([...questions, newQuestion()])}>+ سؤال</Button>
     </div>
   )
 }

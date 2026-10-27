@@ -5,12 +5,12 @@ import { parseListQuery } from '@/server/api/query'
 import { caseCreateSchema, caseListFilterSchema } from '@/server/application/dto'
 import { listCases, createCase } from '@/server/application/services/caseService'
 
-// GET /api/v1/cases?page=&limit=&sort=&order=&status=&q= — role-scoped queue/list
+// GET /api/v1/cases?page=&limit=&sort=&order=&status=&q=&queue=&range=&from=&to=&year=&expertId=&priority=&archived=1
 export const GET = apiRoute(async (req) => {
   const auth = await requireAuth()
   const query = parseListQuery(req.url, { defaultLimit: 50, sortable: ['createdAt', 'updatedAt', 'priority'] })
-  const { status } = caseListFilterSchema.parse(Object.fromEntries(query.raw.entries()))
-  return listCases(auth, query, status)
+  const filters = caseListFilterSchema.parse(Object.fromEntries(query.raw.entries()))
+  return listCases(auth, query, filters)
 })
 
 // POST /api/v1/cases — patient creates case {description, imageId, priority}

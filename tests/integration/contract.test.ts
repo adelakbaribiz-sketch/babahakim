@@ -9,7 +9,7 @@
 // nothing about our internals), which is what "contract" means: a frontend
 // built against v1 today must keep working tomorrow.
 import { describe, test, expect, beforeAll } from 'bun:test'
-import { Client, freshPatient, staff } from '../helpers/client'
+import { Client, freshPatient, staff, nid, uid } from '../helpers/client'
 
 let patient: Client
 let anon: Client
@@ -34,7 +34,13 @@ describe('CONTRACT-1 transport metadata on every response (success + error)', ()
   const errorProbes: [string, number, () => Promise<{ res: Response; data: Record<string, unknown>; text: string }>][] = [
     ['401 (anon → protected)', 401, () => anon.get('/api/v1/cases')],
     ['400 (bad phone → zod)', 400, () => anon.post('/api/v1/auth/login', { phone: '12345', password: 'x' })],
-    ['409 (duplicate phone register → CONFLICT)', 409, () => anon.post('/api/v1/auth/register', { phone: '09120000001', password: 'Pass1234', firstName: 'دوباره', lastName: 'تست', acceptTerms: true })],
+    // 2026-10: mobiles may be shared by a family — the duplicate is the NATIONAL ID
+    ['409 (duplicate national ID register → CONFLICT)', 409, async () => {
+      const id = nid(); const c = new Client(); await c.get('/api/v1/products')
+      await c.post('/api/v1/auth/register', { nationalId: id, phone: uid(), password: 'Pass1234', firstName: 'اول', lastName: 'تست', acceptTerms: true })
+      const d = new Client(); await d.get('/api/v1/products')
+      return d.post('/api/v1/auth/register', { nationalId: id, phone: uid(), password: 'Pass1234', firstName: 'دوباره', lastName: 'تست', acceptTerms: true })
+    }],
     ['403 (patient → admin)', 403, () => patient.get('/api/v1/admin/users')],
     ['404 (unknown case, authenticated)', 404, () => patient.get('/api/v1/cases/case_does_not_exist00')],
     ['422 (deep pagination → anti-unbounded)', 422, () => patient.get('/api/v1/products?page=9999&limit=100')],
@@ -151,7 +157,7 @@ describe('CONTRACT-5 rate-limited responses advertise Retry-After', () => {
     // target a real account, exactly like a production attacker would
     const c = await freshPatient()
     const phone = `0919${String(Date.now()).slice(-8)}`.slice(0, 11)
-    const reg = await c.post('/api/v1/auth/register', { phone, password: 'Pass1234', firstName: 'کاربر', lastName: 'پنجم', acceptTerms: true })
+    const reg = await c.post('/api/v1/auth/register', { nationalId: nid(), phone, password: 'Pass1234', firstName: 'کاربر', lastName: 'پنجم', acceptTerms: true })
     expect(reg.res.status).toBe(200)
     let got: { res: Response; data: Record<string, unknown> } | null = null
     for (let i = 0; i < 5 && !got; i++) {

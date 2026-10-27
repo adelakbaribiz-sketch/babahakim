@@ -16,6 +16,7 @@ import {
 } from '@/lib/workflow'
 import type { MachineDef, EntityRow, WorkflowActor } from '@/lib/workflow'
 import { PERMISSIONS } from '@/lib/constants'
+import { QUEUES, ROLE_QUEUE_STATUSES } from '@/lib/workflow/queues'
 
 const MACHINES: MachineDef[] = [
   CASE_MACHINE, PRESCRIPTION_MACHINE, ORDER_MACHINE, PAYMENT_MACHINE,
@@ -66,9 +67,9 @@ describe('machine graph integrity', () => {
     })
   }
 
-  test('CASE: 21 statuses / 18 transitions (NEW is a virtual creation state)', () => {
+  test('CASE: 21 statuses / 19 transitions (NEW is a virtual creation state)', () => {
     expect(CASE_MACHINE.statuses.length).toBe(21)
-    expect(CASE_MACHINE.transitions.length).toBe(18)
+    expect(CASE_MACHINE.transitions.length).toBe(19) // +EXPERT2_RETURN (2026-10 overhaul)
     // creation writes WAITING_FOR_EXPERT_1 directly (CaseEvent logs the virtual NEW→WAITING step)
     expect(CASE_MACHINE.initial).toBe('NEW')
   })
@@ -94,6 +95,54 @@ describe('machine graph integrity', () => {
       status = t!.to
     }
     expect(status).toBe('CLOSED')
+  })
+})
+
+/* ── 2026-10 overhaul: rejection / return loops never close the case ── */
+
+describe('revision loops (doctor reject · expert 2 return)', () => {
+  const fire = (machine: MachineDef, action: string, status: string, payload: Record<string, unknown>, who: string) => {
+    const entity = row(status, { patientId: 'u1', userId: 'u1' })
+    const t = assertGuards(machine, entity, action, actor('u1', who))
+    return t.validate?.({ entity, actor: actor('u1', who), payload, transition: t, machine, now: new Date() })
+  }
+
+  test('DOCTOR_REJECT returns the case to Expert 1 revision — never CLOSED', () => {
+    const t = resolveTransition(CASE_MACHINE, 'WAITING_FOR_DOCTOR', 'DOCTOR_REJECT', 'DOCTOR')
+    expect(t?.to).toBe('REVISION_REQUESTED')
+    const effects = t!.dataEffects?.({ entity: { id: 'c', status: 'WAITING_FOR_DOCTOR' }, actor: { id: 'd', role: 'DOCTOR' }, payload: { comment: 'x' }, transition: t!, machine: CASE_MACHINE, now: new Date() }) || {}
+    expect(effects).not.toHaveProperty('closedAt')
+  })
+
+  test('a rejected case can be re-prescribed, re-reviewed and approved', () => {
+    const path: [string, string][] = [
+      ['DOCTOR_REJECT', 'DOCTOR'], ['SUBMIT_PRESCRIPTION', 'EXPERT_1'],
+      ['EXPERT2_REVIEW', 'EXPERT_2'], ['DOCTOR_APPROVE', 'DOCTOR'],
+    ]
+    let status = 'WAITING_FOR_DOCTOR'
+    for (const [action, role] of path) {
+      const t = resolveTransition(CASE_MACHINE, status, action, role as never)
+      expect(t).not.toBeNull()
+      status = t!.to
+    }
+    expect(status).toBe('PRESCRIPTION_APPROVED')
+  })
+
+  test('EXPERT2_RETURN puts the case in Expert 1 queue state and requires a reason', () => {
+    expect(resolveTransition(CASE_MACHINE, 'WAITING_FOR_EXPERT_2', 'EXPERT2_RETURN', 'EXPERT_2')?.to).toBe('REVISION_REQUESTED')
+    expect(resolveTransition(CASE_MACHINE, 'WAITING_FOR_EXPERT_2', 'EXPERT2_RETURN', 'EXPERT_1')).toBeNull()
+    expect(() => fire(CASE_MACHINE, 'EXPERT2_RETURN', 'WAITING_FOR_EXPERT_2', {}, 'EXPERT_2')).toThrow()
+    expect(() => fire(CASE_MACHINE, 'EXPERT2_RETURN', 'WAITING_FOR_EXPERT_2', { reason: 'دوز نامشخص' }, 'EXPERT_2')).not.toThrow()
+  })
+
+  test('every actionable staff status is listed in some work queue', () => {
+    const queued = new Set(QUEUES.flatMap((q) => q.statuses))
+    for (const t of CASE_MACHINE.transitions) {
+      if (t.roles.some((r) => r === 'EXPERT_1' || r === 'EXPERT_2' || r === 'DOCTOR')) {
+        for (const from of t.from) expect(queued.has(from)).toBe(true)
+      }
+    }
+    expect(ROLE_QUEUE_STATUSES.EXPERT_1).toContain('REVISION_REQUESTED')
   })
 })
 
@@ -314,7 +363,7 @@ describe('data effects', () => {
 describe('backward compatibility (constants shim)', () => {
   test('TRANSITIONS re-export the case machine', async () => {
     const { TRANSITIONS, canTransition } = await import('@/lib/constants')
-    expect(TRANSITIONS.length).toBe(18)
+    expect(TRANSITIONS.length).toBe(19)
     expect(canTransition('WAITING_FOR_EXPERT_1', 'CLAIM', 'EXPERT_1')?.to).toBe('EXPERT_1_REVIEW')
     expect(canTransition('WAITING_FOR_EXPERT_1', 'CLAIM', 'PATIENT')).toBeNull()
     expect(canTransition('NEW', 'CLAIM', 'EXPERT_1')).toBeNull()

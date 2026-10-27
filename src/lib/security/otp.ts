@@ -53,17 +53,19 @@ export async function requestOtp(
   phone: string,
   purpose: OtpPurpose,
   ip: string | null,
+  /** the account the code is for — required to disambiguate shared family phones */
+  userId: string | null = null,
 ): Promise<OtpSendResult> {
-  // kill previous live challenges for this phone+purpose (latest wins)
+  // kill previous live challenges for this phone+purpose(+account) (latest wins)
   await db.otpChallenge.updateMany({
-    where: { phone, purpose, consumedAt: null, expiresAt: { gt: new Date() } },
+    where: { phone, purpose, consumedAt: null, expiresAt: { gt: new Date() }, ...(userId ? { userId } : {}) },
     data: { consumedAt: new Date() },
   })
   const code = String(randomInt(0, 10 ** OTP_LENGTH)).padStart(OTP_LENGTH, '0')
   const salt = randomBytes(16).toString('hex')
   const expiresAt = new Date(Date.now() + OTP_TTL_MS)
   const rec = await db.otpChallenge.create({
-    data: { phone, purpose, codeHash: `${salt}:${hashCode(salt, code)}`, expiresAt, ip },
+    data: { phone, purpose, userId, codeHash: `${salt}:${hashCode(salt, code)}`, expiresAt, ip },
   })
   const message = `باباحکیم | کد تأیید شما: ${code} — ${'۲ دقیقه اعتبار دارد'}`
   await getOtpSender().send(phone, message)
@@ -76,11 +78,13 @@ export type OtpVerifyResult =
   | { ok: true; userId?: string }
   | { ok: false; reason: 'NOT_FOUND' | 'EXPIRED' | 'CONSUMED' | 'TOO_MANY_ATTEMPTS' | 'WRONG' }
 
-export async function verifyOtp(phone: string, purpose: OtpPurpose, code: string): Promise<OtpVerifyResult> {
-  const rec = await db.otpChallenge.findFirst({
-    where: { phone, purpose, consumedAt: null },
-    orderBy: { createdAt: 'desc' },
-  })
+export async function verifyOtp(phone: string, purpose: OtpPurpose, code: string, challengeId?: string): Promise<OtpVerifyResult> {
+  const rec = challengeId
+    ? await db.otpChallenge.findFirst({ where: { id: challengeId, phone, purpose, consumedAt: null } })
+    : await db.otpChallenge.findFirst({
+      where: { phone, purpose, consumedAt: null },
+      orderBy: { createdAt: 'desc' },
+    })
   if (!rec) return { ok: false, reason: 'NOT_FOUND' }
   if (rec.expiresAt < new Date()) return { ok: false, reason: 'EXPIRED' }
   if (rec.attempts >= OTP_MAX_ATTEMPTS) return { ok: false, reason: 'TOO_MANY_ATTEMPTS' }
@@ -95,8 +99,10 @@ export async function verifyOtp(phone: string, purpose: OtpPurpose, code: string
     return { ok: false, reason: 'WRONG' }
   }
   await db.otpChallenge.update({ where: { id: rec.id }, data: { consumedAt: new Date() } })
-  const user = await db.user.findUnique({ where: { phone }, select: { id: true } })
-  return { ok: true, userId: user?.id }
+  if (rec.userId) return { ok: true, userId: rec.userId }
+  // legacy challenge without an account: resolve only when the phone is unambiguous
+  const users = await db.user.findMany({ where: { phone, deletedAt: null }, select: { id: true }, take: 2 })
+  return { ok: true, userId: users.length === 1 ? users[0].id : undefined }
 }
 
 /** MFA login step 2: challenge id issued at step 1 (password already verified). */
@@ -104,6 +110,6 @@ export async function verifyMfaChallenge(challengeId: string, code: string): Pro
   const rec = await db.otpChallenge.findUnique({ where: { id: challengeId } })
   if (!rec || rec.purpose !== 'LOGIN_MFA') return { ok: false, reason: 'NOT_FOUND' }
   if (rec.consumedAt) return { ok: false, reason: 'CONSUMED' }
-  const res = await verifyOtp(rec.phone, 'LOGIN_MFA', code)
+  const res = await verifyOtp(rec.phone, 'LOGIN_MFA', code, rec.id)
   return { ...res, phone: rec.phone }
 }

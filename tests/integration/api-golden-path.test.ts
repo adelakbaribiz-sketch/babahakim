@@ -5,6 +5,7 @@
 // shop checkout (transactional) → headers/envelope/pagination contracts.
 import { describe, test, expect, beforeAll } from 'bun:test'
 import { randomBytes } from 'node:crypto'
+import { nid } from '../helpers/national-id'
 
 const BASE = 'http://localhost:3000'
 
@@ -133,7 +134,7 @@ describe('PHASE 08 — layered backend golden path (integration)', () => {
   test('patient self-registration (consent recorded, session issued)', async () => {
     const phone = uid()
     const { res, data } = await patient.post('/api/v1/auth/register', {
-      phone, password: 'Pass1234x', firstName: 'محمدرضا', lastName: 'تستی', acceptTerms: true,
+      nationalId: nid(), phone, password: 'Pass1234x', firstName: 'محمدرضا', lastName: 'تستی', acceptTerms: true,
     })
     expect(res.status).toBe(200)
     expect((data.user as { role: string }).role).toBe('PATIENT')

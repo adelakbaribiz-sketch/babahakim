@@ -69,7 +69,7 @@ beforeAll(async () => {
   await login(admin, '09120000001')
   patient = new Client()
   await login(patient, '09120000006')
-  patientRow = await db.user.findUniqueOrThrow({ where: { phone: '09120000006' }, select: { id: true, isActive: true } })
+  patientRow = await db.user.findFirstOrThrow({ where: { phone: '09120000006', role: 'PATIENT' }, select: { id: true, isActive: true } })
 })
 
 describe('PHASE 16 — identity cache (ED-183)', () => {

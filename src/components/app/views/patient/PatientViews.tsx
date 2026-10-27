@@ -16,6 +16,8 @@ import { toast } from 'sonner'
 import { SectionCard, StatusBadge, StatCard, JalaliDate, LoadingRows, EmptyState, ErrorState, Money } from '../../shared/atoms'
 // PHASE 09: CaseWorkspace is a lazy chunk (router) — no eager import here.
 import { TextField, TextAreaField } from '../../shared/form'
+import { SearchCombobox } from '../../shared/combobox'
+import { PROVINCE_NAMES, citiesOf } from '@/lib/iran-geo'
 import { profileFormSchema, zodFieldErrors } from '@/lib/forms'
 import { useDirty } from '@/hooks/use-api'
 import { fmtMoney } from '@/lib/i18n'
@@ -144,7 +146,11 @@ export function ProfilePage() {
   const [reload, setReload] = useState(0)
   useEffect(() => {
     api<{ user: Record<string, string>; profile: Record<string, string> | null }>('/api/v1/patients/profile').then((d) => {
-      const u: Record<string, string> = { firstName: d.user.firstName || '', lastName: d.user.lastName || '', email: d.user.email || '', gender: d.user.gender || '', birthDate: d.user.birthDate?.slice(0, 10) || '' }
+      const u: Record<string, string> = {
+        firstName: d.user.firstName || '', lastName: d.user.lastName || '', email: d.user.email || '', gender: d.user.gender || '', birthDate: d.user.birthDate?.slice(0, 10) || '',
+        ageYears: d.user.ageYears != null ? String(d.user.ageYears) : '', nationalId: '',
+        nationalIdMasked: d.user.nationalIdMasked || '', hasNationalId: d.user.hasNationalId ? '1' : '',
+      }
       const p = d.profile || {}
       const next = { ...u, ...p, referralCode: d.user.referralCode || '' }
       setForm(next); setBaseline(next); setLoaded(true)
@@ -162,7 +168,12 @@ export function ProfilePage() {
     if (!parsed.success) { setErrors(zodFieldErrors(parsed.error)); return }
     setBusy(true)
     try {
-      await api('/api/v1/patients/profile', { method: 'PUT', json: form })
+      // empty optional fields are omitted (an empty birth date / age / national
+      // ID means "unchanged", never "set to an invalid value")
+      const { nationalIdMasked: _m, hasNationalId: _h, ...rest } = form
+      const payload: Record<string, unknown> = { ...rest }
+      for (const k of ['birthDate', 'ageYears', 'nationalId']) if (!payload[k]) delete payload[k]
+      await api('/api/v1/patients/profile', { method: 'PUT', json: payload })
       setBaseline(form)
       toast.success(t('successTitle'))
     } catch (e) {
@@ -194,17 +205,28 @@ export function ProfilePage() {
               </SelectContent>
             </Select>
           </div>
-          <TextField label={lang === 'fa' ? 'تاریخ تولد' : 'Birth date'} type="date" value={form.birthDate || ''} onChange={(e) => set('birthDate', e.target.value)} />
+          {form.hasNationalId
+            ? <div className="space-y-1.5">
+                <Label className="text-xs" htmlFor="nid-locked">{lang === 'fa' ? 'کد ملی (نام کاربری)' : 'National ID (username)'}</Label>
+                <Input id="nid-locked" value={form.nationalIdMasked} disabled dir="ltr" />
+                <p className="text-[11px] text-muted-foreground">{lang === 'fa' ? 'تغییر کد ملی فقط از طریق مدیر سیستم امکان‌پذیر است.' : 'Only an administrator can change the national ID.'}</p>
+              </div>
+            : <TextField label={lang === 'fa' ? 'کد ملی (یک‌بار قابل ثبت)' : 'National ID (set once)'} value={form.nationalId || ''} onChange={(e) => set('nationalId', e.target.value)} error={errors.nationalId} dir="ltr" inputMode="numeric" maxLength={10}
+                hint={lang === 'fa' ? 'پس از ثبت، نام کاربری شما می‌شود و فقط مدیر می‌تواند آن را اصلاح کند' : 'Becomes your username; afterwards only an administrator can correct it'} />}
+          <TextField label={lang === 'fa' ? 'تاریخ تولد' : 'Birth date'} type="date" value={form.birthDate || ''} onChange={(e) => setForm({ ...form, birthDate: e.target.value, ...(e.target.value ? { ageYears: '' } : {}) })} error={errors.birthDate}
+            hint={lang === 'fa' ? 'یا به‌جای تاریخ تولد، سن را وارد کنید' : 'Or enter your age instead'} />
+          <TextField label={lang === 'fa' ? 'سن (سال)' : 'Age (years)'} value={form.ageYears || ''} disabled={!!form.birthDate} onChange={(e) => set('ageYears', e.target.value)} error={errors.ageYears} dir="ltr" inputMode="numeric" maxLength={3} />
           <TextField label={lang === 'fa' ? 'قد (سانتی‌متر)' : 'Height (cm)'} value={form.heightCm || ''} onChange={(e) => set('heightCm', e.target.value)} error={errors.heightCm} dir="ltr" inputMode="numeric" />
           <TextField label={lang === 'fa' ? 'وزن (کیلوگرم)' : 'Weight (kg)'} value={form.weightKg || ''} onChange={(e) => set('weightKg', e.target.value)} error={errors.weightKg} dir="ltr" inputMode="numeric" />
-          <TextField label={lang === 'fa' ? 'استان' : 'Province'} value={form.province || ''} onChange={(e) => set('province', e.target.value)} />
-          <TextField label={lang === 'fa' ? 'شهر' : 'City'} value={form.city || ''} onChange={(e) => set('city', e.target.value)} />
+          <SearchCombobox label={lang === 'fa' ? 'استان' : 'Province'} value={form.province || ''} options={PROVINCE_NAMES.map((p) => ({ value: p, label: p }))} onChange={(v) => setForm({ ...form, province: v, city: '' })} />
+          <SearchCombobox label={lang === 'fa' ? 'شهر' : 'City'} value={form.city || ''} allowCustom disabled={!form.province} options={citiesOf(form.province).map((c) => ({ value: c, label: c }))} onChange={(v) => set('city', v)} />
           <TextField label={lang === 'fa' ? 'کد پستی' : 'Postal code'} value={form.postalCode || ''} onChange={(e) => set('postalCode', e.target.value)} error={errors.postalCode} dir="ltr" inputMode="numeric" />
           <TextField label={lang === 'fa' ? 'تماس اضطراری' : 'Emergency phone'} value={form.emergencyPhone || ''} onChange={(e) => set('emergencyPhone', e.target.value)} error={errors.emergencyPhone} dir="ltr" inputMode="numeric" />
         </div>
         <div className="grid sm:grid-cols-2 gap-3 mt-3">
           <TextField label={lang === 'fa' ? 'حساسیت‌های دارویی/غذایی' : 'Allergies'} value={form.allergies || ''} onChange={(e) => set('allergies', e.target.value)} />
           <TextField label={lang === 'fa' ? 'بیماری‌های قبلی' : 'Past illnesses'} value={form.pastIllnesses || ''} onChange={(e) => set('pastIllnesses', e.target.value)} />
+          <TextField label={lang === 'fa' ? 'داروهای مصرفی فعلی' : 'Current medications'} value={form.currentMeds || ''} onChange={(e) => set('currentMeds', e.target.value)} />
         </div>
         <div className="mt-3">
           <TextAreaField label={lang === 'fa' ? 'آدرس' : 'Address'} rows={2} value={form.addressLine || ''} onChange={(e) => set('addressLine', e.target.value)} />
@@ -229,15 +251,21 @@ export function ProfilePage() {
 // ── Questionnaire wizard ────────────────────────────────────────────────
 export function QuestionnairePage() {
   const { t, lang, api, navigate } = useApp()
-  const [q, setQ] = useState<{ id: string; version: number; questions: { id: string; textFa: string; textEn: string; options: { id: string; textFa: string; textEn: string }[] }[] } | null>(null)
+  const [q, setQ] = useState<{ id: string; version: number; questions: { id: string; textFa: string; textEn: string; required?: boolean; options: { id: string; textFa: string; textEn: string }[] }[] } | null>(null)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [step, setStep] = useState(0)
   const [busy, setBusy] = useState(false)
-  const [result, setResult] = useState<{ mizajFa: string; mizajEn: string; scores: Record<string, number>; summary?: string } | null>(null)
+  const [result, setResult] = useState<{ mizajFa: string; mizajEn: string; scores: Record<string, number>; summary?: string; complete?: boolean; determined?: boolean } | null>(null)
 
   const [loadError, setLoadError] = useState<string | null>(null)
   useEffect(() => {
-    api<{ questionnaire: typeof q }>('/api/v1/questionnaires/active').then((d) => setQ(d.questionnaire)).catch((e) => setLoadError((e as ApiError).supportRef))
+    api<{ questionnaire: typeof q; draft?: { answers: { questionId: string; optionId: string }[] } | null }>('/api/v1/questionnaires/active')
+      .then((d) => {
+        setQ(d.questionnaire)
+        // resume an in-progress (partially answered) form
+        if (d.draft) setAnswers(Object.fromEntries(d.draft.answers.map((a) => [a.questionId, a.optionId])))
+      })
+      .catch((e) => setLoadError((e as ApiError).supportRef))
   }, [api])
 
   if (loadError) return <ErrorState message={loadError} onRetry={() => { setLoadError(null); window.location.reload() }} />
@@ -247,16 +275,19 @@ export function QuestionnairePage() {
   const total = q.questions.length
   const answered = Object.keys(answers).length
 
-  async function submit() {
+  // answering is optional: save a draft any time, or finish with any number of
+  // answers (only admin-marked required questions block completion)
+  async function submit(status: 'DRAFT' | 'COMPLETED') {
     setBusy(true)
     try {
-      const d = await api<{ response: { mizajFa: string; mizajEn: string; scores: Record<string, number>; summary?: string } }>('/api/v1/questionnaires/submit', {
-        method: 'POST', json: { answers: Object.entries(answers).map(([questionId, optionId]) => ({ questionId, optionId })) },
+      const d = await api<{ response: { mizajFa: string; mizajEn: string; scores: Record<string, number>; summary?: string }; completeness: { complete: boolean; determined: boolean } }>('/api/v1/questionnaires/submit', {
+        method: 'POST', json: { status, answers: Object.entries(answers).map(([questionId, optionId]) => ({ questionId, optionId })) },
       })
-      setResult(d.response)
-      toast.success('✓')
+      if (status === 'COMPLETED') setResult({ ...d.response, ...d.completeness })
+      toast.success(status === 'DRAFT' ? (lang === 'fa' ? 'پاسخ‌ها ذخیره شد؛ هر زمان می‌توانید ادامه دهید' : 'Saved — continue any time') : '✓')
     } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) }
   }
+  const requiredMissing = q.questions.filter((qq) => qq.required && !answers[qq.id]).length
 
   if (result) {
     return (
@@ -268,6 +299,10 @@ export function QuestionnairePage() {
             </div>
             <div className="text-xs text-muted-foreground">{t('mizajResult')}</div>
             <div className="text-3xl font-black">{lang === 'fa' ? result.mizajFa : result.mizajEn}</div>
+            {result.complete === false && (
+              <p className="text-xs text-status-warning">{lang === 'fa' ? 'این نتیجه بر پایه پاسخ‌های ناقص است و قطعی نیست.' : 'This result is based on partial answers and is not definitive.'}</p>
+            )}
+            {result.summary && <p className="text-[11px] text-muted-foreground">{result.summary}</p>}
             <div className="flex justify-center flex-wrap gap-2">
               {Object.entries(result.scores).map(([k, v]) => (
                 <Badge key={k} variant="outline" className="text-xs tabular-nums">
@@ -300,7 +335,7 @@ export function QuestionnairePage() {
         {page.map((qq) => (
           <Card key={qq.id}>
             <CardContent className="p-4 space-y-3">
-              <div className="font-medium text-sm">{lang === 'fa' ? qq.textFa : qq.textEn}</div>
+              <div className="font-medium text-sm">{lang === 'fa' ? qq.textFa : qq.textEn}{qq.required && <span className="text-destructive ms-1" aria-label={lang === 'fa' ? 'اجباری' : 'required'}>*</span>}</div>
               <div className="grid gap-2">
                 {qq.options.map((o) => (
                   <button key={o.id} onClick={() => setAnswers({ ...answers, [qq.id]: o.id })}
@@ -314,13 +349,14 @@ export function QuestionnairePage() {
           </Card>
         ))}
       </div>
-      <div className="flex justify-between">
+      <p className="text-[11px] text-muted-foreground">{lang === 'fa' ? 'پاسخ به سؤالات اختیاری است؛ نتیجه با پاسخ‌های کمتر، ناقص و غیرقطعی خواهد بود.' : 'Answering is optional; fewer answers give a partial, non-definitive result.'}</p>
+      <div className="flex justify-between gap-2 flex-wrap">
         <Button variant="outline" disabled={step === 0} onClick={() => setStep(Math.max(0, step - 4))}>{t('back')}</Button>
-        {isLast ? (
-          <Button disabled={answered < total || busy} onClick={submit} className="gap-1.5"><CheckCircle2 size={16} />{t('submit')}</Button>
-        ) : (
-          <Button disabled={answered < step + 4} onClick={() => setStep(step + 4)}>{lang === 'fa' ? 'بعدی' : 'Next'}</Button>
-        )}
+        <div className="flex gap-2">
+          <Button variant="ghost" disabled={busy || answered === 0} onClick={() => submit('DRAFT')}>{lang === 'fa' ? 'ذخیره و ادامه بعداً' : 'Save & continue later'}</Button>
+          {!isLast && <Button variant="outline" onClick={() => setStep(step + 4)}>{lang === 'fa' ? 'بعدی' : 'Next'}</Button>}
+          <Button disabled={answered === 0 || requiredMissing > 0 || busy} onClick={() => submit('COMPLETED')} className="gap-1.5"><CheckCircle2 size={16} />{lang === 'fa' ? 'ثبت نتیجه' : 'Finish'}</Button>
+        </div>
       </div>
     </div>
   )

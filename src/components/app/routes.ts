@@ -51,6 +51,8 @@ export const ROUTES: Record<string, RouteDef> = {
   reports: { permission: 'view_reports' },
   auditLogs: { permission: 'view_audit_logs' },
   questionnaireEditor: { permission: 'manage_questionnaire' },
+  // 2026-10: prescription vocabulary presets — server route is ADMIN-only
+  vocabulary: { roles: ['ADMIN'] },
   aiModels: { permission: 'manage_ai_models' },
   smsLog: { permission: 'view_sms_log' },
   // PHASE 13: integration health console (ADMIN-area view; route gate maps

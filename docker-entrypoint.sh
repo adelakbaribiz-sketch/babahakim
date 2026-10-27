@@ -16,9 +16,11 @@ mkdir -p /data/storage /data/backups 2>/dev/null || {
   exit 1
 }
 
-# ── database migrations (idempotent; safe on every boot & every replica) ──
+# ── database migrations (idempotent; safe on every boot) ──────────────────
+# db-migrate-safe: fresh DB → deploy; db-push DB → baseline + deploy; history →
+# reconcile + deploy. Backs up next to the DB only when something is pending.
 echo "[entrypoint] applying migrations…"
-bun /app/node_modules/prisma/build/index.js migrate deploy --schema /app/prisma/schema.prisma
+BH_APP_ROOT=/app bun /app/scripts/db-migrate-safe.mjs
 
 # ── app (exec → signals reach the server directly under tini) ──────────────
 echo "[entrypoint] launching server on :${PORT}"

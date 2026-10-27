@@ -13,6 +13,7 @@ import { db } from '@/lib/db'
 import type { AuthContext } from '@/lib/auth'
 import { parseJSON } from '@/lib/api'
 import { cached, cacheKeys, cacheTtl } from '@/server/infrastructure/cache'
+import { ROLE_QUEUE_STATUSES } from '@/lib/workflow/queues'
 
 export async function getDashboard(auth: AuthContext) {
   if (auth.user.role === 'PATIENT') {
@@ -30,7 +31,7 @@ async function buildPatientDashboard(userId: string) {
     db.order.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 5, include: { items: true } }),
     db.ticket.findMany({ where: { userId }, orderBy: { updatedAt: 'desc' }, take: 3 }),
     db.notification.findMany({ where: { userId, read: false }, take: 5, orderBy: { createdAt: 'desc' } }),
-    db.questionnaireResponse.findFirst({ where: { userId }, orderBy: { createdAt: 'desc' } }),
+    db.questionnaireResponse.findFirst({ where: { userId, status: 'COMPLETED' }, orderBy: { createdAt: 'desc' } }),
   ])
   // ED-184: two case counts (total + active) batched into one grouped read
   const [caseStatuses, totalOrders] = await Promise.all([
@@ -85,7 +86,12 @@ async function buildStaffShared() {
     db.financialTransaction.aggregate({ where: { type: 'EXPENSE' }, _sum: { amount: true } }),
     db.caseEvent.findMany({
       orderBy: { createdAt: 'desc' }, take: 12,
-      include: { case: { select: { code: true } }, actor: { select: { firstName: true, lastName: true, role: true } } },
+      // the CURRENT case status travels with each historical event so the UI
+      // can show "what happened" (from→to) separately from "where it is now"
+      include: {
+        case: { select: { id: true, code: true, status: true, patient: { select: { firstName: true, lastName: true } } } },
+        actor: { select: { firstName: true, lastName: true, role: true } },
+      },
     }),
   ])
   const cc = Object.fromEntries(caseStatuses.map((g) => [g.status, g._count._all]))
@@ -96,7 +102,8 @@ async function buildStaffShared() {
     stats: {
       totalCases: caseStatuses.reduce((a, g) => a + g._count._all, 0),
       totalPatients, pendingExpert1: c('WAITING_FOR_EXPERT_1'), pendingExpert2: c('WAITING_FOR_EXPERT_2'),
-      pendingDoctor: c('WAITING_FOR_DOCTOR'), proformas: c('WAITING_FOR_USER_CONFIRMATION'),
+      pendingDoctor: c('WAITING_FOR_DOCTOR'), revisionRequested: c('REVISION_REQUESTED'),
+      proformas: c('WAITING_FOR_USER_CONFIRMATION'),
       awaitingPayment: c('WAITING_FOR_PAYMENT'), paidOrders: o('PAID'), shipped: o('SHIPPED'),
       delivered: o('DELIVERED'), followups, openTickets, totalProducts, lowStock, images, analyses,
       revenue: income._sum.amount || 0, expenses: expense._sum.amount || 0,
@@ -107,11 +114,11 @@ async function buildStaffShared() {
 }
 
 async function buildQueueFor(role: string) {
+  const statuses = ROLE_QUEUE_STATUSES[role]
   return db.medicalCase.findMany({
-    where: role === 'EXPERT_1' ? { status: 'WAITING_FOR_EXPERT_1' }
-      : role === 'EXPERT_2' ? { status: 'WAITING_FOR_EXPERT_2' }
-      : role === 'DOCTOR' ? { status: 'WAITING_FOR_DOCTOR' }
-      : { status: { notIn: ['CLOSED', 'CANCELLED'] } },
+    where: statuses
+      ? { status: { in: [...statuses] }, deletedAt: null, archivedAt: null }
+      : { status: { notIn: ['CLOSED', 'CANCELLED'] }, deletedAt: null, archivedAt: null },
     orderBy: { createdAt: 'asc' }, take: 10,
     include: { patient: { select: { firstName: true, lastName: true, phone: true } } },
   })

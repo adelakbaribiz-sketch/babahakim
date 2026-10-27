@@ -83,6 +83,42 @@ export function determineMizaj(scores: MizajScores): { mizajFa: string; mizajEn:
   return { mizajFa, mizajEn, summaryFa }
 }
 
+/** Scoring algorithm id stored on every response (2026-10: weighted + partial). */
+export const MIZAJ_SCORING_VERSION = 'mizaj-v2-weighted-partial'
+/** Below this coverage the result is "undetermined" — never a confident label. */
+export const MIZAJ_MIN_COVERAGE = 0.3
+
+/** Weighted, partial-aware scoring. `answers` carry their own score/weight
+ *  snapshot, so a historical response re-scores identically forever. */
+export function scoreMizajResponse(
+  answers: { score: number; weight?: number; dimension: string }[], totalQuestions: number,
+): { scores: MizajScores; mizajFa: string; mizajEn: string; summaryFa: string; complete: boolean; determined: boolean } {
+  const scores = emptyScores()
+  for (const a of answers) {
+    const k = a.dimension as keyof MizajScores
+    if (scores[k] !== undefined) scores[k] += a.score * (a.weight ?? 1)
+  }
+  for (const k of Object.keys(scores) as (keyof MizajScores)[]) scores[k] = Math.round(scores[k] * 100) / 100
+  const complete = totalQuestions > 0 && answers.length >= totalQuestions
+  const determined = totalQuestions > 0 && answers.length / totalQuestions >= MIZAJ_MIN_COVERAGE
+  const coverage = `${answers.length} از ${totalQuestions} سؤال`
+  if (!determined) {
+    return {
+      scores, complete, determined,
+      mizajFa: 'نامشخص (پاسخ ناکافی)', mizajEn: 'Undetermined (insufficient answers)',
+      summaryFa: `نتیجه قابل تعیین نیست — فقط ${coverage} پاسخ داده شده است`,
+    }
+  }
+  const base = determineMizaj(scores)
+  return complete
+    ? { scores, complete, determined, ...base }
+    : {
+      scores, complete, determined,
+      mizajFa: `${base.mizajFa} (ناقص)`, mizajEn: `${base.mizajEn} (partial)`,
+      summaryFa: `نتیجه ناقص بر اساس ${coverage} — ${base.summaryFa}`,
+    }
+}
+
 // ════════════════════════════ PAYMENT ═════════════════════════════════════
 
 export function assertOrderPayable(orderStatus: string): void {

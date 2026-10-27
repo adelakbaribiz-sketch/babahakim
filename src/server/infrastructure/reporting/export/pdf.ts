@@ -7,12 +7,21 @@
 // Layout: A4, BabaHakim brand header band, meta block, zebra table, totals
 // row, footer pagination. Numbers render LTR via mono font (§39 / §69 i18n).
 import PDFDocument from 'pdfkit'
+import { existsSync } from 'node:fs'
 import { brand, docPalette } from '@/design-system/tokens'
 import type { ExportTable } from './csv'
 
-const FA_FONT = '/usr/share/fonts/truetype/freefont/FreeSerif.ttf'
-const FA_FONT_BOLD = '/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf'
-const MONO_FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf'
+// Font resolution: env override → Linux runtime image → Windows system fonts.
+// The Linux-only literals made every PDF export throw ENOENT on Windows hosts.
+function pickFont(envKey: string, candidates: string[]): string {
+  const fromEnv = process.env[envKey]
+  if (fromEnv && existsSync(fromEnv)) return fromEnv
+  return candidates.find((p) => existsSync(p)) ?? candidates[0]
+}
+const WIN_FONTS = (process.env.WINDIR || 'C:\\Windows') + '\\Fonts\\'
+const FA_FONT = pickFont('BH_PDF_FONT', ['/usr/share/fonts/truetype/freefont/FreeSerif.ttf', WIN_FONTS + 'tahoma.ttf', WIN_FONTS + 'arial.ttf'])
+const FA_FONT_BOLD = pickFont('BH_PDF_FONT_BOLD', ['/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf', WIN_FONTS + 'tahomabd.ttf', WIN_FONTS + 'arialbd.ttf', FA_FONT])
+const MONO_FONT = pickFont('BH_PDF_FONT_MONO', ['/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf', WIN_FONTS + 'consola.ttf', WIN_FONTS + 'cour.ttf', FA_FONT])
 
 // BabaHakim official palette (§3) — imported from the token source; the PDF
 // renderer cannot use CSS vars, so literals come from design-system/tokens

@@ -8,6 +8,7 @@
 // plus authorization on every new endpoint.
 import { describe, test, expect, beforeAll } from 'bun:test'
 import { randomBytes } from 'node:crypto'
+import { nid } from '../helpers/national-id'
 
 const BASE = 'http://localhost:3000'
 
@@ -81,7 +82,7 @@ describe('PHASE 11 — AI/ML engineering feedback loop (integration)', () => {
     for (const c of [patient, expert1, expert2, doctor, admin]) await c.get('/api/v1/products')
     // register a fresh patient
     await patient.post('/api/v1/auth/register', {
-      phone: uid(), password: 'Pass1234', firstName: 'آزمون', lastName: 'فاز۱۱',
+      nationalId: nid(), phone: uid(), password: 'Pass1234', firstName: 'آزمون', lastName: 'فاز۱۱',
       gender: 'FEMALE', birthDate: '1994-05-05', acceptTerms: true, privacyConsent: true,
     })
     for (const [c, n] of [[expert1, 2], [expert2, 3], [doctor, 5], [admin, 1]] as [Client, number][]) {

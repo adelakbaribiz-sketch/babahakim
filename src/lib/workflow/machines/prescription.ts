@@ -9,7 +9,7 @@ export const PRESCRIPTION_STATUSES = [
   'PENDING_DOCTOR',   // Expert 2 reviewed & priced, awaiting doctor
   'REVISION_REQUESTED', // doctor requested changes
   'APPROVED',         // doctor approved (order/proforma may be issued)
-  'REJECTED',         // doctor rejected (terminal)
+  'REJECTED',         // doctor rejected THIS VERSION (terminal; the case returns to revision)
   'SUPERSEDED',       // replaced by a newer version (terminal)
   'FINALIZED',        // archived after fulfillment (terminal)
 ] as const
@@ -26,6 +26,16 @@ export const PRESCRIPTION_MACHINE: MachineDef = {
       action: 'EXPERT2_REVIEW', from: ['PENDING_EXPERT_2', 'REVISION_REQUESTED'], to: 'PENDING_DOCTOR',
       roles: ['EXPERT_2'], permission: 'expert2_review', descFa: 'بازبینی کارشناس دوم و ارسال برای پزشک',
       dataEffects: (c) => ({ expert2Notes: String(c.payload.notes || '') || null }),
+    }),
+    t({
+      action: 'EXPERT2_RETURN', from: ['PENDING_EXPERT_2', 'REVISION_REQUESTED'], to: 'REVISION_REQUESTED',
+      roles: ['EXPERT_2'], permission: 'expert2_review', descFa: 'کارشناس دوم نسخه را برای اصلاح برگرداند',
+      validate: (c) => {
+        if (!String(c.payload.reason || c.payload.notes || '').trim()) {
+          throw new WorkflowError('VALIDATION', 'ذکر علت برگشت نسخه الزامی است | Reason required', 422)
+        }
+      },
+      dataEffects: (c) => ({ expert2Notes: String(c.payload.reason || c.payload.notes || '') || null }),
     }),
     t({
       action: 'DOCTOR_APPROVE', from: ['PENDING_DOCTOR'], to: 'APPROVED',

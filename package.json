@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
-    "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
+    "build": "next build && bun scripts/copy-standalone.mjs",
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
     "audit:ui": "node scripts/ui-audit.mjs",
@@ -34,7 +34,9 @@
     "audit:devops": "node scripts/devops-audit.mjs",
     "ci:local": "bash scripts/ci-local.sh",
     "secret-scan": "bash scripts/secret-scan.sh",
-    "backup": "bash scripts/backup.sh"
+    "backup": "bash scripts/backup.sh",
+    "dev:testdb": "node scripts/dev-testdb.mjs",
+    "db:migrate:safe": "bun scripts/db-migrate-safe.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

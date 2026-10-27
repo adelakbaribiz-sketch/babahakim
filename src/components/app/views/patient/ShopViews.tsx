@@ -18,6 +18,7 @@ import { ticketFormSchema, zodFieldErrors } from '@/lib/forms'
 import { TextField, TextAreaField } from '../../shared/form'
 import { PaymentPanel, ShipmentCard } from './shopSupport'
 import { fmtMoney } from '@/lib/i18n'
+import { TICKET_STATUS_META } from '@/lib/constants'
 import { ShoppingBag, ShoppingCart, Package, Ticket as TicketIcon, Bell, Plus, Minus, Trash2, CheckCircle2, Pill } from 'lucide-react'
 
 // ── Shop ────────────────────────────────────────────────────────────────
@@ -224,12 +225,16 @@ export function OrdersPage() {
 export function TicketsPage() {
   const { t, lang, api, user } = useApp()
   const [open, setOpen] = useState(false)
-  const [form, setForm] = useState({ subject: '', category: 'GENERAL', message: '' })
-  const [reply, setReply] = useState('')
+  // priority belongs to the form state: ticketFormSchema requires it, and its
+  // absence made safeParse fail silently (the create request was never sent)
+  const emptyForm = { subject: '', category: 'GENERAL', priority: 'NORMAL', message: '' }
+  const [form, setForm] = useState(emptyForm)
+  const [replies, setReplies] = useState<Record<string, string>>({})
+  const isStaff = !!user && user.role !== 'PATIENT'
   const [busy, setBusy] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   // PHASE 09 (F05): loading → error → empty → content + zod-validated create (F13)
-  const { data, error, loading, refetch } = useApiQuery<{ tickets: { id: string; code: string; subject: string; category: string; priority: string; status: string; createdAt: string; messages: { id: string; message: string; isInternal: boolean; createdAt: string; sender: { firstName: string; lastName: string; role: string } }[] }[] }>('/api/v1/tickets')
+  const { data, error, loading, refetch } = useApiQuery<{ tickets: { id: string; code: string; subject: string; category: string; priority: string; status: string; createdAt: string; user?: { firstName: string; lastName: string }; messages: { id: string; message: string; isInternal: boolean; createdAt: string; sender: { firstName: string; lastName: string; role: string } }[] }[] }>('/api/v1/tickets')
   const tickets = data?.tickets || []
 
   const CATEGORY_LABEL: Record<string, string> = { GENERAL: t('catGeneral'), ORDER: t('catOrder'), PAYMENT: t('catPayment'), MEDICAL: t('catMedical'), SHIPPING: t('catShipping'), OTHER: t('catOther') }
@@ -238,21 +243,39 @@ export function TicketsPage() {
   async function create() {
     setErrors({})
     const parsed = ticketFormSchema.safeParse(form)
-    if (!parsed.success) { setErrors(zodFieldErrors(parsed.error)); return }
+    if (!parsed.success) {
+      const fieldErrors = zodFieldErrors(parsed.error)
+      setErrors(fieldErrors)
+      // never fail silently: a field without an on-screen slot still reaches the user
+      toast.error(Object.values(fieldErrors)[0] || t('errorTitle'))
+      return
+    }
     setBusy(true)
     try {
-      await api('/api/v1/tickets', { method: 'POST', json: form })
-      toast.success(t('successTitle')); setOpen(false); setForm({ subject: '', category: 'GENERAL', message: '' }); refetch()
-    } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) }
+      await api('/api/v1/tickets', { method: 'POST', json: parsed.data })
+      toast.success(t('successTitle')); setOpen(false); setForm(emptyForm); refetch()
+    } catch (e) {
+      if (e instanceof ApiError && Object.keys(e.fields).length) setErrors(e.fields)
+      toast.error(ApiError.message(e))
+    } finally { setBusy(false) }
   }
 
   async function sendReply(id: string) {
-    if (!reply.trim()) return
+    const reply = (replies[id] || '').trim()
+    if (!reply) return
     setBusy(true)
     try {
       await api(`/api/v1/tickets/${id}`, { method: 'POST', json: { message: reply } })
-      setReply(''); refetch()
-    } catch (e) { toast.error((e as Error).message) } finally { setBusy(false) }
+      setReplies({ ...replies, [id]: '' }); refetch()
+    } catch (e) { toast.error(ApiError.message(e)) } finally { setBusy(false) }
+  }
+
+  async function setStatus(id: string, status: string) {
+    setBusy(true)
+    try {
+      await api(`/api/v1/tickets/${id}`, { method: 'PATCH', json: { status } })
+      toast.success(t('successTitle')); refetch()
+    } catch (e) { toast.error(ApiError.message(e)) } finally { setBusy(false) }
   }
 
   return (
@@ -270,8 +293,23 @@ export function TicketsPage() {
               <span className="text-sm">{tk.subject}</span>
               <StatusBadge status={tk.status} kind="ticket" />
               <Badge variant="outline" className="text-[10px]">{PRIORITY_LABEL[tk.priority] || tk.priority}</Badge>
+              <Badge variant="outline" className="text-[10px]">{CATEGORY_LABEL[tk.category] || tk.category}</Badge>
+              {isStaff && tk.user && <span className="text-xs text-muted-foreground">{tk.user.firstName} {tk.user.lastName}</span>}
               <span className="ms-auto text-xs text-muted-foreground"><JalaliDate date={tk.createdAt} /></span>
             </div>
+            {isStaff && (
+              <div className="flex items-center gap-2">
+                <Label className="text-xs" htmlFor={`ticket-status-${tk.id}`}>{lang === 'fa' ? 'تغییر وضعیت' : 'Set status'}</Label>
+                <Select value="" onValueChange={(v) => setStatus(tk.id, v)} disabled={busy}>
+                  <SelectTrigger id={`ticket-status-${tk.id}`} className="h-8 w-48 text-xs"><SelectValue placeholder={lang === 'fa' ? 'انتخاب…' : 'Choose…'} /></SelectTrigger>
+                  <SelectContent>
+                    {['IN_PROGRESS', 'WAITING_USER', 'WAITING_EXPERT', 'RESOLVED', 'CLOSED', 'REOPEN'].map((s) => (
+                      <SelectItem key={s} value={s}>{s === 'REOPEN' ? (lang === 'fa' ? 'بازگشایی' : 'Reopen') : (TICKET_STATUS_META[s]?.[lang] || s)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               {tk.messages.filter((m) => user?.role === 'PATIENT' ? !m.isInternal : true).map((m) => (
                 <div key={m.id} className={`rounded-lg p-2.5 text-sm leading-relaxed ${m.sender.role === 'PATIENT' ? 'bg-muted/60' : 'bg-primary/5 border border-primary/15'} ${m.isInternal ? 'opacity-60 border-dashed' : ''}`}>
@@ -283,8 +321,8 @@ export function TicketsPage() {
               ))}
             </div>
             <div className="flex gap-2">
-              <Input value={reply} onChange={(e) => setReply(e.target.value)} placeholder={t('message')} onKeyDown={(e) => e.key === 'Enter' && sendReply(tk.id)} />
-              <Button size="sm" disabled={busy || !reply.trim()} onClick={() => sendReply(tk.id)}><CheckCircle2 size={15} /></Button>
+              <Input value={replies[tk.id] || ''} onChange={(e) => setReplies({ ...replies, [tk.id]: e.target.value })} placeholder={t('message')} onKeyDown={(e) => e.key === 'Enter' && sendReply(tk.id)} />
+              <Button size="sm" disabled={busy || !(replies[tk.id] || '').trim()} onClick={() => sendReply(tk.id)} aria-label={t('submit')}><CheckCircle2 size={15} /></Button>
             </div>
           </CardContent>
         </Card>
@@ -303,6 +341,16 @@ export function TicketsPage() {
                   {['GENERAL', 'ORDER', 'PAYMENT', 'MEDICAL', 'SHIPPING', 'OTHER'].map((c) => <SelectItem key={c} value={c}>{CATEGORY_LABEL[c]}</SelectItem>)}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ticket-priority">{lang === 'fa' ? 'فوریت' : 'Priority'}</Label>
+              <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
+                <SelectTrigger id="ticket-priority"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {['LOW', 'NORMAL', 'HIGH', 'URGENT'].map((p) => <SelectItem key={p} value={p}>{PRIORITY_LABEL[p]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {errors.priority && <p className="text-xs text-destructive">{errors.priority}</p>}
             </div>
             <TextAreaField label={t('message')} rows={3} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} error={errors.message} required />
           </div>

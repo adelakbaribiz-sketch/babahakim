@@ -26,8 +26,9 @@ export function AdminUsersPage() {
   const [role, setRole] = useState('')
   const [roleConfirm, setRoleConfirm] = useState<{ id: string; next: string; name: string } | null>(null)
   const debouncedQ = useDebounced(q)
-  const { data, error, loading, refetch } = useApiQuery<{ users: { id: string; firstName: string; lastName: string; phone: string; email?: string; role: string; isActive: boolean; referralCode?: string; createdAt: string; lastLoginAt?: string; profile?: { province?: string; city?: string } | null }[] }>(`/api/v1/admin/users?q=${encodeURIComponent(debouncedQ)}${role && role !== 'ALL' ? `&role=${role}` : ''}`)
+  const { data, error, loading, refetch } = useApiQuery<{ users: { id: string; firstName: string; lastName: string; phone: string; email?: string; role: string; isActive: boolean; referralCode?: string; createdAt: string; lastLoginAt?: string; nationalIdMasked?: string | null; age?: number | null; profile?: { province?: string; city?: string } | null }[] }>(`/api/v1/admin/users?q=${encodeURIComponent(debouncedQ)}${role && role !== 'ALL' ? `&role=${role}` : ''}`)
   const users = data?.users || []
+  const [nidFor, setNidFor] = useState<{ id: string; name: string; masked: string | null } | null>(null)
 
   async function patch(id: string, data2: Record<string, unknown>) {
     try {
@@ -77,6 +78,13 @@ export function AdminUsersPage() {
                   />
                 )}
                 <Badge variant="outline" className="text-[10px]">{u.profile?.province || '—'}</Badge>
+                {u.age != null && <span className="text-xs text-muted-foreground">{lang === 'fa' ? 'سن' : 'Age'}: {u.age}</span>}
+                {u.role === 'PATIENT' && (
+                  <button type="button" className="text-[11px] tabular-nums text-primary hover:underline" dir="ltr"
+                    onClick={() => setNidFor({ id: u.id, name: `${u.firstName} ${u.lastName}`, masked: u.nationalIdMasked ?? null })}>
+                    {u.nationalIdMasked || (lang === 'fa' ? 'کد ملی: ثبت نشده' : 'No national ID')}
+                  </button>
+                )}
                 <span className="text-xs text-muted-foreground"><JalaliDate date={u.createdAt} /></span>
                 <div className="ms-auto flex items-center gap-2">
                   {u.role === 'PATIENT' && <Badge variant="secondary" className="text-[10px]">{u.referralCode?.slice(0, 12)}</Badge>}
@@ -91,6 +99,7 @@ export function AdminUsersPage() {
           ))}
         </div>
       )}
+      {nidFor && <NationalIdDialog target={nidFor} onClose={() => setNidFor(null)} onChanged={refetch} />}
       <SectionCard title={lang === 'fa' ? 'ماتریس دسترسی (RBAC)' : 'RBAC matrix'}>
         <div className="overflow-x-auto text-xs">
           <table className="w-full min-w-[600px]">
@@ -115,6 +124,62 @@ export function AdminUsersPage() {
         </div>
       </SectionCard>
     </div>
+  )
+}
+
+/** Admin-only national ID reveal (audited) + change (duplicate-checked,
+ *  mandatory reason, audited). Patients can never reach these endpoints. */
+function NationalIdDialog({ target, onClose, onChanged }: { target: { id: string; name: string; masked: string | null }; onClose: () => void; onChanged: () => void }) {
+  const { lang, api, t } = useApp()
+  const [full, setFull] = useState<string | null>(null)
+  const [next, setNext] = useState('')
+  const [reason, setReason] = useState('')
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState(false)
+
+  async function reveal() {
+    try {
+      const r = await api<{ nationalId: string | null }>(`/api/v1/admin/users/national-id?userId=${encodeURIComponent(target.id)}`)
+      setFull(r.nationalId || '—')
+    } catch (e) { toast.error(ApiError.message(e)) }
+  }
+
+  async function save() {
+    setErrors({}); setBusy(true)
+    try {
+      await api('/api/v1/admin/users/national-id', { method: 'PUT', json: { userId: target.id, nationalId: next, reason } })
+      toast.success(t('successTitle')); onChanged(); onClose()
+    } catch (e) {
+      if (e instanceof ApiError && Object.keys(e.fields).length) setErrors(e.fields)
+      toast.error(ApiError.message(e))
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <Dialog open onOpenChange={(v) => { if (!v) onClose() }}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>{lang === 'fa' ? 'کد ملی' : 'National ID'} — {target.name}</DialogTitle></DialogHeader>
+        <div className="space-y-3 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="tabular-nums" dir="ltr">{full ?? target.masked ?? (lang === 'fa' ? 'ثبت نشده' : 'not set')}</span>
+            {target.masked && full === null && (
+              <Button size="sm" variant="outline" className="h-7" onClick={reveal}>{lang === 'fa' ? 'نمایش کامل (ثبت در Audit)' : 'Reveal (audited)'}</Button>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="nid-new" className="text-xs">{lang === 'fa' ? 'کد ملی جدید' : 'New national ID'}</Label>
+            <Input id="nid-new" value={next} onChange={(e) => setNext(e.target.value)} dir="ltr" inputMode="numeric" maxLength={10} aria-invalid={!!errors.nationalId} />
+            {errors.nationalId && <p className="text-[11px] text-destructive">{errors.nationalId}</p>}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="nid-reason" className="text-xs">{lang === 'fa' ? 'علت تغییر' : 'Reason'} *</Label>
+            <Textarea id="nid-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} aria-invalid={!!errors.reason} />
+            {errors.reason && <p className="text-[11px] text-destructive">{errors.reason}</p>}
+          </div>
+        </div>
+        <DialogFooter><Button disabled={busy || !next || reason.trim().length < 5} onClick={save}>{t('save')}</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

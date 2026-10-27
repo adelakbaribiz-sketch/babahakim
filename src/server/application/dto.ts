@@ -4,16 +4,24 @@
 import { z } from 'zod'
 import {
   PRIORITY, TICKET_CATEGORY, SHIPMENT_METHOD, PAYMENT_METHOD, PAYMENT_DECISION,
-  AI_AGREEMENT, phoneSchema, cuid, requiredText, safeText,
+  AI_AGREEMENT, phoneSchema, nationalIdSchema, birthDateSchema, cuid, requiredText, safeText,
 } from '@/server/api/schemas'
 
 // ── auth ───────────────────────────────────────────────────────────────────
+// Login identifier: patients sign in with their national ID (username);
+// staff and legacy accounts may still use their mobile — the service refuses
+// a mobile that maps to more than one account (shared family phones).
 export const loginSchema = z.object({
-  phone: phoneSchema,
+  nationalId: nationalIdSchema.optional(),
+  phone: phoneSchema.optional(),
   password: z.string().min(1, 'رمز عبور الزامی است').max(128),
+}).refine((v) => !!v.nationalId || !!v.phone, {
+  message: 'کد ملی (یا موبایل کارکنان) الزامی است', path: ['nationalId'],
 })
 
+const AGE_MAX = 120
 export const registerSchema = z.object({
+  nationalId: nationalIdSchema,
   phone: phoneSchema,
   password: z.string().min(8, 'رمز عبور باید حداقل ۸ کاراکتر باشد')
     .regex(/[A-Za-z]/, 'رمز عبور باید شامل حرف و رقم باشد')
@@ -21,8 +29,32 @@ export const registerSchema = z.object({
     .max(128),
   firstName: requiredText(100, 'نام'),
   lastName: requiredText(100, 'نام خانوادگی'),
+  // either an age OR a birth date (both optional, never a fabricated birth date)
+  ageYears: z.coerce.number().int('سن باید عدد صحیح باشد').min(1, 'سن معتبر نیست').max(AGE_MAX, 'سن معتبر نیست').optional().nullable(),
+  birthDate: birthDateSchema.optional().nullable(),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
+  province: safeText(60).optional().nullable(),
+  city: safeText(60).optional().nullable(),
   referralCode: safeText(24).optional().nullable(),
   acceptTerms: z.boolean().optional().default(false),
+})
+
+const passwordRule = z.string().min(8, 'رمز عبور باید حداقل ۸ کاراکتر باشد')
+  .regex(/[A-Za-z]/, 'رمز عبور باید شامل حرف و رقم باشد')
+  .regex(/\d/, 'رمز عبور باید شامل حرف و رقم باشد')
+  .max(128)
+
+export const passwordResetRequestSchema = z.object({ nationalId: nationalIdSchema, phone: phoneSchema })
+export const passwordResetConfirmSchema = z.object({
+  challengeId: cuid,
+  code: z.string().regex(/^\d{6}$/, 'کد ۶ رقمی وارد کنید'),
+  newPassword: passwordRule,
+})
+
+export const adminNationalIdSchema = z.object({
+  userId: cuid,
+  nationalId: nationalIdSchema,
+  reason: requiredText(500, 'علت تغییر').min(5, 'علت تغییر باید حداقل ۵ کاراکتر باشد'),
 })
 
 export const otpRequestSchema = z.object({ phone: phoneSchema })
@@ -41,11 +73,19 @@ export const caseCreateSchema = z.object({
 
 export const caseListFilterSchema = z.object({
   status: safeText(40).optional().default(''),
+  queue: z.enum(['expert1', 'returned', 'expert2', 'doctor', 'patient', 'fulfilment', 'followup']).optional(),
+  range: z.enum(['today', '7d', '30d', '90d']).optional(),
+  from: z.string().regex(/^d{4}-d{2}-d{2}$/, 'تاریخ نامعتبر').optional(),
+  to: z.string().regex(/^d{4}-d{2}-d{2}$/, 'تاریخ نامعتبر').optional(),
+  year: z.coerce.number().int().min(2000).max(2100).optional(),
+  expertId: cuid.optional(),
+  priority: PRIORITY.optional(),
+  archived: z.enum(['1', '0']).optional().transform((v) => v === '1'),
 })
 
 const WORKFLOW_ACTIONS = [
   'CLAIM', 'SUBMIT_ASSESSMENT', 'USER_APPROVE', 'USER_DECLINE',
-  'SUBMIT_PRESCRIPTION', 'EXPERT2_REVIEW', 'DOCTOR_APPROVE', 'DOCTOR_REJECT', 'DOCTOR_REVISION',
+  'SUBMIT_PRESCRIPTION', 'EXPERT2_REVIEW', 'EXPERT2_RETURN', 'DOCTOR_APPROVE', 'DOCTOR_REJECT', 'DOCTOR_REVISION',
   'CREATE_PROFORMA', 'CONFIRM_PROFORMA', 'REJECT_PROFORMA', 'MARK_PAID',
   'START_SHIPPING', 'MARK_DELIVERED', 'SCHEDULE_FOLLOWUP', 'COMPLETE_FOLLOWUP', 'REFER_AGAIN', 'CANCEL',
 ] as const
@@ -114,6 +154,7 @@ export const prescriptionItemSchema = z.object({
   duration: safeText(120).optional().nullable(),
   instructions: safeText(2000).optional().nullable(),
   warnings: safeText(2000).optional().nullable(),
+  quantity: z.number().int().min(1).max(999).optional().default(1),
 })
 
 export const prescriptionSubmitSchema = z.object({
@@ -129,6 +170,20 @@ export const expert2ReviewSchema = z.object({
     missing: z.boolean().optional().default(false),
     unitPrice: z.number().min(0).max(10_000_000_000).optional(),
   })).max(60).optional().default([]),
+  // Expert 2 edit authority: a full replacement item list. When present the
+  // service writes a NEW prescription version (snapshot) and supersedes the
+  // reviewed one — the reviewed version stays intact in history.
+  revisedItems: z.array(prescriptionItemSchema.extend({
+    unitPrice: z.number().int().min(0).max(10_000_000_000).optional().nullable(),
+  })).min(1, 'نسخه باید حداقل یک قلم داشته باشد').max(40).optional(),
+  changeReason: safeText(1000).optional().default(''),
+}).refine((v) => !v.revisedItems || v.changeReason.trim().length > 0, {
+  message: 'ذکر علت ویرایش نسخه الزامی است', path: ['changeReason'],
+})
+
+export const expert2ReturnSchema = z.object({
+  reason: requiredText(2000, 'علت برگشت'),
+  notes: safeText(4000).optional().default(''),
 })
 
 export const doctorDecisionSchema = z.object({
@@ -190,7 +245,10 @@ export const profileUpdateSchema = z.object({
   lastName: safeText(100).optional(),
   email: z.union([z.string().email('ایمیل معتبر نیست').max(190), z.literal(''), z.null()]).optional(),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
-  birthDate: z.coerce.date().optional().nullable(),
+  birthDate: birthDateSchema.optional().nullable(),
+  ageYears: z.coerce.number().int().min(1, 'سن معتبر نیست').max(AGE_MAX, 'سن معتبر نیست').optional().nullable(),
+  // accepted ONLY when the account has none yet (legacy accounts); changes are admin-only
+  nationalId: nationalIdSchema.optional(),
   province: safeText(60).optional().nullable(),
   city: safeText(60).optional().nullable(),
   postalCode: z.union([z.string().regex(/^\d{10}$/, 'کد پستی باید ۱۰ رقم باشد'), z.literal(''), z.null()]).optional(),
@@ -205,8 +263,11 @@ export const profileUpdateSchema = z.object({
   weightKg: z.coerce.number().min(2).max(400).optional().nullable(),
 })
 
+// mizaj form is optional and partial: any number of answers (incl. 0 for a
+// DRAFT); COMPLETED enforces only admin-marked required questions (service)
 export const questionnaireSubmitSchema = z.object({
-  answers: z.array(z.object({ questionId: cuid, optionId: cuid })).min(1, 'پاسخ‌ها ارسال نشده است').max(60),
+  answers: z.array(z.object({ questionId: cuid, optionId: cuid })).max(200).default([]),
+  status: z.enum(['DRAFT', 'COMPLETED']).optional().default('COMPLETED'),
 })
 
 // ── notifications ──────────────────────────────────────────────────────────
@@ -270,4 +331,26 @@ export const integrationSmokeSchema = z.object({
   kind: z.enum([
     'PAYMENT', 'SMS', 'EMAIL', 'MAPS', 'AI', 'STORAGE', 'SHIPPING', 'CRM', 'ANALYTICS',
   ], { message: 'نوع Integration نامعتبر است' }),
+})
+
+// ── clinical vocabulary (2026-10 overhaul) ──────────────────────────────────
+const VOCAB_KIND = z.enum(['DOSAGE', 'UNIT', 'FREQUENCY', 'DURATION', 'WARNING'])
+export const vocabularyCreateSchema = z.object({
+  kind: VOCAB_KIND,
+  valueFa: requiredText(200, 'مقدار'),
+  valueEn: safeText(200).optional().nullable(),
+  order: z.number().int().min(0).max(10_000).optional().default(0),
+})
+export const vocabularyPatchSchema = z.object({
+  id: cuid,
+  valueFa: requiredText(200, 'مقدار').optional(),
+  valueEn: safeText(200).optional().nullable(),
+  order: z.number().int().min(0).max(10_000).optional(),
+  active: z.boolean().optional(),
+})
+
+// ── case archive (2026-10 overhaul) ─────────────────────────────────────────
+export const caseArchiveSchema = z.object({
+  action: z.enum(['ARCHIVE', 'RESTORE']),
+  reason: requiredText(500, 'علت').min(3, 'علت باید حداقل ۳ کاراکتر باشد'),
 })

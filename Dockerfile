@@ -15,6 +15,8 @@ WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
+# 'build' doubles as the tools image (one-shot production seed: see
+# docker-compose.prod.yml service 'bootstrap') — it has the full source tree
 FROM oven/bun:1.2-slim AS build
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -47,6 +49,8 @@ COPY --from=build /app/node_modules/prisma ./node_modules/prisma
 COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=build /app/node_modules/.bin ./node_modules/.bin
 COPY prisma ./prisma
+# safe migrator: handles fresh / db-push / history databases, backs up before writes
+COPY scripts/db-migrate-safe.mjs ./scripts/db-migrate-safe.mjs
 
 # standalone runtime — SELECTIVE (Next 16 snapshots the whole project into
 # .next/standalone; shipping it would bake the repo into the image). Only

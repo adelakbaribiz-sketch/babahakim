@@ -4,27 +4,46 @@
 // for instant field-level UX and identical messages. Keep the messages in
 // sync when the server schema changes (checked by scripts/frontend-audit.mjs).
 import { z } from 'zod'
+import { normalizeNationalId, isValidIranianNationalId } from '@/lib/national-id-format'
 
 // ── shared primitives (mirror server/api/schemas.ts) ──────────────────────
 const phone = z.string().trim().regex(/^09\d{9}$/, 'شماره موبایل باید ۱۱ رقم و با 09 شروع شود')
 const requiredText = (max: number, label: string) => z.string().trim().min(1, `${label} الزامی است`).max(max, `${label} حداکثر ${max} کاراکتر`)
 const safeText = (max: number) => z.string().trim().max(max).optional().default('')
 
+const nationalId = z.string().transform(normalizeNationalId)
+  .pipe(z.string().regex(/^\d{10}$/, 'کد ملی باید ۱۰ رقم باشد').refine(isValidIranianNationalId, 'کد ملی معتبر نیست'))
+const password = z.string().min(8, 'رمز عبور باید حداقل ۸ کاراکتر باشد')
+  .regex(/[A-Za-z]/, 'رمز عبور باید شامل حرف و رقم باشد')
+  .regex(/\d/, 'رمز عبور باید شامل حرف و رقم باشد')
+  .max(128)
+
 // ── auth ───────────────────────────────────────────────────────────────────
+// patients: national ID is the username · staff: mobile
 export const loginFormSchema = z.object({
-  phone,
+  nationalId: nationalId.optional(),
+  phone: phone.optional(),
   password: z.string().min(1, 'رمز عبور الزامی است').max(128),
 })
 
 export const registerFormSchema = z.object({
+  nationalId,
   phone,
-  password: z.string().min(8, 'رمز عبور باید حداقل ۸ کاراکتر باشد')
-    .regex(/[A-Za-z]/, 'رمز عبور باید شامل حرف و رقم باشد')
-    .regex(/\d/, 'رمز عبور باید شامل حرف و رقم باشد')
-    .max(128),
+  password,
   firstName: requiredText(100, 'نام'),
   lastName: requiredText(100, 'نام خانوادگی'),
+  // age XOR birth date — both optional, empty string = not given
+  ageYears: z.union([z.literal(''), z.coerce.number({ error: 'سن باید عدد باشد' }).int('سن باید عدد صحیح باشد').min(1, 'سن معتبر نیست').max(120, 'سن معتبر نیست')]).optional(),
+  birthDate: z.string().optional().default(''),
+  province: safeText(60),
+  city: safeText(60),
   referralCode: safeText(24),
+})
+
+export const passwordResetFormSchema = z.object({ nationalId, phone })
+export const passwordResetConfirmFormSchema = z.object({
+  code: z.string().regex(/^\d{6}$/, 'کد ۶ رقمی وارد کنید'),
+  newPassword: password,
 })
 
 // ── new case (mirror caseCreateSchema — min 10 enforced server-side, S3) ──
@@ -51,6 +70,8 @@ export const profileFormSchema = z.object({
   weightKg: z.coerce.number({ error: 'وزن باید عدد باشد' }).min(2, 'وزن بین ۲ تا ۳۰۰ کیلوگرم').max(300, 'وزن بین ۲ تا ۳۰۰ کیلوگرم').optional(),
   emergencyPhone: z.union([z.literal(''), phone]).optional(),
   postalCode: z.union([z.literal(''), z.string().regex(/^\d{10}$/, 'کد پستی باید ۱۰ رقم باشد')]).optional(),
+  nationalId: z.union([z.literal(''), nationalId]).optional(),
+  ageYears: z.union([z.literal(''), z.coerce.number({ error: 'سن باید عدد باشد' }).int('سن باید عدد صحیح باشد').min(1, 'سن معتبر نیست').max(120, 'سن معتبر نیست')]).optional(),
 })
 
 // ── admin product (mirror productUpsertSchema) ────────────────────────────

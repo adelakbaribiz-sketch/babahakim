@@ -9,7 +9,8 @@ import {
 } from '@/lib/auth'
 import { cookies } from 'next/headers'
 import { rateLimit, LIMITS, resetRateLimit } from '@/lib/security/rate-limit'
-import { requestOtp, verifyMfaChallenge, verifyOtp, OTP_PURPOSES, OtpPurpose } from '@/lib/security/otp'
+import { requestOtp, verifyMfaChallenge, verifyOtp, OTP_PURPOSES, OTP_TTL_MS, OtpPurpose } from '@/lib/security/otp'
+import { randomBytes } from 'crypto'
 import { recordConsent } from '@/lib/security/privacy'
 import { ROLE_PERMISSIONS } from '@/lib/constants'
 import { setRefreshReuseDetector, getAuth } from '@/lib/auth'
@@ -18,7 +19,8 @@ import { writeAudit } from '@/server/infrastructure/audit'
 import { publish, Events } from '@/server/infrastructure/events'
 import type { RequestContext } from '@/server/core/context'
 import type { z } from 'zod'
-import type { loginSchema, registerSchema, otpRequestSchema, otpVerifySchema } from '@/server/application/dto'
+import type { loginSchema, registerSchema, otpRequestSchema, otpVerifySchema, passwordResetRequestSchema, passwordResetConfirmSchema } from '@/server/application/dto'
+import { nationalIdHash, encryptNationalId, maskNationalId } from '@/lib/security/national-id'
 
 // reuse-detection side effect (ED-64): presenting an already-rotated token
 // revokes the whole family — the event is audited via the system stream.
@@ -34,18 +36,45 @@ setRefreshReuseDetector(async (userId, tokenHash) => {
   } catch { /* best-effort */ }
 })
 
-const genericFail = 'شماره موبایل یا رمز عبور اشتباه است'
+// one message for every identity/password failure — never reveals whether a
+// national ID or mobile exists, or that a mobile is shared by several accounts
+const genericFail = 'نام کاربری (کد ملی) یا رمز عبور اشتباه است'
+
+/** Audit-safe identifier: masked national ID / phone — the raw value never lands in AuditLog. */
+function loginHint(input: { nationalId?: string; phone?: string }): string {
+  if (input.nationalId) return `nid:${maskNationalId(input.nationalId)}`
+  return `phone:${String(input.phone || '').slice(0, 4)}*****${String(input.phone || '').slice(-2)}`
+}
+
+/** Resolve the account for a login identifier. National ID is the patient
+ *  username; a mobile resolves when exactly one live account uses it, or —
+ *  on a shared mobile — to the single STAFF account on it. */
+async function findLoginUser(input: { nationalId?: string; phone?: string }) {
+  if (input.nationalId) {
+    return db.user.findUnique({ where: { nationalIdHash: nationalIdHash(input.nationalId) } })
+  }
+  const matches = await db.user.findMany({ where: { phone: input.phone, deletedAt: null }, take: 20 })
+  if (matches.length === 1) return matches[0]
+  // a patient may register with any mobile — including a staff member's or a
+  // pre-national-ID (legacy) relative's. Neither may be locked out by that:
+  // on a shared mobile, phone login resolves to the ONE staff account, else
+  // to the ONE account without a national ID; everyone else uses national ID.
+  const staff = matches.filter((u) => u.role !== 'PATIENT')
+  if (staff.length === 1) return staff[0]
+  const legacy = matches.filter((u) => !u.nationalIdHash)
+  return legacy.length === 1 ? legacy[0] : null
+}
 
 export async function login(ctx: RequestContext, input: z.infer<typeof loginSchema>) {
   const ipLimit = rateLimit(`login:ip:${ctx.ip}`, LIMITS.loginIp.limit, LIMITS.loginIp.windowMs)
   if (!ipLimit.allowed) {
-    await writeAudit(ctx, { userId: null, action: 'LOGIN_RATE_LIMITED', entity: 'User', entityId: input.phone, newValues: { ip: ctx.ip } })
+    await writeAudit(ctx, { userId: null, action: 'LOGIN_RATE_LIMITED', entity: 'User', entityId: loginHint(input), newValues: { ip: ctx.ip } })
     throw new RateLimitError(undefined, { retryAfterSec: ipLimit.retryAfterSec })
   }
 
-  const user = await db.user.findUnique({ where: { phone: input.phone } })
+  const user = await findLoginUser(input)
   if (!user || user.deletedAt) {
-    await writeAudit(ctx, { userId: null, action: 'LOGIN_FAILED', entity: 'User', entityId: input.phone, oldValues: { reason: 'not found' } })
+    await writeAudit(ctx, { userId: null, action: 'LOGIN_FAILED', entity: 'User', entityId: loginHint(input), oldValues: { reason: 'not found or ambiguous' } })
     throw new AppError('AUTH_REQUIRED', genericFail, 401)
   }
   if (user.lockedUntil && user.lockedUntil > new Date()) {
@@ -71,7 +100,7 @@ export async function login(ctx: RequestContext, input: z.infer<typeof loginSche
 
   // MFA hook (ED-63): password proven, account opted into OTP
   if (user.mfaEnabled) {
-    const challenge = await requestOtp(user.phone, 'LOGIN_MFA', ctx.ip)
+    const challenge = await requestOtp(user.phone, 'LOGIN_MFA', ctx.ip, user.id)
     return { mfaRequired: true, challengeId: challenge.challengeId, expiresAt: challenge.expiresAt, devCode: challenge.devCode }
   }
 
@@ -97,17 +126,35 @@ export async function register(ctx: RequestContext, input: z.infer<typeof regist
   const rl = rateLimit(`register:${ctx.ip}`, 5, 3600_000)
   if (!rl.allowed) throw new RateLimitError(undefined, { retryAfterSec: rl.retryAfterSec })
 
-  const existing = await db.user.findFirst({ where: { phone: input.phone, deletedAt: null } })
-  if (existing) throw new AppError('CONFLICT', 'این شماره موبایل قبلاً ثبت شده است', 409)
+  // national ID is the patient identity (unique); the mobile may be shared by a family
+  const nidHash = nationalIdHash(input.nationalId)
+  const existing = await db.user.findUnique({ where: { nationalIdHash: nidHash }, select: { id: true } })
+  if (existing) throw new AppError('CONFLICT', 'این کد ملی قبلاً ثبت شده است', 409)
 
-  const user = await db.user.create({
-    data: {
-      phone: input.phone, passwordHash: hashPassword(input.password),
-      firstName: input.firstName, lastName: input.lastName,
-      role: 'PATIENT',
-      referralCode: `BH${Date.now().toString(36).toUpperCase()}${Math.floor(Math.random() * 900 + 100)}`,
-    },
-  })
+  let user
+  try {
+    user = await db.user.create({
+      data: {
+        phone: input.phone, passwordHash: hashPassword(input.password),
+        firstName: input.firstName, lastName: input.lastName,
+        role: 'PATIENT',
+        nationalIdHash: nidHash, nationalIdEnc: encryptNationalId(input.nationalId),
+        // birth date wins when both are sent (age is then derived, not stored twice)
+        birthDate: input.birthDate ?? null,
+        ageYears: input.birthDate ? null : input.ageYears ?? null,
+        ageRecordedAt: !input.birthDate && input.ageYears ? new Date() : null,
+        gender: input.gender ?? null,
+        referralCode: `BH${Date.now().toString(36).toUpperCase()}${Math.floor(Math.random() * 900 + 100)}`,
+        ...(input.province || input.city
+          ? { profile: { create: { province: input.province || null, city: input.city || null } } }
+          : {}),
+      },
+    })
+  } catch (e) {
+    // concurrent registration with the same national ID lost the unique race
+    if ((e as { code?: string }).code === 'P2002') throw new AppError('CONFLICT', 'این کد ملی قبلاً ثبت شده است', 409)
+    throw e
+  }
 
   // optional referral linkage
   if (input.referralCode) {
@@ -225,7 +272,8 @@ export async function verifyOtpChallenge(ctx: RequestContext, input: {
       await writeAudit(ctx, { userId: null, action: 'OTP_VERIFY_FAILED', entity: 'OtpChallenge', entityId: String(key), newValues: { reason: res.reason } })
       throw new AppError('AUTH_REQUIRED', 'کد نامعتبر یا منقضی است', 401)
     }
-    const user = await db.user.findUnique({ where: { phone: (res as { phone?: string }).phone || input.phone! } })
+    // the challenge is bound to one account (shared phones make phone lookup ambiguous)
+    const user = res.userId ? await db.user.findUnique({ where: { id: res.userId } }) : null
     if (!user || !user.isActive || user.deletedAt) throw new AppError('FORBIDDEN', 'حساب غیرفعال است', 403)
     await db.user.update({ where: { id: user.id }, data: { failedLogins: 0, lockedUntil: null, lastLoginAt: new Date() } })
     const access = await signAccessToken({ id: user.id, phone: user.phone, role: user.role, firstName: user.firstName, lastName: user.lastName })
@@ -248,3 +296,50 @@ export async function verifyOtpChallenge(ctx: RequestContext, input: {
 }
 
 export { ValidationError }
+
+// ── Account recovery (shared-phone safe) ─────────────────────────────────────
+// The account is identified by national ID; the mobile on file must match.
+// The OTP challenge is bound to that single account (OtpChallenge.userId), so
+// two family members sharing one mobile can never reset each other's password.
+// The response is identical whether or not the pair matched (no enumeration).
+
+export async function requestPasswordReset(ctx: RequestContext, input: z.infer<typeof passwordResetRequestSchema>) {
+  const rl = rateLimit(`pwreset:ip:${ctx.ip}`, LIMITS.otpRequest.limit, LIMITS.otpRequest.windowMs)
+  if (!rl.allowed) throw new RateLimitError(undefined, { retryAfterSec: rl.retryAfterSec })
+
+  const user = await db.user.findUnique({ where: { nationalIdHash: nationalIdHash(input.nationalId) } })
+  const matches = !!user && user.isActive && !user.deletedAt && user.phone === input.phone
+  if (matches) {
+    const challenge = await requestOtp(user.phone, 'PASSWORD_RESET', ctx.ip, user.id)
+    await writeAudit(ctx, { userId: user.id, action: 'PASSWORD_RESET_REQUESTED', entity: 'User', entityId: user.id })
+    return {
+      challengeId: challenge.challengeId, expiresAt: challenge.expiresAt,
+      ...(challenge.devCode ? { devCode: challenge.devCode } : {}),
+    }
+  }
+  await writeAudit(ctx, { userId: null, action: 'PASSWORD_RESET_NO_MATCH', entity: 'User', entityId: `nid:${maskNationalId(input.nationalId)}` })
+  // decoy challenge id: same shape as a real one, verifies as not-found
+  return { challengeId: `c${randomBytes(12).toString('hex')}`, expiresAt: new Date(Date.now() + OTP_TTL_MS) }
+}
+
+export async function confirmPasswordReset(ctx: RequestContext, input: z.infer<typeof passwordResetConfirmSchema>) {
+  const rl = rateLimit(`pwreset:verify:${input.challengeId}`, LIMITS.otpVerify.limit, LIMITS.otpVerify.windowMs)
+  if (!rl.allowed) throw new RateLimitError(undefined, { retryAfterSec: rl.retryAfterSec })
+
+  const rec = await db.otpChallenge.findUnique({ where: { id: input.challengeId } })
+  const fail = () => new AppError('AUTH_REQUIRED', 'کد نامعتبر یا منقضی است', 401)
+  if (!rec || rec.purpose !== 'PASSWORD_RESET' || !rec.userId) throw fail()
+  const res = await verifyOtp(rec.phone, 'PASSWORD_RESET', input.code, rec.id)
+  if (!res.ok || res.userId !== rec.userId) {
+    await writeAudit(ctx, { userId: rec.userId, action: 'PASSWORD_RESET_FAILED', entity: 'User', entityId: rec.userId, newValues: { reason: res.ok ? 'mismatch' : res.reason } })
+    throw fail()
+  }
+  await db.user.update({
+    where: { id: rec.userId },
+    data: { passwordHash: hashPassword(input.newPassword), failedLogins: 0, lockedUntil: null },
+  })
+  await revokeAllRefreshTokens(rec.userId) // every existing session dies with the old password
+  invalidateUserIdentity(rec.userId)
+  await writeAudit(ctx, { userId: rec.userId, action: 'PASSWORD_RESET', entity: 'User', entityId: rec.userId })
+  return { ok: true }
+}

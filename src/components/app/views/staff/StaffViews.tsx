@@ -9,12 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { SectionCard, StatusBadge, StatCard, JalaliDate, LoadingRows, EmptyState, ErrorState, Money } from '../../shared/atoms'
+import { TextAreaField } from '../../shared/form'
+import { QUEUES } from '@/lib/workflow/queues'
 // PHASE 09: CaseWorkspace is a lazy chunk (router) — no eager import/re-export.
 import { fmtMoney } from '@/lib/i18n'
-import { STATUS_META, ROLE_LABELS } from '@/lib/constants'
+import { STATUS_META, ROLE_LABELS, statusLabel } from '@/lib/constants'
 import { LayoutDashboard, Users, FolderOpen, ListChecks, CreditCard, Truck, Bell, CheckCircle2, XCircle, Hourglass, ScanHeart, ClipboardCheck, Stethoscope, Package, BarChart3, User } from 'lucide-react'
 
 // ── Staff dashboard ─────────────────────────────────────────────────────
@@ -24,7 +26,7 @@ export function StaffDashboard({ navigate }: { navigate: (p: string, params?: Re
   const { data, error, loading, refetch } = useApiQuery<{
     stats: Record<string, number>
     queue: { id: string; code: string; status: string; priority: string; createdAt: string; waitingHours: number; patient: { firstName: string; lastName: string; phone: string }; mizajSnapshot?: { mizajFa?: string } | null }[]
-    recentEvents: { id: string; action: string; fromStatus?: string; toStatus?: string; comment?: string; createdAt: string; case?: { code: string }; actor?: { firstName: string; lastName: string; role: string } | null }[]
+    recentEvents: { id: string; action: string; fromStatus?: string; toStatus?: string; comment?: string; reason?: string | null; createdAt: string; case?: { id: string; code: string; status: string; patient?: { firstName: string; lastName: string } }; actor?: { firstName: string; lastName: string; role: string } | null }[]
   }>('/api/v1/dashboard')
 
   if (loading && !data) return <LoadingRows rows={5} />
@@ -44,6 +46,7 @@ export function StaffDashboard({ navigate }: { navigate: (p: string, params?: Re
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard title={lang === 'fa' ? 'کل پرونده‌ها' : 'Total cases'} value={s.totalCases} icon={<FolderOpen size={18} />} />
         {role === 'EXPERT_1' && <StatCard title={lang === 'fa' ? 'در صف شما' : 'In your queue'} value={s.pendingExpert1} icon={<ListChecks size={18} />} tone="bg-status-warning/10 text-status-warning" />}
+        {(role === 'EXPERT_1' || role === 'EXPERT_2' || role === 'ADMIN') && <StatCard title={lang === 'fa' ? 'برگشتی / نیازمند اصلاح' : 'Returned for revision'} value={s.revisionRequested ?? 0} icon={<ListChecks size={18} />} tone="bg-status-revision/10 text-status-revision" />}
         {role === 'EXPERT_2' && <StatCard title={lang === 'fa' ? 'در انتظار بازبینی' : 'Awaiting review'} value={s.pendingExpert2} icon={<ListChecks size={18} />} tone="bg-brand-light/15 text-brand-dark dark:text-brand-light" />}
         {role === 'DOCTOR' && <StatCard title={lang === 'fa' ? 'در انتظار تأیید' : 'Awaiting approval'} value={s.pendingDoctor} icon={<Stethoscope size={18} />} tone="bg-brand-dark/10 text-brand-dark dark:bg-brand-light/15 dark:text-brand-light" />}
         {(role === 'OPERATOR' || role === 'ADMIN') && <>
@@ -82,13 +85,20 @@ export function StaffDashboard({ navigate }: { navigate: (p: string, params?: Re
           <div className="space-y-3">
             {data.recentEvents.slice(0, 8).map((e) => (
               <div key={e.id} className="text-xs space-y-1">
-                <div className="flex items-center gap-2">
+                {/* badge = the case's CURRENT status (central STATUS_META); the
+                    historical transition is plain text — a past "awaiting user
+                    approval" step no longer looks like a stuck case */}
+                <button type="button" className="flex items-center gap-2 flex-wrap text-start hover:underline" onClick={() => e.case && navigate('caseDetail', { id: e.case.id })} disabled={!e.case}>
                   {e.case && <span className="tabular-nums text-muted-foreground">{e.case.code}</span>}
-                  {e.toStatus && <Badge className={`${(STATUS_META as Record<string, { color: string }>)[e.toStatus]?.color || 'bg-status-neutral text-status-neutral-fg'} text-[9px]`}>
-                    {(STATUS_META as Record<string, { fa: string }>)[e.toStatus]?.fa || e.toStatus}
-                  </Badge>}
-                </div>
-                <div className="text-muted-foreground">{e.actor ? `${e.actor.firstName} ${e.actor.lastName} · ` : ''}{e.comment || e.action}</div>
+                  {e.case?.patient && <span>{e.case.patient.firstName} {e.case.patient.lastName}</span>}
+                  {e.case && <StatusBadge status={e.case.status} />}
+                </button>
+                {e.toStatus && (
+                  <div className="text-[11px] text-muted-foreground">
+                    {e.fromStatus ? statusLabel(e.fromStatus, lang) : '—'} ← {statusLabel(e.toStatus, lang)}
+                  </div>
+                )}
+                <div className="text-muted-foreground">{e.actor ? `${e.actor.firstName} ${e.actor.lastName} · ` : ''}{e.comment || e.action}{e.reason ? ` — ${lang === 'fa' ? 'علت' : 'reason'}: ${e.reason}` : ''}</div>
                 <div className="text-[10px] text-muted-foreground"><JalaliDate date={e.createdAt} withTime /></div>
               </div>
             ))}
@@ -102,18 +112,40 @@ export function StaffDashboard({ navigate }: { navigate: (p: string, params?: Re
 // ── Queue (staff) ───────────────────────────────────────────────────────
 export function QueuePage({ navigate }: { navigate: (p: string, params?: Record<string, string>) => void }) {
   const { t, lang, api, user } = useApp()
-  const [status, setStatus] = useState('')
+  const isAdmin = user?.role === 'ADMIN'
+  // default queue per role (single source: lib/workflow/queues)
+  const defaultQueue = user?.role === 'EXPERT_1' ? 'expert1' : user?.role === 'EXPERT_2' ? 'expert2' : user?.role === 'DOCTOR' ? 'doctor' : 'ALL'
+  const [queue, setQueue] = useState(defaultQueue)
+  const [range, setRange] = useState('ALL')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [priority, setPriority] = useState('ALL')
+  const [archived, setArchived] = useState(false)
+  const [page, setPage] = useState(1)
   const [q, setQ] = useState('')
   const debouncedQ = useDebounced(q) // PHASE 09 (F09): debounced search
-  const { data, error, loading, refetch } = useApiQuery<{ cases: { id: string; code: string; status: string; priority: string; createdAt: string; waitingHours: number; patient: { firstName: string; lastName: string; phone: string }; mizajSnapshot?: { mizajFa?: string } | null; images: { id: string; type: string }[] }[] }>(`/api/v1/cases${status && status !== 'ALL' ? `?status=${status}` : ''}${debouncedQ ? `${status && status !== 'ALL' ? '&' : '?'}q=${encodeURIComponent(debouncedQ)}` : ''}`)
+  const [archiveFor, setArchiveFor] = useState<{ id: string; code: string; restore: boolean } | null>(null)
+  const [archiveReason, setArchiveReason] = useState('')
+
+  const params = new URLSearchParams({ page: String(page), limit: '25' })
+  if (queue !== 'ALL') params.set('queue', queue)
+  if (range !== 'ALL' && range !== 'CUSTOM') params.set('range', range)
+  if (range === 'CUSTOM' && from) params.set('from', from)
+  if (range === 'CUSTOM' && to) params.set('to', to)
+  if (priority !== 'ALL') params.set('priority', priority)
+  if (archived) params.set('archived', '1')
+  if (debouncedQ) params.set('q', debouncedQ)
+  const { data, error, loading, refetch } = useApiQuery<{
+    cases: {
+      id: string; code: string; status: string; priority: string; createdAt: string; lastActivityAt: string; followUpAt?: string | null
+      archivedAt?: string | null; archiveReason?: string | null; waitingHours: number
+      patient: { firstName: string; lastName: string; phone: string; age: number | null; province: string | null; city: string | null }
+      expert1?: { firstName: string; lastName: string } | null; expert2?: { firstName: string; lastName: string } | null; doctor?: { firstName: string; lastName: string } | null
+      mizajSnapshot?: { mizajFa?: string } | null
+    }[]
+    total: number; pages: number
+  }>(`/api/v1/cases?${params.toString()}`)
   const cases = data?.cases || []
-
-  const statusOptions = user?.role === 'EXPERT_1' ? ['WAITING_FOR_EXPERT_1', 'EXPERT_1_REVIEW', 'WAITING_FOR_USER_APPROVAL', 'WAITING_FOR_EXPERT_1_PRESCRIPTION', 'REVISION_REQUESTED']
-    : user?.role === 'EXPERT_2' ? ['WAITING_FOR_EXPERT_2', 'REVISION_REQUESTED', 'WAITING_FOR_PAYMENT', 'PAYMENT_CONFIRMED', 'PREPARING_SHIPMENT', 'SHIPPED']
-    : user?.role === 'DOCTOR' ? ['WAITING_FOR_DOCTOR']
-    : undefined
-
-  const claimable = user?.role === 'EXPERT_1' && !status
 
   async function claim(id: string) {
     try {
@@ -123,50 +155,108 @@ export function QueuePage({ navigate }: { navigate: (p: string, params?: Record<
     } catch (e) { toast.error((e as Error).message) }
   }
 
+  async function submitArchive() {
+    if (!archiveFor) return
+    try {
+      await api(`/api/v1/cases/${archiveFor.id}/archive`, { method: 'POST', json: { action: archiveFor.restore ? 'RESTORE' : 'ARCHIVE', reason: archiveReason } })
+      toast.success(t('successTitle')); setArchiveFor(null); setArchiveReason(''); refetch()
+    } catch (e) { toast.error(ApiError.message(e)) }
+  }
+
+  const fullName = (p?: { firstName: string; lastName: string } | null) => p ? `${p.firstName} ${p.lastName}` : '—'
+  const sel = (value: string, onChange: (v: string) => void, opts: [string, string][], w = 'w-44', label?: string) => (
+    <Select value={value} onValueChange={(v) => { onChange(v); setPage(1) }}>
+      <SelectTrigger className={w} aria-label={label}><SelectValue /></SelectTrigger>
+      <SelectContent>{opts.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+    </Select>
+  )
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
         <h1 className="page-title"><ListChecks size={22} />{t('queue')}</h1>
         <div className="ms-auto flex gap-2 flex-wrap">
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} className="w-52" />
-          {statusOptions && (
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="w-56"><SelectValue placeholder={t('all')} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">{t('all')}</SelectItem>
-                {statusOptions.map((s) => (
-                  <SelectItem key={s} value={s}>{(STATUS_META as Record<string, { fa: string }>)[s]?.fa || s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(1) }} placeholder={lang === 'fa' ? 'کد پرونده، نام یا موبایل بیمار…' : 'Case code, patient name or mobile…'} className="w-60" />
+          {sel(queue, setQueue, [['ALL', lang === 'fa' ? 'همه صف‌ها' : 'All queues'], ...QUEUES.map((qd) => [qd.key, lang === 'fa' ? qd.fa : qd.en] as [string, string])], 'w-48', lang === 'fa' ? 'صف' : 'Queue')}
+          {sel(range, setRange, [['ALL', lang === 'fa' ? 'همه زمان‌ها' : 'Any time'], ['today', lang === 'fa' ? 'امروز' : 'Today'], ['7d', lang === 'fa' ? '۷ روز اخیر' : 'Last 7 days'], ['30d', lang === 'fa' ? 'یک ماه اخیر' : 'Last month'], ['90d', lang === 'fa' ? 'سه ماه اخیر' : 'Last 3 months'], ['CUSTOM', lang === 'fa' ? 'بازه دلخواه' : 'Custom range']], 'w-40', lang === 'fa' ? 'بازه زمانی' : 'Period')}
+          {range === 'CUSTOM' && <>
+            <Input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1) }} className="w-40" aria-label={lang === 'fa' ? 'از تاریخ' : 'From'} dir="ltr" />
+            <Input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1) }} className="w-40" aria-label={lang === 'fa' ? 'تا تاریخ' : 'To'} dir="ltr" />
+          </>}
+          {sel(priority, setPriority, [['ALL', lang === 'fa' ? 'همه اولویت‌ها' : 'Any priority'], ['URGENT', 'URGENT'], ['HIGH', 'HIGH'], ['NORMAL', 'NORMAL'], ['LOW', 'LOW']], 'w-36', lang === 'fa' ? 'اولویت' : 'Priority')}
+          {isAdmin && (
+            <Button variant={archived ? 'default' : 'outline'} size="sm" onClick={() => { setArchived(!archived); setPage(1) }}>
+              {archived ? (lang === 'fa' ? 'نمایش فعال‌ها' : 'Show active') : (lang === 'fa' ? 'بایگانی' : 'Archive')}
+            </Button>
           )}
         </div>
       </div>
 
-      {loading ? <LoadingRows /> : error ? <ErrorState message={error.supportRef} onRetry={refetch} /> : cases.length === 0 ? <EmptyState /> : (
-        <div className="space-y-2">
-          {cases.map((c) => (
-            <Card key={c.id} className="hover:border-primary/40 transition-colors">
-              <CardContent className="p-4 flex items-center gap-3 flex-wrap">
-                <button onClick={() => navigate('caseDetail', { id: c.id })} className="flex items-center gap-3 flex-wrap text-start">
-                  <span className="font-bold tabular-nums text-sm">{c.code}</span>
-                  <StatusBadge status={c.status} />
-                  {c.priority !== 'NORMAL' && <Badge variant="destructive" className="text-[10px]">{c.priority}</Badge>}
-                  <span className="text-xs text-muted-foreground">{c.patient.firstName} {c.patient.lastName} · {c.patient.phone}</span>
-                  {c.mizajSnapshot?.mizajFa && <Badge variant="outline" className="text-[10px]">{c.mizajSnapshot.mizajFa}</Badge>}
-                </button>
-                <div className="ms-auto flex items-center gap-2">
-                  <span className="text-xs text-status-warning flex items-center gap-1 tabular-nums"><Hourglass size={12} />{c.waitingHours}{t('hours')}</span>
-                  {claimable && c.status === 'WAITING_FOR_EXPERT_1' && (
-                    <Button size="sm" className="gap-1" onClick={() => claim(c.id)}><ClipboardCheck size={14} />{lang === 'fa' ? 'دریافت' : 'Claim'}</Button>
-                  )}
-                  <Button size="sm" variant="outline" onClick={() => navigate('caseDetail', { id: c.id })}>{t('details')}</Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+      {loading && !data ? <LoadingRows /> : error ? <ErrorState message={error.supportRef} onRetry={refetch} /> : cases.length === 0 ? <EmptyState /> : (
+        <Card>
+          <CardContent className="p-0 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/50 text-muted-foreground">
+                <tr className="text-start">
+                  {[lang === 'fa' ? 'کد پرونده' : 'Case', lang === 'fa' ? 'بیمار' : 'Patient', lang === 'fa' ? 'موبایل' : 'Mobile', lang === 'fa' ? 'سن' : 'Age',
+                    lang === 'fa' ? 'استان / شهر' : 'Province / city', lang === 'fa' ? 'وضعیت' : 'Status', lang === 'fa' ? 'کارشناس / پزشک' : 'Expert / doctor',
+                    lang === 'fa' ? 'ایجاد' : 'Created', lang === 'fa' ? 'آخرین فعالیت' : 'Last activity', lang === 'fa' ? 'پیگیری بعدی' : 'Next follow-up', ''].map((h, i) => (
+                    <th key={i} className="px-3 py-2 font-medium text-start whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {cases.map((c) => (
+                  <tr key={c.id} className="border-t hover:bg-muted/30">
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <button className="font-bold tabular-nums hover:underline" onClick={() => navigate('caseDetail', { id: c.id })}>{c.code}</button>
+                      {c.priority !== 'NORMAL' && <Badge variant="destructive" className="ms-1 text-[9px]">{c.priority}</Badge>}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fullName(c.patient)}</td>
+                    <td className="px-3 py-2 tabular-nums" dir="ltr">{c.patient.phone}</td>
+                    <td className="px-3 py-2 tabular-nums">{c.patient.age ?? '—'}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{[c.patient.province, c.patient.city].filter(Boolean).join(' / ') || '—'}</td>
+                    <td className="px-3 py-2"><StatusBadge status={c.status} /></td>
+                    <td className="px-3 py-2 whitespace-nowrap">{[c.expert1, c.expert2, c.doctor].filter(Boolean).map((p) => fullName(p)).join('، ') || '—'}</td>
+                    <td className="px-3 py-2 whitespace-nowrap"><JalaliDate date={c.createdAt} /></td>
+                    <td className="px-3 py-2 whitespace-nowrap"><JalaliDate date={c.lastActivityAt} withTime /></td>
+                    <td className="px-3 py-2 whitespace-nowrap">{c.followUpAt ? <JalaliDate date={c.followUpAt} /> : '—'}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <div className="flex gap-1.5 justify-end">
+                        {user?.role === 'EXPERT_1' && c.status === 'WAITING_FOR_EXPERT_1' && (
+                          <Button size="sm" className="h-7 gap-1" onClick={() => claim(c.id)}><ClipboardCheck size={13} />{lang === 'fa' ? 'دریافت' : 'Claim'}</Button>
+                        )}
+                        {isAdmin && (
+                          <Button size="sm" variant="ghost" className="h-7" onClick={() => setArchiveFor({ id: c.id, code: c.code, restore: !!c.archivedAt })}>
+                            {c.archivedAt ? (lang === 'fa' ? 'بازگردانی' : 'Restore') : (lang === 'fa' ? 'بایگانی' : 'Archive')}
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+
+      {data && data.pages > 1 && (
+        <div className="flex items-center justify-center gap-2 text-xs">
+          <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>{lang === 'fa' ? 'قبلی' : 'Prev'}</Button>
+          <span className="tabular-nums">{page} / {data.pages} · {data.total}</span>
+          <Button size="sm" variant="outline" disabled={page >= data.pages} onClick={() => setPage(page + 1)}>{lang === 'fa' ? 'بعدی' : 'Next'}</Button>
         </div>
       )}
+
+      <Dialog open={!!archiveFor} onOpenChange={(v) => { if (!v) { setArchiveFor(null); setArchiveReason('') } }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{archiveFor?.restore ? (lang === 'fa' ? 'بازگردانی از بایگانی' : 'Restore from archive') : (lang === 'fa' ? 'بایگانی پرونده' : 'Archive case')} {archiveFor?.code}</DialogTitle></DialogHeader>
+          <p className="text-xs text-muted-foreground">{lang === 'fa' ? 'بایگانی حذف نیست؛ همه سوابق حفظ می‌شود و پرونده قابل بازگردانی است.' : 'Archiving is not deletion — all records are kept and the case can be restored.'}</p>
+          <TextAreaField label={lang === 'fa' ? 'علت' : 'Reason'} required rows={2} value={archiveReason} onChange={(e) => setArchiveReason(e.target.value)} />
+          <DialogFooter><Button disabled={archiveReason.trim().length < 3} onClick={submitArchive}>{t('confirm')}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

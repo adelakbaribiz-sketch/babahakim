@@ -1,5 +1,8 @@
-// Seed: RBAC + demo users (all 6 roles) + questionnaire + diseases + products + AI model
-// Run: bunx bun prisma/seed.ts  (or: bun prisma/seed.ts)
+// Seed: RBAC + questionnaire + AI model registry (+ demo data in demo mode)
+// Run (demo/dev):   bun prisma/seed.ts
+// Run (production): SEED_MODE=production BH_ADMIN_PHONE=09… BH_ADMIN_PASSWORD=… bun prisma/seed.ts
+//   production mode seeds ONLY reference data and one administrator from the
+//   environment — no demo users, no Pass1234, no demo products/cases/metrics.
 import { PrismaClient } from '@prisma/client'
 import { scryptSync, randomBytes } from 'crypto'
 
@@ -12,8 +15,14 @@ function hashPassword(password: string): string {
 
 import { ROLES, ROLE_LABELS, ROLE_PERMISSIONS, PERMISSIONS } from '../src/lib/constants'
 
+const PROD = process.env.SEED_MODE === 'production'
+
 async function main() {
-  console.log('🌱 Seeding TongueAI platform...')
+  // the demo seed creates public demo credentials — never in production
+  if (process.env.NODE_ENV === 'production' && !PROD) {
+    throw new Error('Refusing the DEMO seed with NODE_ENV=production — use SEED_MODE=production')
+  }
+  console.log(`🌱 Seeding BabaHakim (${PROD ? 'production reference data' : 'demo'})...`)
 
   // ── PHASE 20 (PERF1 root-cause): WAL from birth, not just from boot ────────
   // ED-182 tuning lives at app boot (src/lib/db.ts) — but a freshly db:push'ed
@@ -52,7 +61,10 @@ async function main() {
     }
   }
 
-  // ── Users ──
+  const created: Record<string, string> = {}
+  if (PROD) await bootstrapAdmin()
+  else {
+  // ── Users (demo) ──
   const users = [
     { phone: '09120000001', firstName: 'رعیا', lastName: 'سیستمی', role: 'ADMIN', email: 'admin@tongueai.ir' },
     { phone: '09120000002', firstName: 'کیارش', lastName: 'کارشناس‌اول', role: 'EXPERT_1', email: 'expert1@tongueai.ir' },
@@ -64,11 +76,10 @@ async function main() {
     { phone: '09120000008', firstName: 'نگار', lastName: 'حسینی', role: 'PATIENT' },
   ]
   const pw = hashPassword('Pass1234')
-  const created: Record<string, string> = {}
   for (const u of users) {
-    const rec = await db.user.upsert({
-      where: { phone: u.phone }, update: {},
-      create: {
+    // phone is no longer unique (shared family mobiles) — idempotent by lookup
+    const rec = (await db.user.findFirst({ where: { phone: u.phone, role: u.role } })) ?? await db.user.create({
+      data: {
         phone: u.phone, email: u.email, passwordHash: pw,
         firstName: u.firstName, lastName: u.role === 'DOCTOR' ? 'نیک‌پور' : u.lastName,
         role: u.role, isActive: true, profileComplete: true,
@@ -94,6 +105,7 @@ async function main() {
     where: { userId: created['09120000007'] }, update: {},
     create: { userId: created['09120000007'], province: 'اصفهان', city: 'اصفهان', addressLine: 'خیابان چهارباغ' },
   })
+  } // end demo users
 
   // ── Questionnaire (مزاج‌شناسی) v1 ──
   const q = await db.questionnaire.upsert({
@@ -240,7 +252,53 @@ async function main() {
       })
     }
   }
-  // Remove demo response if any leftover
+  if (!PROD) await seedDemoData(q.id, created)
+
+  // ── AI model registry ──
+  // production: no fabricated evaluation metrics (real ones come from
+  // AIEvaluationReport); demo keeps its illustrative numbers
+  await db.aIModel.upsert({
+    where: { id: 'model-v1' }, update: {},
+    create: {
+      id: 'model-v1', name: 'TongueModelV1', version: 1, provider: 'TongueModelV1', isActive: true,
+      metrics: PROD ? null : JSON.stringify({ accuracy: 0.78, precision: 0.76, recall: 0.74, f1: 0.75, samples: 1240 }),
+      trainingDataset: PROD ? null : 'dataset-v0.3', trainingDate: PROD ? null : new Date('2026-08-01'), approvalStatus: 'DEPLOYED',
+    },
+  })
+
+  console.log('✅ Seed complete.')
+  if (!PROD) {
+    console.log('   Admin:    09120000001 / Pass1234')
+    console.log('   Expert1:  09120000002 / Pass1234')
+    console.log('   Expert2:  09120000003 / Pass1234')
+    console.log('   Operator: 09120000004 / Pass1234')
+    console.log('   Doctor:   09120000005 / Pass1234')
+    console.log('   Patient:  09120000006 / Pass1234 (سارا مریدی)')
+  }
+}
+
+/** Production: create the first administrator from env (idempotent — skipped
+ *  when any ADMIN already exists). The password is never logged. */
+async function bootstrapAdmin() {
+  const existing = await db.user.findFirst({ where: { role: 'ADMIN', deletedAt: null } })
+  if (existing) { console.log('  · administrator already exists — skipped'); return }
+  const phone = (process.env.BH_ADMIN_PHONE || '').trim()
+  const password = process.env.BH_ADMIN_PASSWORD || ''
+  if (!/^09\d{9}$/.test(phone)) throw new Error('BH_ADMIN_PHONE must be a mobile number like 09xxxxxxxxx')
+  if (password.length < 12 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    throw new Error('BH_ADMIN_PASSWORD must be at least 12 characters with letters and digits')
+  }
+  await db.user.create({
+    data: {
+      phone, passwordHash: hashPassword(password), role: 'ADMIN', isActive: true, profileComplete: true,
+      firstName: process.env.BH_ADMIN_FIRST_NAME || 'مدیر', lastName: process.env.BH_ADMIN_LAST_NAME || 'سیستم',
+    },
+  })
+  console.log(`  ✓ administrator created for ${phone.slice(0, 4)}*****${phone.slice(-2)}`)
+}
+
+async function seedDemoData(questionnaireId: string, created: Record<string, string>) {
+  const q = { id: questionnaireId }
 
   // ── PHASE 20 (ED-157 root-cause): demo case chain for the seed patient ────
   // The search/reporting suite asserts the seed patient owns ≥1 case ("TC-"
@@ -334,16 +392,6 @@ async function main() {
     }
   }
 
-  // ── AI model registry ──
-  await db.aIModel.upsert({
-    where: { id: 'model-v1' }, update: {},
-    create: {
-      id: 'model-v1', name: 'TongueModelV1', version: 1, provider: 'TongueModelV1', isActive: true,
-      metrics: JSON.stringify({ accuracy: 0.78, precision: 0.76, recall: 0.74, f1: 0.75, samples: 1240 }),
-      trainingDataset: 'dataset-v0.3', trainingDate: new Date('2026-08-01'), approvalStatus: 'DEPLOYED',
-    },
-  })
-
   // ── Sample expense ──
   await db.financialTransaction.createMany({
     data: [
@@ -351,14 +399,6 @@ async function main() {
       { type: 'EXPENSE', category: 'SALARY', amount: 8500000, description: 'حقوق اپراتور — آبان', createdById: created['ADMIN'] },
     ],
   }).catch(() => {})
-
-  console.log('✅ Seed complete.')
-  console.log('   Admin:    09120000001 / Pass1234')
-  console.log('   Expert1:  09120000002 / Pass1234')
-  console.log('   Expert2:  09120000003 / Pass1234')
-  console.log('   Operator: 09120000004 / Pass1234')
-  console.log('   Doctor:   09120000005 / Pass1234')
-  console.log('   Patient:  09120000006 / Pass1234 (سارا مریدی)')
 }
 
 main().catch((e) => { console.error(e); process.exit(1) }).finally(() => db.$disconnect())

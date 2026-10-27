@@ -11,12 +11,20 @@ export interface ExportTable {
   metaLines?: string[] // extra header comment lines (window, generatedAt…)
 }
 
+/** Spreadsheet formula-injection guard (CSV/XLSX): user-controlled text that
+ *  starts with = + - @ TAB or CR is executed by Excel/LibreOffice as a
+ *  formula. Such strings get a leading apostrophe; real numbers are untouched. */
+export function neutralizeFormula(s: string): string {
+  return /^[=+\-@\t\r]/.test(s) && !/^[+-]?\d+(\.\d+)?$/.test(s) ? `'${s}` : s
+}
+
 function escapeCsv(v: unknown): string {
   if (v === null || v === undefined) return ''
   let s: string
   if (v instanceof Date) s = v.toISOString()
   else if (typeof v === 'boolean') s = v ? 'TRUE' : 'FALSE'
-  else s = String(v)
+  else if (typeof v === 'number') s = String(v)
+  else s = neutralizeFormula(String(v))
   // Persian digits stay as typed (faithful data); escaping only structural chars
   if (/[",\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"'
   return s

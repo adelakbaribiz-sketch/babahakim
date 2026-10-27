@@ -34,7 +34,7 @@ export function buildTimeline(caseRow: {
   createdAt: Date; events: { action: string; fromStatus: string | null; toStatus: string | null; comment: string | null; reason: string | null; createdAt: Date; actor?: { firstName: string; lastName: string; role: string } | null }[]
   status: string
 }) {
-  const items: { at: Date; code: string; actor: string; actorRole: string; desc: string }[] = [
+  const items: { at: Date; code: string; actor: string; actorRole: string; desc: string; reason?: string | null }[] = [
     { at: caseRow.createdAt, code: 'CREATED', actor: '', actorRole: 'PATIENT', desc: 'ایجاد پرونده و قرارگیری در صف' },
   ]
   for (const e of caseRow.events) {
@@ -43,6 +43,7 @@ export function buildTimeline(caseRow: {
       actor: e.actor ? `${e.actor.firstName} ${e.actor.lastName}` : '—',
       actorRole: e.actor?.role || '',
       desc: e.comment || e.reason || e.action,
+      reason: e.reason,
     })
   }
   return items.sort((a, b) => a.at.getTime() - b.at.getTime())

@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { toast } from 'sonner'
 import { ApiError } from '@/lib/api-error'
 import { TextAreaField } from '../shared/form'
+import { RxItemsEditor, emptyRxItem, submittableRxItems, rxAmbiguity, type RxItemDraft } from '../shared/rx-editor'
 import { SectionCard, StatusBadge, JalaliDate, Money, LoadingRows, EmptyState, ErrorState } from '../shared/atoms'
 import { AIAnalysisCard, ImageGallery, PrescriptionCard, PaymentPanel, Timeline } from '../shared/clinical'
 import { STATUS_META } from '@/lib/constants'
@@ -41,7 +42,7 @@ interface CaseData {
   diagnoses: { id: string; title: string; notes?: string; createdAt: string; expert: { firstName: string; lastName: string }; disease?: { nameFa: string; nameEn: string } | null; confidence?: number }[]
   prescriptions: Parameters<typeof PrescriptionCard>[0]['prescription'][]
   orders: { id: string; code: string; status: string; total: number; type: string; payments: { id: string; code: string; method: string; status: string; amount: number; refNumber?: string; trackingCode?: string; receiptImageId?: string }[]; invoice?: { code: string; total: number; status: string } | null; shipment?: { id: string; method: string; status: string; driverName?: string; driverPhone?: string; trackingCode?: string; shippingDate?: string; deliveryDate?: string; cost?: number } | null; items: { nameFa: string; quantity: number; total: number }[] }[]
-  timeline: { at: string; desc: string; actor: string; actorRole: string; code: string }[]
+  timeline: { at: string; desc: string; actor: string; actorRole: string; code: string; reason?: string | null }[]
   followUps: { id: string; dueDate: string; status: string; note?: string }[]
 }
 
@@ -106,6 +107,19 @@ export function CaseWorkspace({ caseId, onChanged }: { caseId: string; onChanged
       {/* progress bar */}
       <ProgressTrack status={data.status} />
 
+      {/* returned / rejected: show WHO sent it back and WHY (from the timeline) */}
+      {data.status === 'REVISION_REQUESTED' && (() => {
+        const last = [...data.timeline].reverse().find((e) => e.code === 'REVISION_REQUESTED')
+        return (
+          <Alert className="border-status-revision/40 bg-status-revision/5">
+            <AlertDescription className="text-sm">
+              {lang === 'fa' ? 'این نسخه برای اصلاح به کارشناس اول برگشته است.' : 'This prescription was returned to Expert 1 for revision.'}
+              {last && <> — {last.actor}{last.reason ? `: ${last.reason}` : ''} · <JalaliDate date={last.at} withTime /></>}
+            </AlertDescription>
+          </Alert>
+        )
+      })()}
+
       <div className="grid lg:grid-cols-3 gap-5">
         <div className="space-y-5 lg:col-span-2">
           {/* patient complaint + mizaj */}
@@ -114,7 +128,7 @@ export function CaseWorkspace({ caseId, onChanged }: { caseId: string; onChanged
               <p className="text-sm leading-relaxed whitespace-pre-wrap">{data.description || '—'}</p>
               <Separator />
               <div className="flex flex-wrap gap-2 text-xs">
-                {data.mizajSnapshot && <Badge className="bg-brand-dark text-white">{t('mizaj')}: {lang === 'fa' ? data.mizajSnapshot.mizajFa : data.mizajSnapshot.mizajEn}</Badge>}
+                {data.mizajSnapshot?.mizajFa ? <Badge className="bg-brand-dark text-white">{t('mizaj')}: {lang === 'fa' ? data.mizajSnapshot.mizajFa : data.mizajSnapshot.mizajEn}</Badge> : <Badge variant="outline">{lang === 'fa' ? 'مزاج ثبت نشده' : 'Temperament not recorded'}</Badge>}
                 {data.patientProfile?.heightCm && <Badge variant="outline">{data.patientProfile.heightCm} cm</Badge>}
                 {data.patientProfile?.weightKg && <Badge variant="outline">{data.patientProfile.weightKg} kg</Badge>}
                 {data.patientProfile?.province && <Badge variant="outline">{data.patientProfile.province}{data.patientProfile.city ? ` / ${data.patientProfile.city}` : ''}</Badge>}
@@ -180,7 +194,10 @@ export function CaseWorkspace({ caseId, onChanged }: { caseId: string; onChanged
 
           {/* Expert2 review editor (machine-derived) */}
           {act('EXPERT2_REVIEW') && latestRx && (
-            <Expert2Review prescription={latestRx} onSubmit={async (items, notes) => action('EXPERT2_REVIEW', { items, notes })} />
+            <Expert2Review prescription={latestRx}
+              onSubmit={async (items, notes) => action('EXPERT2_REVIEW', { items, notes })}
+              onRevise={async (revisedItems, changeReason, notes) => action('EXPERT2_REVIEW', { revisedItems, changeReason, notes })}
+              onReturn={act('EXPERT2_RETURN') ? async (reason) => action('EXPERT2_RETURN', { reason }) : undefined} />
           )}
 
           {/* Doctor decision (machine-derived — G2 mandatory comment) */}
@@ -373,45 +390,20 @@ function AssessmentEditor({ onSubmit }: { onSubmit: (summary: string) => Promise
 }
 
 // ── Prescription editor (Expert 1) ─────────────────────────────────────
-interface RxItemDraft { productId?: string; drugName: string; dosage: string; frequency: string; duration: string; instructions: string; warnings: string }
-export function PrescriptionEditor({ onSubmit, products }: { onSubmit: (items: RxItemDraft[], notes: string) => Promise<boolean>; products?: { id: string; nameFa: string }[] }) {
+export function PrescriptionEditor({ onSubmit }: { onSubmit: (items: RxItemDraft[], notes: string) => Promise<boolean> }) {
   const { t, lang } = useApp()
-  const [items, setItems] = useState<RxItemDraft[]>([{ drugName: '', dosage: '', frequency: '', duration: '', instructions: '', warnings: '' }])
+  const [items, setItems] = useState<RxItemDraft[]>([emptyRxItem()])
   const [notes, setNotes] = useState('')
   const [busy, setBusy] = useState(false)
-
-  const add = () => setItems([...items, { drugName: '', dosage: '', frequency: '', duration: '', instructions: '', warnings: '' }])
-  const set = (i: number, k: keyof RxItemDraft, v: string) => setItems(items.map((it, idx) => idx === i ? { ...it, [k]: v } : it))
+  const ready = submittableRxItems(items)
 
   return (
     <Card className="border-primary/30">
       <CardHeader className="pb-3"><CardTitle className="text-base">{t('prescription')} — {lang === 'fa' ? 'تنظیم نسخه' : 'Compose'}</CardTitle></CardHeader>
       <CardContent className="space-y-4">
-        {items.map((it, i) => (
-          <div key={i} className="rounded-lg border p-3 space-y-2.5 relative">
-            {items.length > 1 && <Button variant="ghost" size="sm" className="absolute top-2 end-2 h-6 text-destructive" onClick={() => setItems(items.filter((_, x) => x !== i))}>×</Button>}
-            <div className="grid sm:grid-cols-2 gap-2.5">
-              <div className="space-y-1"><Label className="text-xs">{lang === 'fa' ? 'نام دارو / محصول' : 'Drug'} *</Label>
-                {products && products.length > 0 ? (
-                  <Select onValueChange={(v) => { const p = products.find((x) => x.id === v); set(i, 'drugName', p?.nameFa || ''); setItems(items.map((x, idx) => idx === i ? { ...x, productId: v } : x)) }}>
-                    <SelectTrigger><SelectValue placeholder={lang === 'fa' ? 'انتخاب یا تایپ' : 'Select or type'} /></SelectTrigger>
-                    <SelectContent>{products.map((p) => <SelectItem key={p.id} value={p.id}>{p.nameFa}</SelectItem>)}</SelectContent>
-                  </Select>
-                ) : <Input value={it.drugName} onChange={(e) => set(i, 'drugName', e.target.value)} />}
-              </div>
-              <div className="space-y-1"><Label className="text-xs">{t('dosage')}</Label><Input value={it.dosage} onChange={(e) => set(i, 'dosage', e.target.value)} placeholder="۱ قاشق" /></div>
-              <div className="space-y-1"><Label className="text-xs">{t('frequency')}</Label><Input value={it.frequency} onChange={(e) => set(i, 'frequency', e.target.value)} placeholder="روزی ۲ بار بعد غذا" /></div>
-              <div className="space-y-1"><Label className="text-xs">{t('duration')}</Label><Input value={it.duration} onChange={(e) => set(i, 'duration', e.target.value)} placeholder="۷ روز" /></div>
-            </div>
-            <div className="space-y-1"><Label className="text-xs">{t('instructions')}</Label><Input value={it.instructions} onChange={(e) => set(i, 'instructions', e.target.value)} /></div>
-            <div className="space-y-1"><Label className="text-xs">⚠ {lang === 'fa' ? 'هشدارها' : 'Warnings'}</Label><Input value={it.warnings} onChange={(e) => set(i, 'warnings', e.target.value)} /></div>
-          </div>
-        ))}
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={add} className="gap-1">+ {lang === 'fa' ? 'قلم جدید' : 'Add item'}</Button>
-        </div>
+        <RxItemsEditor items={items} onChange={setItems} />
         <div className="space-y-1"><Label className="text-xs">{lang === 'fa' ? 'توضیحات کارشناس اول' : 'Expert notes'}</Label><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
-        <Button disabled={busy || !items.some((i) => i.drugName.trim())} onClick={async () => { setBusy(true); const ok = await onSubmit(items.filter((i) => i.drugName.trim()), notes); if (ok) { setItems([{ drugName: '', dosage: '', frequency: '', duration: '', instructions: '', warnings: '' }]); setNotes('') } setBusy(false) }} className="gap-1.5">
+        <Button disabled={busy || ready.length === 0 || rxAmbiguity(items)} onClick={async () => { setBusy(true); const ok = await onSubmit(ready, notes); if (ok) { setItems([emptyRxItem()]); setNotes('') } setBusy(false) }} className="gap-1.5">
           <Pill size={16} />{t('submit')}
         </Button>
       </CardContent>
@@ -419,46 +411,98 @@ export function PrescriptionEditor({ onSubmit, products }: { onSubmit: (items: R
   )
 }
 
-// ── Expert 2 review: availability + pricing ─────────────────────────────
-export function Expert2Review({ prescription, onSubmit }: {
+// ── Expert 2 review: availability + pricing · edit (new version) · return ─
+export function Expert2Review({ prescription, onSubmit, onRevise, onReturn }: {
   prescription: Parameters<typeof PrescriptionCard>[0]['prescription']
   onSubmit: (items: { id: string; available: boolean; missing: boolean; unitPrice: number }[], notes: string) => Promise<boolean>
+  onRevise: (items: RxItemDraft[], changeReason: string, notes: string) => Promise<boolean>
+  onReturn?: (reason: string) => Promise<boolean>
 }) {
   const { t, lang } = useApp()
   const [rows, setRows] = useState(prescription.items.map((it) => ({ id: it.id, available: it.available, missing: it.missing, unitPrice: it.unitPrice ?? 0 })))
   const [notes, setNotes] = useState('')
   const [busy, setBusy] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState<RxItemDraft[]>([])
+  const [changeReason, setChangeReason] = useState('')
+  const [returnOpen, setReturnOpen] = useState(false)
+  const [returnReason, setReturnReason] = useState('')
+
+  const startEdit = () => {
+    setDraft(prescription.items.map((it) => ({
+      productId: (it as { productId?: string | null }).productId ?? null, drugName: it.drugName,
+      dosage: it.dosage || '', frequency: it.frequency || '', duration: it.duration || '',
+      instructions: (it as { instructionsFa?: string | null }).instructionsFa || '', warnings: it.warnings || '',
+      quantity: (it as { quantity?: number }).quantity ?? 1, unitPrice: it.unitPrice ?? null,
+    })))
+    setEditing(true)
+  }
 
   return (
     <Card className="border-brand-light/50">
-      <CardHeader className="pb-3"><CardTitle className="text-base">{lang === 'fa' ? 'بازبینی کارشناس دوم — اقلام و قیمت' : 'Expert 2 Review — items & pricing'}</CardTitle></CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          {rows.map((r, i) => (
-            <div key={r.id} className="rounded-lg border p-3 grid sm:grid-cols-[1fr_auto_auto_auto] gap-2.5 items-center">
-              <span className="text-sm font-medium">{prescription.items[i]?.drugName}</span>
-              <div className="flex items-center gap-1.5 text-xs">
-                <input type="checkbox" id={`av-${r.id}`} checked={r.available} onChange={(e) => setRows(rows.map((x, idx) => idx === i ? { ...x, available: e.target.checked, missing: !e.target.checked } : x))} className="size-4 accent-primary" />
-                <label htmlFor={`av-${r.id}`}>{t('available')}</label>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs">
-                <input type="checkbox" id={`ms-${r.id}`} checked={r.missing} onChange={(e) => setRows(rows.map((x, idx) => idx === i ? { ...x, missing: e.target.checked } : x))} className="size-4 accent-status-warning" />
-                <label htmlFor={`ms-${r.id}`}>{t('missing')}</label>
-              </div>
-              <Input type="number" value={r.unitPrice} onChange={(e) => setRows(rows.map((x, idx) => idx === i ? { ...x, unitPrice: Number(e.target.value) } : x))} className="w-32 h-8 text-xs" dir="ltr" placeholder={lang === 'fa' ? 'قیمت (تومان)' : 'Price'} />
-            </div>
-          ))}
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <CardTitle className="text-base">{lang === 'fa' ? 'بازبینی کارشناس دوم' : 'Expert 2 Review'}</CardTitle>
+          <div className="ms-auto flex gap-2">
+            {!editing && <Button size="sm" variant="outline" onClick={startEdit}>{lang === 'fa' ? 'ویرایش اقلام نسخه' : 'Edit items'}</Button>}
+            {onReturn && <Button size="sm" variant="outline" className="text-status-revision" onClick={() => setReturnOpen(true)}>{lang === 'fa' ? 'برگشت به کارشناس اول' : 'Return to Expert 1'}</Button>}
+          </div>
         </div>
-        <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={lang === 'fa' ? 'توضیحات بازبینی کارشناس دوم…' : 'Expert 2 notes…'} />
-        <Button disabled={busy} onClick={async () => { setBusy(true); const ok = await onSubmit(rows, notes); setBusy(false) }} className="btn-brand-hover gap-1.5">
-          <CheckCircle2 size={16} />{lang === 'fa' ? 'ثبت بازبینی و ارسال برای پزشک' : 'Review & send to doctor'}
-        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {editing ? (
+          <>
+            <p className="text-xs text-muted-foreground">{lang === 'fa' ? 'ذخیره، نسخه جدیدی می‌سازد؛ نسخه فعلی در تاریخچه می‌ماند.' : 'Saving writes a new version; the current one stays in history.'}</p>
+            <RxItemsEditor items={draft} onChange={setDraft} showPrice />
+            <TextAreaField label={lang === 'fa' ? 'علت ویرایش' : 'Reason for change'} required rows={2} value={changeReason} onChange={(e) => setChangeReason(e.target.value)} />
+            <div className="flex gap-2">
+              <Button disabled={busy || !changeReason.trim() || submittableRxItems(draft).length === 0 || rxAmbiguity(draft)} className="btn-brand-hover gap-1.5"
+                onClick={async () => { setBusy(true); const ok = await onRevise(submittableRxItems(draft), changeReason, notes); setBusy(false); if (ok) setEditing(false) }}>
+                <CheckCircle2 size={16} />{lang === 'fa' ? 'ثبت نسخه اصلاح‌شده و ارسال برای پزشک' : 'Save revision & send to doctor'}
+              </Button>
+              <Button variant="ghost" onClick={() => setEditing(false)}>{lang === 'fa' ? 'انصراف' : 'Cancel'}</Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="space-y-2">
+              {rows.map((r, i) => (
+                <div key={r.id} className="rounded-lg border p-3 grid sm:grid-cols-[1fr_auto_auto_auto] gap-2.5 items-center">
+                  <span className="text-sm font-medium">{prescription.items[i]?.drugName}</span>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <input type="checkbox" id={`av-${r.id}`} checked={r.available} onChange={(e) => setRows(rows.map((x, idx) => idx === i ? { ...x, available: e.target.checked, missing: !e.target.checked } : x))} className="size-4 accent-primary" />
+                    <label htmlFor={`av-${r.id}`}>{t('available')}</label>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <input type="checkbox" id={`ms-${r.id}`} checked={r.missing} onChange={(e) => setRows(rows.map((x, idx) => idx === i ? { ...x, missing: e.target.checked } : x))} className="size-4 accent-status-warning" />
+                    <label htmlFor={`ms-${r.id}`}>{t('missing')}</label>
+                  </div>
+                  <Input type="number" value={r.unitPrice} onChange={(e) => setRows(rows.map((x, idx) => idx === i ? { ...x, unitPrice: Number(e.target.value) } : x))} className="w-32 h-8 text-xs" dir="ltr" placeholder={lang === 'fa' ? 'قیمت (تومان)' : 'Price'} />
+                </div>
+              ))}
+            </div>
+            <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={lang === 'fa' ? 'توضیحات بازبینی کارشناس دوم…' : 'Expert 2 notes…'} />
+            <Button disabled={busy} onClick={async () => { setBusy(true); await onSubmit(rows, notes); setBusy(false) }} className="btn-brand-hover gap-1.5">
+              <CheckCircle2 size={16} />{lang === 'fa' ? 'ثبت بازبینی و ارسال برای پزشک' : 'Review & send to doctor'}
+            </Button>
+          </>
+        )}
       </CardContent>
+      <Dialog open={returnOpen} onOpenChange={setReturnOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{lang === 'fa' ? 'برگشت نسخه به کارشناس اول' : 'Return to Expert 1'}</DialogTitle></DialogHeader>
+          <TextAreaField label={lang === 'fa' ? 'علت برگشت و توضیح برای کارشناس اول' : 'Reason / note for Expert 1'} required rows={3} value={returnReason} onChange={(e) => setReturnReason(e.target.value)} />
+          <DialogFooter>
+            <Button disabled={busy || !returnReason.trim() || !onReturn} onClick={async () => { if (!onReturn) return; setBusy(true); const ok = await onReturn(returnReason); setBusy(false); if (ok) { setReturnOpen(false); setReturnReason('') } }}>
+              {lang === 'fa' ? 'ثبت برگشت' : 'Return'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
 
-// ── Doctor decision ─────────────────────────────────────────────────────
 function DoctorDecision({ onSubmit }: { onSubmit: (decision: 'APPROVE' | 'REJECT' | 'REVISION', comment: string, followUpDays: number) => Promise<boolean> }) {
   const { t, lang } = useApp()
   const [comment, setComment] = useState('')
@@ -478,7 +522,7 @@ function DoctorDecision({ onSubmit }: { onSubmit: (decision: 'APPROVE' | 'REJECT
         <div className="grid grid-cols-3 gap-2">
           <Button className="btn-brand-hover gap-1" disabled={busy} onClick={async () => { setBusy(true); await onSubmit('APPROVE', comment, Number(days) || 40); setBusy(false) }}><CheckCircle2 size={15} />{t('confirm')}</Button>
           <Button variant="outline" className="gap-1" disabled={busy} onClick={async () => { setBusy(true); await onSubmit('REVISION', comment, Number(days) || 40); setBusy(false) }}>↺ {lang === 'fa' ? 'اصلاح' : 'Revise'}</Button>
-          <Button variant="outline" className="text-destructive gap-1" disabled={busy} onClick={async () => { setBusy(true); await onSubmit('REJECT', comment, Number(days) || 40); setBusy(false) }}><XCircle size={15} />{t('reject')}</Button>
+          <Button variant="outline" className="text-destructive gap-1" disabled={busy} onClick={async () => { setBusy(true); await onSubmit('REJECT', comment, Number(days) || 40); setBusy(false) }}><XCircle size={15} />{lang === 'fa' ? 'رد و بازگشت برای اصلاح' : 'Reject → back to revision'}</Button>
         </div>
       </CardContent>
     </Card>

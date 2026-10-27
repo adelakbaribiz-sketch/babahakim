@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { AlertCircle } from 'lucide-react'
+import { gregorianToJalali, jalaliToGregorian, toFaDigits, FA_MONTHS } from '@/lib/jalali'
 
 export interface FieldShellProps {
   label: string
@@ -59,6 +60,51 @@ export function TextAreaField(props: Omit<React.ComponentProps<typeof Textarea>,
   return (
     <FieldShell label={label} error={error} hint={hint} required={required} className={className}>
       {(id, aria) => <Textarea id={id} {...input} {...aria} />}
+    </FieldShell>
+  )
+}
+
+/** Jalali (Shamsi) date picker — year/month/day selects, emits a Gregorian
+ *  `YYYY-MM-DD` string (or '' when incomplete). Used for birth dates, where a
+ *  calendar grid is slow to navigate decades back. */
+export function JalaliDateField({ label, value, onChange, error, hint, required, className, maxYearsBack = 110 }: {
+  label: string; value: string; onChange: (iso: string) => void
+  error?: string; hint?: string; required?: boolean; className?: string; maxYearsBack?: number
+}) {
+  const now = gregorianToJalali(new Date())
+  const init = value ? gregorianToJalali(new Date(value)) : null
+  const [parts, setParts] = React.useState<{ jy: string; jm: string; jd: string }>({
+    jy: init ? String(init.jy) : '', jm: init ? String(init.jm) : '', jd: init ? String(init.jd) : '',
+  })
+  const set = (k: 'jy' | 'jm' | 'jd', v: string) => {
+    const next = { ...parts, [k]: v }
+    setParts(next)
+    if (next.jy && next.jm && next.jd) {
+      const g = jalaliToGregorian(Number(next.jy), Number(next.jm), Number(next.jd))
+      onChange(`${g.getFullYear()}-${String(g.getMonth() + 1).padStart(2, '0')}-${String(g.getDate()).padStart(2, '0')}`)
+    } else onChange('')
+  }
+  const years = Array.from({ length: maxYearsBack + 1 }, (_, i) => now.jy - i)
+  const days = Array.from({ length: Number(parts.jm) > 6 ? 30 : 31 }, (_, i) => i + 1)
+  const sel = 'h-9 rounded-md border border-input bg-background px-2 text-sm'
+  return (
+    <FieldShell label={label} error={error} hint={hint} required={required} className={className}>
+      {(id, aria) => (
+        <div className="grid grid-cols-3 gap-2" role="group" aria-labelledby={id}>
+          <select id={id} className={sel} value={parts.jd} onChange={(e) => set('jd', e.target.value)} aria-label="روز" {...aria}>
+            <option value="">روز</option>
+            {days.map((d) => <option key={d} value={d}>{toFaDigits(d)}</option>)}
+          </select>
+          <select className={sel} value={parts.jm} onChange={(e) => set('jm', e.target.value)} aria-label="ماه">
+            <option value="">ماه</option>
+            {FA_MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+          </select>
+          <select className={sel} value={parts.jy} onChange={(e) => set('jy', e.target.value)} aria-label="سال">
+            <option value="">سال</option>
+            {years.map((y) => <option key={y} value={y}>{toFaDigits(y)}</option>)}
+          </select>
+        </div>
+      )}
     </FieldShell>
   )
 }

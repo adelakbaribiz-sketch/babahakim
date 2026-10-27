@@ -4,6 +4,8 @@
 // seeded-account login helper. Extracted from api-golden-path.test.ts so the
 // QA suites (contract / authz / database / load / regression) share ONE
 // battle-tested transport instead of each re-implementing it.
+import { nid } from './national-id'
+export { nid }
 export const BASE = 'http://localhost:3000'
 
 export class Client {
@@ -82,7 +84,7 @@ export async function freshPatient() {
   const c = new Client()
   await c.get('/api/v1/products')
   const { res } = await c.post('/api/v1/auth/register', {
-    phone: uid(), password: 'Pass1234', firstName: 'کاربر', lastName: 'تست کیفیت', acceptTerms: true,
+    nationalId: nid(), phone: uid(), password: 'Pass1234', firstName: 'کاربر', lastName: 'تست کیفیت', acceptTerms: true,
   })
   if (res.status !== 200 && res.status !== 201) throw new Error(`register failed: ${res.status}`)
   return c

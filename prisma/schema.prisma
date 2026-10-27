@@ -15,7 +15,9 @@ datasource db {
 
 model User {
   id               String    @id @default(cuid())
-  phone            String    @unique
+  // 2026-10 overhaul: NOT unique — family members may share one mobile.
+  // Patients sign in with their national ID (nationalIdHash, unique).
+  phone            String
   email            String?
   passwordHash     String
   firstName        String
@@ -24,9 +26,13 @@ model User {
   isActive         Boolean   @default(true)
   referralCode     String    @unique @default(cuid())
   referredById     String?
-  nationalId       String? // stored hashed
+  nationalId       String? // legacy column — never written (superseded by nationalIdHash/Enc)
+  nationalIdHash   String?   @unique // HMAC-SHA256 blind index — login lookup + duplicate guard
+  nationalIdEnc    String? // AES-256-GCM envelope (FIELD_ENC_KEY) — readable by authorized staff only
   gender           String? // MALE | FEMALE | OTHER
   birthDate        DateTime?
+  ageYears         Int? // age as entered when no birth date is known (never a fabricated birthDate)
+  ageRecordedAt    DateTime?
   profileComplete  Boolean   @default(false)
   mfaEnabled       Boolean   @default(false) // PHASE 05: OTP-based MFA opt-in
   lastLoginAt      DateTime?
@@ -65,6 +71,8 @@ model User {
   finTxnsCreated  FinancialTransaction[] @relation("FinTxnCreator")
   finTxnsAsUser   FinancialTransaction[] @relation("FinTxnUser")
   followUpsPatient FollowUp[]      @relation("FollowUpPatient")
+
+  @@index([phone])
 }
 
 model RefreshToken {
@@ -85,6 +93,7 @@ model OtpChallenge {
   id         String    @id @default(cuid())
   phone      String
   purpose    String // LOGIN_MFA | PASSWORD_RESET | PHONE_VERIFY
+  userId     String? // the account this challenge is for — phones are shared, so phone alone is ambiguous
   codeHash   String // sha256(salt + code) — OTP never stored plaintext
   expiresAt  DateTime // 2 minutes
   attempts   Int       @default(0) // max 5, then challenge dead
@@ -195,6 +204,9 @@ model Question {
   helpFa          String?
   helpEn          String?
   active          Boolean         @default(true)
+  required        Boolean         @default(false) // mizaj form is optional; admin may mark single questions required
+  weight          Float           @default(1) // multiplies every option score of this question
+  category        String?
   options         QuestionOption[]
   questionnaire   Questionnaire   @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
 }
@@ -214,14 +226,20 @@ model QuestionnaireResponse {
   id              String       @id @default(cuid())
   userId          String
   questionnaireId String
-  answers         String // JSON [{questionId, optionId, score, dimension}]
+  answers         String // JSON [{questionId, optionId, score, weight, dimension}] — score snapshot at answer time
   scores          String // JSON {HOT, COLD, WET, DRY}
   mizajFa         String
   mizajEn         String
   summary         String?
+  status          String       @default("COMPLETED") // DRAFT | COMPLETED (pre-overhaul rows were all complete)
+  answeredCount   Int?
+  totalQuestions  Int?
+  questionnaireVersion Int? // Questionnaire.version the patient answered
+  scoringVersion  String? // scoring algorithm id (domain/policies MIZAJ_SCORING_VERSION)
   user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id])
   createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @default(now()) @updatedAt
   @@index([userId, createdAt])
 }
 
@@ -279,6 +297,10 @@ model MedicalCase {
   closedAt       DateTime?
   cancelReason   String?
   deletedAt      DateTime?
+  // archive ≠ delete: hidden from active lists, fully restorable, audited
+  archivedAt     DateTime?
+  archivedById   String?
+  archiveReason  String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -296,6 +318,7 @@ model MedicalCase {
   @@index([patientId, createdAt])
   @@index([status, createdAt])
   @@index([createdAt])
+  @@index([archivedAt, createdAt])
 }
 
 model CaseEvent {
@@ -565,6 +588,23 @@ model PrescriptionItem {
   unitPrice      Int? // price at prescription time
   prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
   product        Product?     @relation(fields: [productId], references: [id])
+}
+
+// Admin-managed prescription vocabulary (dose / frequency / duration / unit /
+// warning presets). Format presets only — never medical advice; experts may
+// still enter a controlled custom value.
+model ClinicalVocabulary {
+  id        String   @id @default(cuid())
+  kind      String // DOSAGE | UNIT | FREQUENCY | DURATION | WARNING
+  valueFa   String
+  valueEn   String?
+  order     Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([kind, valueFa])
+  @@index([kind, active, order])
 }
 
 // ─────────────────────────────── SHOP ───────────────────────────────

@@ -69,7 +69,7 @@ export const STATUS_META: Record<CaseStatus, { fa: string; en: string; color: st
   WAITING_FOR_USER_APPROVAL: { fa: 'در انتظار تأیید کاربر', en: 'Waiting for User Approval', color: statusClass.warning },
   WAITING_FOR_EXPERT_1_PRESCRIPTION: { fa: 'در انتظار نسخه کارشناس اول', en: 'Waiting for Expert 1 Prescription', color: statusClass.progress },
   WAITING_FOR_EXPERT_2: { fa: 'در انتظار کارشناس دوم', en: 'Waiting for Expert 2', color: statusClass.info },
-  REVISION_REQUESTED: { fa: 'اصلاح درخواست‌شده', en: 'Revision Requested', color: statusClass.revision },
+  REVISION_REQUESTED: { fa: 'نیازمند اصلاح توسط کارشناس اول', en: 'Revision Requested (Expert 1)', color: statusClass.revision },
   WAITING_FOR_DOCTOR: { fa: 'در انتظار پزشک', en: 'Waiting for Doctor', color: statusClass.navy },
   PRESCRIPTION_APPROVED: { fa: 'نسخه تأیید شد', en: 'Prescription Approved', color: statusClass.success },
   PREPARING_ORDER: { fa: 'آماده‌سازی سفارش', en: 'Preparing Order', color: statusClass.progress },
@@ -88,7 +88,7 @@ export const STATUS_META: Record<CaseStatus, { fa: string; en: string; color: st
 
 export type WorkflowAction =
   | 'CLAIM' | 'SUBMIT_ASSESSMENT' | 'USER_APPROVE' | 'USER_DECLINE'
-  | 'SUBMIT_PRESCRIPTION' | 'EXPERT2_REVIEW' | 'DOCTOR_APPROVE' | 'DOCTOR_REJECT' | 'DOCTOR_REVISION'
+  | 'SUBMIT_PRESCRIPTION' | 'EXPERT2_REVIEW' | 'EXPERT2_RETURN' | 'DOCTOR_APPROVE' | 'DOCTOR_REJECT' | 'DOCTOR_REVISION'
   | 'CREATE_PROFORMA' | 'CONFIRM_PROFORMA' | 'REJECT_PROFORMA' | 'MARK_PAID'
   | 'START_SHIPPING' | 'MARK_DELIVERED' | 'SCHEDULE_FOLLOWUP' | 'COMPLETE_FOLLOWUP' | 'REFER_AGAIN' | 'CANCEL'
 
@@ -144,3 +144,9 @@ export const MIZAJ_OPTIONS = [
   { code: 'COLD_WET', fa: 'سرد و تر', en: 'Cold & Wet' },
   { code: 'BALANCED', fa: 'معتدل', en: 'Balanced' },
 ]
+
+/** Central case-status label — every view derives text from STATUS_META. */
+export function statusLabel(status: string, lang: 'fa' | 'en'): string {
+  const meta = (STATUS_META as Record<string, { fa: string; en: string }>)[status]
+  return meta ? meta[lang] : status
+}

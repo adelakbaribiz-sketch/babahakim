@@ -19,6 +19,7 @@ const PATIENT_EVENT: Record<string, string> = {
   WAITING_FOR_EXPERT_1_PRESCRIPTION: 'TREATMENT_APPROVED',
   WAITING_FOR_EXPERT_2: 'PRESCRIPTION_CREATED',
   WAITING_FOR_DOCTOR: 'SENT_TO_DOCTOR',
+  REVISION_REQUESTED: 'PRESCRIPTION_REVISED',
   PRESCRIPTION_APPROVED: 'DOCTOR_APPROVED',
   PROFORMA_CREATED: 'PROFORMA_CREATED',
   WAITING_FOR_PAYMENT: 'PAYMENT_PENDING',
@@ -33,6 +34,8 @@ const PATIENT_EVENT: Record<string, string> = {
 /** target-status → role to notify (queue awareness) */
 const ROLE_EVENT: Record<string, string> = {
   WAITING_FOR_EXPERT_1: 'EXPERT_1',
+  REVISION_REQUESTED: 'EXPERT_1', // returned by Expert 2 / rejected by doctor
+  WAITING_FOR_EXPERT_1_PRESCRIPTION: 'EXPERT_1',
   WAITING_FOR_EXPERT_2: 'EXPERT_2',
   WAITING_FOR_DOCTOR: 'DOCTOR',
 }
@@ -123,6 +126,16 @@ export const CASE_MACHINE: MachineDef = {
       postCommit: notifyPatientAndRoles,
     }),
     t({
+      action: 'EXPERT2_RETURN', from: ['WAITING_FOR_EXPERT_2'], to: 'REVISION_REQUESTED',
+      roles: ['EXPERT_2'], permission: 'expert2_review', descFa: 'کارشناس دوم نسخه را برای اصلاح به کارشناس اول برگرداند',
+      validate: (c) => {
+        if (!String(c.payload.reason || c.payload.comment || '').trim()) {
+          throw new WorkflowError('VALIDATION', 'ذکر علت برگشت نسخه الزامی است | Reason required', 422)
+        }
+      },
+      postCommit: notifyPatientAndRoles,
+    }),
+    t({
       action: 'DOCTOR_APPROVE', from: ['WAITING_FOR_DOCTOR'], to: 'PRESCRIPTION_APPROVED',
       roles: ['DOCTOR'], permission: 'approve_prescription', descFa: 'پزشک نسخه را تأیید کرد',
       dataEffects: (c) => ({
@@ -131,18 +144,18 @@ export const CASE_MACHINE: MachineDef = {
       }),
       postCommit: notifyPatientAndRoles,
     }),
+    // Doctor rejection rejects the PRESCRIPTION VERSION, never the case: the
+    // case returns to Expert 1's revision queue (it used to land in CLOSED and
+    // vanish from every queue with no way back). The reason is kept on the
+    // CaseEvent (reason/comment) and on the rejected prescription version.
     t({
-      action: 'DOCTOR_REJECT', from: ['WAITING_FOR_DOCTOR'], to: 'CLOSED',
-      roles: ['DOCTOR'], permission: 'approve_prescription', descFa: 'پزشک نسخه را رد کرد',
+      action: 'DOCTOR_REJECT', from: ['WAITING_FOR_DOCTOR'], to: 'REVISION_REQUESTED',
+      roles: ['DOCTOR'], permission: 'approve_prescription', descFa: 'پزشک نسخه را رد کرد — بازگشت برای اصلاح',
       validate: (c) => {
         if (!String(c.payload.comment || c.payload.reason || '').trim()) {
           throw new WorkflowError('VALIDATION', 'کامنت پزشک برای رد نسخه الزامی است | Comment required', 422)
         }
       },
-      dataEffects: (c) => ({
-        closingNote: String(c.payload.comment || 'رد توسط پزشک'),
-        closedAt: c.now,
-      }),
       postCommit: notifyPatientAndRoles,
     }),
     t({

@@ -51,6 +51,7 @@ const NAV_CATALOGUE: NavItem[] = [
   { page: 'reports', label: 'reports', icon: <BarChart3 size={18} /> },
   { page: 'auditLogs', label: 'auditLogs', icon: <ShieldCheck size={18} /> },
   { page: 'questionnaireEditor', label: 'questionnaireEditor', icon: <FileText size={18} /> },
+  { page: 'vocabulary', label: 'vocabulary', icon: <FileText size={18} /> },
   { page: 'aiModels', label: 'aiModels', icon: <Bot size={18} /> },
   { page: 'smsLog', label: 'smsLog', icon: <MessageSquareText size={18} /> },
   { page: 'integrations', label: 'integrations', icon: <Plug size={18} /> },
