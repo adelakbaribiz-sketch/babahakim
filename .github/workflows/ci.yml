@@ -100,9 +100,9 @@ jobs:
             p/owasp-top-ten
       - name: architecture gates (10 phase audits)
         env:
-          DATABASE_URL: file:db/custom.db   # perf gate inspects the migrated schema's query plans
+          DATABASE_URL: file:${{ github.workspace }}/db/custom.db   # absolute: the perf gate opens db/custom.db
         run: |
-          mkdir -p db && bun scripts/db-migrate-safe.mjs
+          mkdir -p db && bun scripts/db-migrate-safe.mjs && bun prisma/seed.ts   # seed asserts WAL
           for g in backend frontend media ai integrations reporting observability perf reliability qa; do
             npm run --silent audit:$g || exit 1
           done

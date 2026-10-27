@@ -34,7 +34,9 @@ if (!url?.startsWith('file:')) {
   console.error('DATABASE_URL must be a file: URL (SQLite)')
   process.exit(1)
 }
-const dbPath = resolve(root, url.slice('file:'.length))
+// Prisma resolves a RELATIVE SQLite path against the schema's folder (prisma/),
+// not the working directory — mirror that, or backups/checks hit another file
+const dbPath = resolve(join(root, 'prisma'), url.slice('file:'.length))
 const env = { ...process.env, DATABASE_URL: url }
 
 let backup = null
