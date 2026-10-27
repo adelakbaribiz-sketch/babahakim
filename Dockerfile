@@ -10,16 +10,21 @@
 # the DB-free /liveness probe (PHASE 15).
 # ═══════════════════════════════════════════════════════════════════════════
 
-FROM oven/bun:1.2-slim AS deps
+# Bun pinned to the version the lockfile + Next.js were verified with (1.2 could
+# not load the Next 16.4 runtime: "Expected CommonJS module to have a function wrapper")
+ARG BUN_VERSION=1.4.2
+FROM oven/bun:${BUN_VERSION}-slim AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
 # 'build' doubles as the tools image (one-shot production seed: see
 # docker-compose.prod.yml service 'bootstrap') — it has the full source tree
-FROM oven/bun:1.2-slim AS build
+FROM oven/bun:${BUN_VERSION}-slim AS build
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+# openssl: Prisma engines detect libssl here too (the `bootstrap` seed runs in this stage)
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # prisma client generate — no live DB needed
@@ -28,7 +33,7 @@ RUN bunx prisma generate
 ENV DATABASE_URL=file:/tmp/build-placeholder.db
 RUN bun run build
 
-FROM oven/bun:1.2-slim AS runner
+FROM oven/bun:${BUN_VERSION}-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     PORT=3000 \
