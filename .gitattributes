@@ -1,0 +1,4 @@
+# shell scripts and the container entrypoint must keep LF on every checkout
+*.sh text eol=lf
+docker-entrypoint.sh text eol=lf
+Dockerfile text eol=lf
