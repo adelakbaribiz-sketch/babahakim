@@ -29,6 +29,11 @@ JWT=$(python3 -c "import hashlib;print(hashlib.sha256(b'babahakim-dev:JWT_SECRET
 ENC=$(python3 -c "import hashlib,base64;print(base64.b64encode(hashlib.sha256(b'babahakim-dev:FIELD_ENC_KEY').digest()).decode())")
 
 export DATABASE_URL="file:$PWD/db/custom.db"
+# the QA database is disposable state, never committed: build it from the
+# migrations and the DEMO seed (idempotent) before the production-mode boot
+mkdir -p db
+bun scripts/db-migrate-safe.mjs || { echo "✗ migrations failed"; exit 1; }
+NODE_ENV=development bun prisma/seed.ts > /tmp/qa-seed.log 2>&1 || { echo "✗ seed failed"; tail -5 /tmp/qa-seed.log; exit 1; }
 export BH_CHAOS=1
 export JWT_SECRET="$JWT"
 export FIELD_ENC_KEY="$ENC"
