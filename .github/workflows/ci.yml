@@ -29,6 +29,9 @@ jobs:
   # ── 1-2 · static quality ──────────────────────────────────────────────────
   quality:
     runs-on: ubuntu-latest
+    env:
+      # unit suites touch the DB (job queue, policies) — a throwaway, migrated SQLite
+      DATABASE_URL: file:/tmp/ci-unit.db
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -40,6 +43,8 @@ jobs:
         run: bun run lint
       - name: type-check
         run: bunx tsc --noEmit
+      - name: unit-test database (migrations + demo seed)
+        run: bun scripts/db-migrate-safe.mjs && bun prisma/seed.ts
       - name: unit tests
         run: bun test src/
 
