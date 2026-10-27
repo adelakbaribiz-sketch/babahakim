@@ -31,8 +31,13 @@ for i in $(seq 1 30); do
 done
 sleep 5
 
+# exit codes are PROPAGATED (the old `| tail` pipes always exited 0, so a
+# failing pentest or smoke never failed CI)
 echo "════ PENTEST ════"
-bash tests/security-pentest.sh 2>&1 | tail -4
+bash tests/security-pentest.sh > /tmp/p18-pentest.log 2>&1; PT=$?
+tail -4 /tmp/p18-pentest.log
 echo "════ SMOKE P18 ════"
-bash scripts/smoke-phase18.sh 2>&1 | tail -12
-echo "════ done (server torn down) ════"
+bash scripts/smoke-phase18.sh > /tmp/p18-smoke.log 2>&1; SM=$?
+tail -12 /tmp/p18-smoke.log
+echo "════ done (server torn down) · pentest=$PT smoke=$SM ════"
+[ $PT -eq 0 ] && [ $SM -eq 0 ]

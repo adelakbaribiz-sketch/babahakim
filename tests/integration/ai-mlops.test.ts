@@ -184,8 +184,10 @@ describe('PHASE 11 — AI/ML engineering feedback loop (integration)', () => {
     expect(item!.expert1Label).toContain('BODY_COLOR')
     expect(item!.expert1Label).toContain('کم‌رنگ')
     // de-identification: only a salted hash, never a patient id
-    expect(item!.patientHash).toBeTruthy()
-    expect(String(item!.patientHash)).not.toContain('09')
+    // (was `.not.toContain('09')` — a random hex hash contains "09" ~1 run in 9;
+    //  the real property: an opaque hash, never a phone number)
+    expect(String(item!.patientHash)).toMatch(/^[0-9a-f]{16,}$/)
+    expect(String(item!.patientHash)).not.toMatch(/09\d{9}/)
   })
 
   test('patient gate + prescription + doctor gate → FINALIZED finalLabel (loop closure)', async () => {
