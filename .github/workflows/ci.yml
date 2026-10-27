@@ -43,6 +43,8 @@ jobs:
         run: bun run lint
       - name: type-check
         run: bunx tsc --noEmit
+      - name: PDF export fonts (same packages as the runtime image)
+        run: sudo apt-get update -y && sudo apt-get install -y --no-install-recommends fonts-freefont-ttf fonts-dejavu-core
       - name: unit-test database (migrations + demo seed)
         run: bun scripts/db-migrate-safe.mjs && bun prisma/seed.ts
       - name: unit tests
@@ -57,7 +59,11 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bunx prisma generate   # typed client before tsc/tests/build
+      - name: PDF export fonts (same packages as the runtime image)
+        run: sudo apt-get update -y && sudo apt-get install -y --no-install-recommends fonts-freefont-ttf fonts-dejavu-core
       - name: build (standalone)
+        env:
+          DATABASE_URL: file:/tmp/build-placeholder.db   # build never contacts the DB
         run: bun run build
       - name: full QA suite (server + BH_CHAOS=1 + readiness settle)
         run: bash scripts/qa-run.sh

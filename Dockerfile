@@ -38,9 +38,10 @@ ENV NODE_ENV=production \
     BH_STORAGE_PATH=/data/storage
 
 # tini (PID 1 signal forwarding → graceful shutdown: in-flight jobs finish),
-# openssl + certs (prisma engines / TLS), curl (container healthcheck)
+# openssl + certs (prisma engines / TLS), curl (container healthcheck),
+# FreeSerif + DejaVu Mono: the Persian-capable fonts the PDF report export embeds
 RUN apt-get update -y \
- && apt-get install -y --no-install-recommends tini openssl ca-certificates curl \
+ && apt-get install -y --no-install-recommends tini openssl ca-certificates curl fonts-freefont-ttf fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/* \
  && useradd -m -u 1001 bh
 
