@@ -45,7 +45,10 @@ ENV NODE_ENV=production \
 # tini (PID 1 signal forwarding → graceful shutdown: in-flight jobs finish),
 # openssl + certs (prisma engines / TLS), curl (container healthcheck),
 # FreeSerif + DejaVu Mono: the Persian-capable fonts the PDF report export embeds
+# apt-get upgrade: pull Debian security fixes the base image lags behind on
+# (Trivy gate — perl, pcre2, sqlite, gzip had fixed versions available)
 RUN apt-get update -y \
+ && apt-get upgrade -y --no-install-recommends \
  && apt-get install -y --no-install-recommends tini openssl ca-certificates curl fonts-freefont-ttf fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/* \
  && useradd -m -u 1001 bh
