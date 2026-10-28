@@ -36,7 +36,8 @@
     "secret-scan": "bash scripts/secret-scan.sh",
     "backup": "bash scripts/backup.sh",
     "dev:testdb": "node scripts/dev-testdb.mjs",
-    "db:migrate:safe": "bun scripts/db-migrate-safe.mjs"
+    "db:migrate:safe": "bun scripts/db-migrate-safe.mjs",
+    "test:all": "bun scripts/test-all.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

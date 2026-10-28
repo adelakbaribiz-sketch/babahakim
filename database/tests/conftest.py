@@ -48,8 +48,10 @@ TEST_URI = _test_uri()
 @pytest.fixture(scope="session")
 def engine():
     # Run the real migration chain (no-op when already current)
+    # `python -m alembic` from the running interpreter: works in any venv on
+    # Linux and Windows (the old .venv/bin/alembic path was Linux-only)
     subprocess.run(
-        [str(DB_DIR / ".venv" / "bin" / "alembic"), "upgrade", "head"],
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
         cwd=str(DB_DIR),
         env={**os.environ, "PGDATABASE_URL": TEST_URI},
         check=True,

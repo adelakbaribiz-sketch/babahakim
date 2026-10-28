@@ -26,3 +26,7 @@
 - پیش از این چرخه: **62 آسیب‌پذیری (5 بحرانی)**، از جمله چهار RCE بحرانی Next.js (یکی مخصوص سرورهای ویندوز) و یک مورد Auth.js. با `bun audit fix` و ارتقای `sharp` به 0.35.5 (پردازش عکس‌های آپلودی بیمار) رفع شد؛ Next.js اکنون 16.4.1.
 - باقی‌مانده: **7 مورد (5 high، 2 moderate)** فقط در ابزارهای build/dev: `deepmerge-ts` و `effect` (داخلی Prisma CLI)، `js-yaml` (ESLint)، `prismjs` (هایلایتر صفحه Design System). در مسیر درخواست‌های سرور نیستند ولی باید با ارتقای major بعدی Prisma/ESLint برطرف شوند.
 - CI اکنون با هر advisory **بحرانی** شکست می‌خورد.
+
+## زیرپروژه پایتون `database/` (طراحی PostgreSQL — مستقل از برنامه اجرایی SQLite)
+- محیط `database/.venv` با Python 3.12 ساخته شد و وابستگی‌ها نصب شدند؛ `psycopg[binary]` که در `requirements.txt` جا افتاده بود اضافه شد؛ مسیر لینوکسی `.venv/bin/alembic` در `tests/conftest.py` قابل‌حمل شد.
+- تست‌های آن روی ویندوز اجرا نمی‌شوند: نسخه ویندوزی PostgreSQL تعبیه‌شده (`pgserver`) افزونه `pg_trgm` را ندارد. برای اجرا: PostgreSQL کامل (یا Docker) و `PGDATABASE_TEST_URL`.

@@ -3,5 +3,6 @@
 SQLAlchemy>=2.0
 alembic>=1.13
 psycopg2-binary>=2.9
+psycopg[binary]>=3.1      # alembic/env.py uses the psycopg (v3) driver
 pytest>=8.0
 pgserver>=0.0.4          # embedded PostgreSQL (no root) — dev/test only
