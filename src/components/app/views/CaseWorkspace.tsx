@@ -132,7 +132,7 @@ export function CaseWorkspace({ caseId, onChanged }: { caseId: string; onChanged
                 {data.patientProfile?.heightCm && <Badge variant="outline">{data.patientProfile.heightCm} cm</Badge>}
                 {data.patientProfile?.weightKg && <Badge variant="outline">{data.patientProfile.weightKg} kg</Badge>}
                 {data.patientProfile?.province && <Badge variant="outline">{data.patientProfile.province}{data.patientProfile.city ? ` / ${data.patientProfile.city}` : ''}</Badge>}
-                {data.patientProfile?.allergies && <Badge variant="outline" className="text-destructive">حساسیت: {data.patientProfile.allergies}</Badge>}
+                {data.patientProfile?.allergies && <Badge variant="outline" className="text-destructive">{lang === 'fa' ? 'حساسیت' : 'Allergies'}: {data.patientProfile.allergies}</Badge>}
               </div>
             </div>
           </SectionCard>
@@ -255,7 +255,7 @@ export function CaseWorkspace({ caseId, onChanged }: { caseId: string; onChanged
           <SectionCard title={lang === 'fa' ? ' تیم درمان' : 'Care team'}>
             <div className="space-y-2 text-sm">
               <TeamRow icon={<ClipboardCheck size={14} />} label={t('expert')} name={data.expert1 ? `${data.expert1.firstName} ${data.expert1.lastName}` : '—'} />
-              <TeamRow icon={<Pill size={14} />} label={`${t('expert')} ۲`} name={data.expert2 ? `${data.expert2.firstName} ${data.expert2.lastName}` : '—'} />
+              <TeamRow icon={<Pill size={14} />} label={lang === 'fa' ? `${t('expert')} ۲` : `${t('expert')} 2`} name={data.expert2 ? `${data.expert2.firstName} ${data.expert2.lastName}` : '—'} />
               <TeamRow icon={<Stethoscope size={14} />} label={t('doctor')} name={data.doctor ? `${data.doctor.firstName} ${data.doctor.lastName}` : '—'} />
             </div>
           </SectionCard>

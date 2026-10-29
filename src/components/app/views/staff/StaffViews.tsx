@@ -17,6 +17,7 @@ import { QUEUES } from '@/lib/workflow/queues'
 // PHASE 09: CaseWorkspace is a lazy chunk (router) — no eager import/re-export.
 import { fmtMoney } from '@/lib/i18n'
 import { STATUS_META, ROLE_LABELS, statusLabel } from '@/lib/constants'
+import { eventText } from '@/lib/event-text'
 import { LayoutDashboard, Users, FolderOpen, ListChecks, CreditCard, Truck, Bell, CheckCircle2, XCircle, Hourglass, ScanHeart, ClipboardCheck, Stethoscope, Package, BarChart3, User } from 'lucide-react'
 
 // ── Staff dashboard ─────────────────────────────────────────────────────
@@ -98,7 +99,7 @@ export function StaffDashboard({ navigate }: { navigate: (p: string, params?: Re
                     {e.fromStatus ? statusLabel(e.fromStatus, lang) : '—'} ← {statusLabel(e.toStatus, lang)}
                   </div>
                 )}
-                <div className="text-muted-foreground">{e.actor ? `${e.actor.firstName} ${e.actor.lastName} · ` : ''}{e.comment || e.action}{e.reason ? ` — ${lang === 'fa' ? 'علت' : 'reason'}: ${e.reason}` : ''}</div>
+                <div className="text-muted-foreground">{e.actor ? `${e.actor.firstName} ${e.actor.lastName} · ` : ''}{eventText(e.comment, lang) || e.action}{e.reason ? ` — ${lang === 'fa' ? 'علت' : 'reason'}: ${e.reason}` : ''}</div>
                 <div className="text-[10px] text-muted-foreground"><JalaliDate date={e.createdAt} withTime /></div>
               </div>
             ))}

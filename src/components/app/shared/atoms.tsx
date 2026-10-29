@@ -47,13 +47,14 @@ export function JalaliDate({ date, withTime }: { date: string | Date; withTime?:
 
 // ─── StatCard (§18 admin stats) ────────────────────────────────────────────
 export function StatCard({ title, value, icon, tone, sub }: { title: string; value: string | number; icon?: React.ReactNode; tone?: string; sub?: string }) {
+  const { lang } = useApp() // digits follow the UI language (was hard-coded Persian)
   return (
     <Card className="border-border/60 shadow-card">
       <CardContent className="p-4 flex items-center gap-4">
         {icon && <div className={cn('size-10 rounded-lg flex items-center justify-center shrink-0', tone || 'bg-primary/10 text-primary')}>{icon}</div>}
         <div className="min-w-0">
           <div className="text-xs text-muted-foreground truncate">{title}</div>
-          <div className="text-2xl font-bold tabular-nums">{typeof value === 'number' ? fmtNum(value, 'fa') : value}</div>
+          <div className="text-2xl font-bold tabular-nums">{typeof value === 'number' ? fmtNum(value, lang) : value}</div>
           {sub && <div className="text-[11px] text-muted-foreground truncate">{sub}</div>}
         </div>
       </CardContent>
@@ -205,6 +206,7 @@ export function ConfirmDialog({ trigger, title, description, confirmLabel, cance
 
 // ─── ConfidenceBar (§14 — AI confidence, status-token tones) ──────────────
 export function ConfidenceBar({ value }: { value: number }) {
+  const { lang } = useApp()
   const pct = Math.round(value * 100)
   const tone = pct >= 75 ? 'bg-status-success' : pct >= 50 ? 'bg-status-warning' : 'bg-status-danger'
   return (
@@ -212,7 +214,7 @@ export function ConfidenceBar({ value }: { value: number }) {
       <div className="h-2 w-24 rounded-full bg-muted overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
         <div className={cn('h-full transition-[width]', tone)} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-xs tabular-nums text-muted-foreground">{fmtNum(pct, 'fa')}٪</span>
+      <span className="text-xs tabular-nums text-muted-foreground">{fmtNum(pct, lang)}{lang === 'fa' ? '٪' : '%'}</span>
     </div>
   )
 }

@@ -20,6 +20,7 @@ interface RemotePrediction {
   labelFa: string
   labelEn: string
   value: string
+  valueEn?: string
   confidence: number
   noteFa: string
   noteEn: string
@@ -73,7 +74,7 @@ export class HttpAIProvider implements AIModelProvider {
           version: 1,
           predictions: j.predictions.map((p) => ({
             indicator: String(p.indicator), labelFa: String(p.labelFa), labelEn: String(p.labelEn),
-            value: String(p.value), confidence: Math.min(1, Math.max(0, Number(p.confidence) || 0)),
+            value: String(p.value), ...(p.valueEn ? { valueEn: String(p.valueEn) } : {}), confidence: Math.min(1, Math.max(0, Number(p.confidence) || 0)),
             noteFa: String(p.noteFa ?? ''), noteEn: String(p.noteEn ?? ''),
           })),
           confidence: Math.min(1, Math.max(0, Number(j.confidence) || 0.5)),

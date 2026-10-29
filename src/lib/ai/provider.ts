@@ -6,7 +6,8 @@ export interface IndicatorPrediction {
   indicator: string // stable code
   labelFa: string
   labelEn: string
-  value: string // human-readable value
+  value: string // human-readable value (Persian)
+  valueEn?: string // English value (optional: analyses stored before 2026-10 lack it)
   confidence: number // 0..1
   noteFa: string
   noteEn: string
@@ -50,16 +51,16 @@ export class TongueModelV1 implements AIModelProvider {
     if (f.redness > 0.62) { bodyColor = 'RED'; bodyConf = Math.min(0.95, 0.65 + f.redness * 0.3) }
     else if (f.pallor > 0.55) { bodyColor = 'PALE'; bodyConf = Math.min(0.92, 0.6 + f.pallor * 0.3) }
     else if (f.purpleIndex > 0.5) { bodyColor = 'PURPLE'; bodyConf = Math.min(0.85, 0.55 + f.purpleIndex * 0.35) }
-    const bodyLabels: Record<string, [string, string, string]> = {
-      RED: ['قرمز', 'Red', 'نشانه غلبه صفرا یا حرارت در بدن (مزاج گرم)'],
-      PALE: ['کم‌رنگ', 'Pale', 'نشانه احتمالی کم‌خونی یا غلبه بلغم (مزاج سرد)'],
-      PURPLE: ['بنفش/کبود', 'Purple', 'نشانه احتمالی غلبه سودا یا اختلاف گردش خون'],
-      NORMAL: ['طبیعی', 'Normal', 'رنگ زبان در محدوده طبیعی مشاهده می‌شود'],
+    const bodyLabels: Record<string, [string, string, string, string]> = {
+      RED: ['قرمز', 'Red', 'نشانه غلبه صفرا یا حرارت در بدن (مزاج گرم)', 'May indicate bile (safra) dominance or internal heat (warm temperament)'],
+      PALE: ['کم‌رنگ', 'Pale', 'نشانه احتمالی کم‌خونی یا غلبه بلغم (مزاج سرد)', 'Possible sign of low blood or phlegm (balgham) dominance (cold temperament)'],
+      PURPLE: ['بنفش/کبود', 'Purple', 'نشانه احتمالی غلبه سودا یا اختلاف گردش خون', 'Possible sign of black-bile (sauda) dominance or a circulation issue'],
+      NORMAL: ['طبیعی', 'Normal', 'رنگ زبان در محدوده طبیعی مشاهده می‌شود', 'Tongue colour appears within the normal range'],
     }
     preds.push({
       indicator: 'BODY_COLOR', labelFa: 'رنگ بدنه زبان', labelEn: 'Tongue Body Color',
-      value: bodyLabels[bodyColor][0], confidence: +(bodyConf * qFactor).toFixed(2),
-      noteFa: bodyLabels[bodyColor][2], noteEn: bodyLabels[bodyColor][2],
+      value: bodyLabels[bodyColor][0], valueEn: bodyLabels[bodyColor][1], confidence: +(bodyConf * qFactor).toFixed(2),
+      noteFa: bodyLabels[bodyColor][2], noteEn: bodyLabels[bodyColor][3],
     })
 
     // 2. Coating (پوشش زبان)
@@ -75,9 +76,9 @@ export class TongueModelV1 implements AIModelProvider {
     }
     preds.push({
       indicator: 'COATING', labelFa: 'پوشش زبان', labelEn: 'Tongue Coating',
-      value: coatLabels[coating][0], confidence: +(coatConf * qFactor).toFixed(2),
+      value: coatLabels[coating][0], valueEn: coatLabels[coating][1], confidence: +(coatConf * qFactor).toFixed(2),
       noteFa: coating === 'YELLOW' ? 'پوشش زرد غالباً با حرارت معده/صفرا مرتبط است' : coating === 'THICK_WHITE' ? 'پوشش سفید غلیظ معمولاً نشانه غلبه بلغم و ضعف گوارش است' : 'پوشش در محدوده طبیعی است',
-      noteEn: coatLabels[coating][1],
+      noteEn: coating === 'YELLOW' ? 'A yellow coating is often associated with stomach/bile heat' : coating === 'THICK_WHITE' ? 'A thick white coating usually suggests phlegm dominance and weak digestion' : 'Coating within the normal range',
     })
 
     // 3. Moisture (رطوبت — از روشنایی و بافت)
@@ -85,19 +86,20 @@ export class TongueModelV1 implements AIModelProvider {
     const moistureLabels: Record<string, [string, string]> = { WET: ['تر', 'Wet'], DRY: ['خشک', 'Dry'], NORMAL: ['معتدل', 'Moderate'] }
     preds.push({
       indicator: 'MOISTURE', labelFa: 'رطوبت زبان', labelEn: 'Moisture',
-      value: moistureLabels[moisture][0],
+      value: moistureLabels[moisture][0], valueEn: moistureLabels[moisture][1],
       confidence: +(Math.min(0.8, 0.5 + Math.abs(f.brightness - 130) / 200) * qFactor).toFixed(2),
       noteFa: moisture === 'WET' ? 'رطوبت بالا معمولاً با غلبه رطوبت/بلغم مرتبط است' : moisture === 'DRY' ? 'خشکی زبان می‌تواند نشانه غلبه یبوست باشد' : 'رطوبت متعادل',
-      noteEn: moistureLabels[moisture][1],
+      noteEn: moisture === 'WET' ? 'High moisture is usually associated with dampness/phlegm dominance' : moisture === 'DRY' ? 'A dry tongue can indicate dryness (yubusat) dominance' : 'Balanced moisture',
     })
 
     // 4. Texture (بافت)
     preds.push({
       indicator: 'TEXTURE', labelFa: 'بافت زبان', labelEn: 'Texture',
       value: f.textureRoughness > 0.55 ? 'زبر/ناهموار' : f.textureRoughness < 0.25 ? 'صاف' : 'نسبتاً صاف',
+      valueEn: f.textureRoughness > 0.55 ? 'Rough / uneven' : f.textureRoughness < 0.25 ? 'Smooth' : 'Fairly smooth',
       confidence: +(Math.min(0.75, 0.45 + f.textureRoughness) * qFactor).toFixed(2),
       noteFa: f.textureRoughness > 0.55 ? 'ناهمواری بافت ممکن است با تجمع ماده همراه باشد' : 'بافت یکنواخت است',
-      noteEn: 'Texture analysis',
+      noteEn: f.textureRoughness > 0.55 ? 'Uneven texture may accompany accumulated matter' : 'Texture is uniform',
     })
 
     // 5. Temperature estimate (حرارت غالب از ترکیب قرمزی/پوشش)
@@ -107,6 +109,7 @@ export class TongueModelV1 implements AIModelProvider {
     preds.push({
       indicator: 'TEMPERAMENT_HINT', labelFa: 'برآورد اولیه مزاج (فقط پیشنهادی)', labelEn: 'Temperament Hint (suggestion only)',
       value: dominant === 'HOT' ? 'غلبه حرارت' : dominant === 'COLD' ? 'غلبه برودت' : 'نسبتاً معتدل',
+      valueEn: dominant === 'HOT' ? 'Heat dominant' : dominant === 'COLD' ? 'Cold dominant' : 'Fairly balanced',
       confidence: +(Math.min(0.7, Math.abs(heatScore - coldScore) + 0.35) * qFactor).toFixed(2),
       noteFa: 'این برآورد صرفاً پیشنهاد مدل است و مزاج نهایی توسط پرسشنامه و ارزیابی کارشناس تعیین می‌شود',
       noteEn: 'Model suggestion only; final temperament is determined via questionnaire and expert review',

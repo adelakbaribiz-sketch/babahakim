@@ -123,6 +123,8 @@ export const CASE_MACHINE: MachineDef = {
     t({
       action: 'EXPERT2_REVIEW', from: ['WAITING_FOR_EXPERT_2'], to: 'WAITING_FOR_DOCTOR',
       roles: ['EXPERT_2'], permission: 'expert2_review', descFa: 'بازبینی کارشناس دوم و ارسال برای پزشک',
+      // record who Expert 2 is (care team showed "—" after a review)
+      dataEffects: (c) => ({ assignedExpert2Id: (c.entity as { assignedExpert2Id?: string }).assignedExpert2Id || c.actor.id }),
       postCommit: notifyPatientAndRoles,
     }),
     t({
@@ -133,6 +135,7 @@ export const CASE_MACHINE: MachineDef = {
           throw new WorkflowError('VALIDATION', 'ذکر علت برگشت نسخه الزامی است | Reason required', 422)
         }
       },
+      dataEffects: (c) => ({ assignedExpert2Id: (c.entity as { assignedExpert2Id?: string }).assignedExpert2Id || c.actor.id }),
       postCommit: notifyPatientAndRoles,
     }),
     t({

@@ -51,6 +51,9 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  // dev-only floating "N" badge off: it overlapped the sidebar footer and
+  // README screenshots (no effect on production builds)
+  devIndicators: false,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
