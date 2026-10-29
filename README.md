@@ -11,6 +11,14 @@ Persian-first (RTL) / English (LTR) bilingual web application with six roles —
 
 > **Medical disclaimer.** BabaHakim supports practitioners; it does not diagnose or prescribe on its own. No drug-interaction data is bundled — that database must be filled from validated sources by qualified staff.
 
+![Patient dashboard (English, LTR, dark theme)](docs/screenshots/patient-dashboard-en.png)
+
+| Landing page (Persian, RTL) | Expert 1 case workspace (Persian, RTL) |
+|---|---|
+| ![Persian landing page](docs/screenshots/landing-fa.png) | ![Expert 1 case workspace with history, temperament and care-team panels](docs/screenshots/case-workspace-fa.png) |
+
+*Captured from a local run on the demo seed data (`bun prisma/seed.ts`) in the dark theme — all accounts and the case shown are synthetic. A light theme is also available.*
+
 ## Features
 
 - **Identity** — patients sign in with their Iranian national ID (checksum-validated, stored only as an AES-256-GCM ciphertext plus an HMAC blind index). Family members may share one mobile number. Only an administrator can change a national ID, with a mandatory reason and an audit record. Password recovery binds the one-time code to a single account even on a shared mobile.
