@@ -11,13 +11,13 @@ Persian-first (RTL) / English (LTR) bilingual web application with six roles —
 
 > **Medical disclaimer.** BabaHakim supports practitioners; it does not diagnose or prescribe on its own. No drug-interaction data is bundled — that database must be filled from validated sources by qualified staff.
 
-![Patient dashboard (English, LTR)](download/e2e/e2e2-en-ltr.png)
+![Patient dashboard (English, LTR, dark theme)](docs/screenshots/patient-dashboard-en.png)
 
-| Landing page (Persian, RTL) | Expert 1 case workspace with advisory AI analysis | Dark theme |
-|---|---|---|
-| ![Persian landing page](download/e2e/e2e1-landing-fa.png) | ![Expert case workspace](download/e2e/e2e5-workspace.png) | ![Patient dashboard in dark theme](download/e2e/e2e2-dark-en.png) |
+| Landing page (Persian, RTL) | Expert 1 case workspace (Persian, RTL) |
+|---|---|
+| ![Persian landing page](docs/screenshots/landing-fa.png) | ![Expert 1 case workspace with history, temperament and care-team panels](docs/screenshots/case-workspace-fa.png) |
 
-*Screenshots from end-to-end test runs against the demo seed data — all accounts, cases and orders are synthetic, and the tongue image is a generated placeholder.*
+*Captured from a local run on the demo seed data (`bun prisma/seed.ts`) in the dark theme — all accounts and the case shown are synthetic. A light theme is also available.*
 
 ## Features
 
