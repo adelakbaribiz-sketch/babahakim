@@ -15,10 +15,12 @@ import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import { ConfidenceBar, StatusBadge, JalaliDate, Money, SectionCard } from './atoms'
+import { eventText } from '@/lib/event-text'
 import { Bot, ShieldAlert, Clock, Upload, CreditCard, CheckCircle2, XCircle, Info, AlertTriangle } from 'lucide-react'
 
 // ── Timeline ────────────────────────────────────────────────────────────
 export function Timeline({ items }: { items: { at: string | Date; desc: string; actor: string; actorRole: string; code: string }[] }) {
+  const { lang } = useApp()
   return (
     <ol className="relative border-s border-border ms-3 space-y-6">
       {items.map((e, i) => (
@@ -29,7 +31,7 @@ export function Timeline({ items }: { items: { at: string | Date; desc: string; 
             <JalaliDate date={e.at} withTime />
             {e.actor && <Badge variant="outline" className="text-[10px] py-0">{e.actor}</Badge>}
           </div>
-          <div className="text-sm mt-1 leading-relaxed">{e.desc}</div>
+          <div className="text-sm mt-1 leading-relaxed">{eventText(e.desc, lang)}</div>
         </li>
       ))}
     </ol>
@@ -39,7 +41,7 @@ export function Timeline({ items }: { items: { at: string | Date; desc: string; 
 // ── AI Analysis (with confidence, uncertainty, human-review notice) ─────
 export function AIAnalysisCard({ analysis }: { analysis: {
   modelName: string; modelVersion: number; confidence: number; quality: number; processingMs?: number
-  predictions: { labelFa: string; labelEn: string; value: string; confidence: number; noteFa: string; noteEn: string }[]
+  predictions: { labelFa: string; labelEn: string; value: string; valueEn?: string; confidence: number; noteFa: string; noteEn: string }[]
   explainability: { fa: string[]; en: string[] }; humanReviewed: boolean; createdAt: string
 } }) {
   const { lang, t } = useApp()
@@ -64,9 +66,9 @@ export function AIAnalysisCard({ analysis }: { analysis: {
             <div key={i} className="rounded-lg border bg-card p-3 space-y-1.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-muted-foreground">{lang === 'fa' ? p.labelFa : p.labelEn}</span>
-                <Badge variant={p.confidence >= 0.7 ? 'secondary' : 'outline'} className="text-[10px]">{p.confidence >= 0.7 ? '' : '؟'} {Math.round(p.confidence * 100)}%</Badge>
+                <Badge variant={p.confidence >= 0.7 ? 'secondary' : 'outline'} className="text-[10px]">{p.confidence >= 0.7 ? '' : (lang === 'fa' ? '؟' : '?')} {Math.round(p.confidence * 100)}%</Badge>
               </div>
-              <div className="font-semibold text-sm">{p.value}</div>
+              <div className="font-semibold text-sm">{lang === 'fa' ? p.value : (p.valueEn || p.value)}</div>
               <div className="text-[11px] text-muted-foreground leading-relaxed">{lang === 'fa' ? p.noteFa : p.noteEn}</div>
             </div>
           ))}

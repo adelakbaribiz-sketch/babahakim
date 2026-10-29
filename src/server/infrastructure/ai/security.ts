@@ -25,6 +25,7 @@ export const indicatorPredictionSchema = z.object({
   labelFa: z.string().min(1).max(120),
   labelEn: z.string().min(1).max(120),
   value: z.string().min(1).max(120),
+  valueEn: z.string().max(120).optional(), // English display value (UI falls back to value)
   confidence: z.number().finite(), // clamped to 0..1 below (soft fix)
   noteFa: z.string().max(600),
   noteEn: z.string().max(600),

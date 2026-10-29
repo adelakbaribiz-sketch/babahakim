@@ -49,7 +49,7 @@ export function PatientDashboard({ navigate }: { navigate: (p: string, params?: 
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard title={t('myCases')} value={data.stats.totalCases} icon={<FolderOpen size={18} />} />
-        <StatCard title={t('status') + ' (فعال)'} value={data.stats.activeCases} icon={<Activity size={18} />} tone="bg-brand-light/15 text-brand-dark dark:text-brand-light" />
+        <StatCard title={lang === 'fa' ? t('status') + ' (فعال)' : t('status') + ' (active)'} value={data.stats.activeCases} icon={<Activity size={18} />} tone="bg-brand-light/15 text-brand-dark dark:text-brand-light" />
         <StatCard title={t('orders')} value={data.stats.totalOrders} icon={<Package size={18} />} />
         <StatCard title={t('tickets')} value={data.stats.openTickets} icon={<Ticket size={18} />} tone="bg-status-warning/10 text-status-warning" />
       </div>

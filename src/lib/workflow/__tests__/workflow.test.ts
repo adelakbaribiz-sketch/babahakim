@@ -512,3 +512,13 @@ describe('machine transition spot checks', () => {
     expect(terminalStatuses(INVOICE_MACHINE).sort()).toEqual(['CANCELLED', 'PAID'])
   })
 })
+
+describe('care-team assignment', () => {
+  test('Expert 2 review and return record the acting Expert 2', () => {
+    for (const action of ['EXPERT2_REVIEW', 'EXPERT2_RETURN']) {
+      const t = resolveTransition(CASE_MACHINE, 'WAITING_FOR_EXPERT_2', action, 'EXPERT_2')!
+      const d = t.dataEffects!({ entity: { id: 'c', status: 'WAITING_FOR_EXPERT_2' }, actor: { id: 'e2', role: 'EXPERT_2' }, payload: { reason: 'r' }, transition: t, machine: CASE_MACHINE, now: new Date() })
+      expect(d.assignedExpert2Id).toBe('e2')
+    }
+  })
+})
